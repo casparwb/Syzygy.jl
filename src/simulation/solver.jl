@@ -6,7 +6,6 @@ include("./callbacks.jl")
 using OrdinaryDiffEq
 using Unitful, UnitfulAstro, StaticArrays
 using ProgressMeter
-using DoubleFloats
 
 
 """

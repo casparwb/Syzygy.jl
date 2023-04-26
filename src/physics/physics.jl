@@ -320,10 +320,6 @@ function get_a_out_on_stability_limit(aᵢ, m₁, m₂, m₃, i, eₒ; ϵ=1e-4)
     aₒ = stability*aᵢ*(1-ϵ)
 end
 
-function get_a_out_on_stability_limit(p::TripleInitialConditions; ϵ=1e-4)
-    stability = stability_criterion_ma01(p)
-    aₒ = stability*p.elements[1].a*(1-ϵ)
-end
 
 function is_unstable(p::MultiBodySystem; criterion="ma01")
     α_crit = stability_criterion_ma01(p)
@@ -352,7 +348,7 @@ function octupole_parameter(triple::MultiBodySystem)
     (m₁ - m₂)/(m₁ + m₂)*aᵢₙ/aₒᵤₜ*eₒᵤₜ/(1 - eₒᵤₜ^2)
 end
 
-function quadrupole_timescale(nbody::TripleInitialConditions)
+function quadrupole_timescale(nbody::MultiBodySystem)
     m = nbody.m .|> u"kg"
     Pi = nbody.elements[1].P |> u"s"
     Po = nbody.elements[2].P |> u"s"
