@@ -1,13 +1,33 @@
-name = "Syzygy"
-uuid = "4afca8da-6aee-403b-8c79-fe2ad4400dbb"
-authors = ["Caspar Bruenech <c.w.bruenech@pm.me> and contributors"]
-version = "1.0.0-DEV"
+name = "FewBodySimulator"
+uuid = "3771e0d5-fa61-4ae8-92e5-e80db42a5c95"
+authors = ["Caspar William Bruenech <c.w.bruenech@pm.me> and contributors"]
+version = "0.1.0"
+
+[deps]
+AxisArrays = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+DataInterpolations = "82cc6244-b520-54b8-b5a6-8a565e85f1d0"
+DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
+DiffEqCallbacks = "459566f4-90b8-5000-8ac3-15dfb0a30def"
+DoubleFloats = "497a8b3b-efae-58df-a0af-a86822472b78"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+LabelledArrays = "2ee39098-c373-598a-b85f-a56591580800"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
+RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
+UnitfulAstro = "6112ee07-acf9-5e0f-b108-d242c714bf9f"
+UnitfulRecipes = "42071c24-d89e-48dd-8a24-8a12d9b8861f"
 
 [compat]
 julia = "1"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+TruncatedStacktraces = "781d530d-4396-4725-bb49-402e4bee1e77"
 
 [targets]
 test = ["Test"]
