@@ -15,9 +15,6 @@ end
 pI(i) = ParticleIndex(i)
 bI(i) = BinaryIndex(i)
 
-struct TripleInitialConditions 
-end
-
 struct OrbitalElements{aT, PT, eT, ωT, iT, ΩT, νT}
     a::aT
     P::PT
@@ -80,13 +77,6 @@ struct MultiBodySystem{timeType, bodType, binType, hierType, quanType} <: FewBod
     quantities::quanType
 end
 
-# function Base.getproperty(obj::Union{Particle, Binary}, sym::Symbol)
-#     if sym === :key
-#         return getfield(obj, sym).i
-#     else
-#         return getfield(obj, sym)
-#     end
-# end
 
 abstract type CelestialBody end
 

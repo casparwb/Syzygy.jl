@@ -1,5 +1,9 @@
 
-
+################################################################################ 
+# Functions for setting up the hierarchical of a multiple system.
+# This code is adapted from the package NbodyGradient.jl (https://github.com/ericagol/NbodyGradient.jl/), and
+# all credits go to the authors of that package. 
+################################################################################
 
 """
 

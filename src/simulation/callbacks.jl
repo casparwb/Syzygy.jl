@@ -1,3 +1,9 @@
+####################################################
+# This file contains the setup functions for various
+# callbacks used in the simulations, such as collision, ejection, and
+# roche-lobe overflows checks.
+####################################################
+
 using DiffEqCallbacks: ManifoldProjection
 
 

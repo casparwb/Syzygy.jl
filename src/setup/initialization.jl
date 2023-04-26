@@ -1,5 +1,3 @@
-# using CSV, DataFrames
-# using NbodyGradient: Elements, ElementsIC, State
 using LinearAlgebra
 
 
@@ -20,11 +18,6 @@ function Base.show(io::IO, system::T where T <: MultiBodySystem)
     show(io, system.hierarchy)
     print(io, "\n\n")
 
-    # println(io, "\nBinaries:\n ")
-    # for binary in system.binaries
-    #     show(io, binary)
-    #     println(io)
-    # end
     show(io, system.root)
 
 end
@@ -428,7 +421,6 @@ function MultiBodySystem(masses::Vector, hierarchy::Vector,
     # bodies = SA[bodies[sortperm([b.key.i for b in bodies])]...]
 
     levels = SA[sort(unique(levels))...]
-
 
     MultiBodySystem(n_bodies, t, bodies, binaries, levels, root_bin, hierarchy, nothing)
 end

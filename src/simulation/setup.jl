@@ -1,4 +1,3 @@
-# include("../Setup/framework.jl")
 using Printf, LabelledArrays, Unitful, UnitfulAstro
 
 function bodies(nbody::T where T <: FewBodyInitialConditions, frame="com")
@@ -16,23 +15,6 @@ function bodies(nbody::T where T <: FewBodyInitialConditions, frame="com")
     SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(positions, velocities, masses)]...]
 end
 
-function FewBodySystem(bodies, params, potential::Symbol)
-    if potential == :gravitational
-        pot = PureGravitationalPotential(params...)
-        pot_dict = Dict{Symbol, FewBodyPotential}(:custom_potential_params => pot)
-        system = FewBodySystem(bodies, pot_dict)
-    # elseif potential == :stellar
-    #     pot = GravitationalPotentialWithStellar(params...)
-    #     pot_dict = Dict{Symbol,PotentialParameters}(:custom_potential_params => pot)
-    #     system = PotentialNBodySystem(bodies, pot_dict)
-    # elseif potential == :stellar2
-    #     pot = GravitationalPotentialWithStellar2(params...)
-    #     pot_dict = Dict{Symbol,PotentialParameters}(:custom_potential_params => pot)
-    #     system = PotentialNBodySystem(bodies, pot_dict)
-    end
-
-    return system
-end
 
 function FewBodySystem(bodies, params, potential::FewBodyPotential)#::T) where T <: FewBodyPotential
     # pot = potential(params...)
@@ -181,15 +163,6 @@ function setup_params(binaries, particles, extras)
     masses = Float64[]
     radii = Float64[]
     spins = Float64[]
-
-    # binaries = collect(values(binaries))
-    # bin_keys = [bin.key.i for bin in values(binaries)] |> sort
-    # binaries = binaries[bin_keys]
-    # bin_keys = collect(keys(binaries)) |> sort
-    # for i in reverse(bin_keys)#reverse(eachindex(binaries))
-    #     sma = binaries[i].elements.a |> u"m"
-    #     push!(semi_major_axes, sma.val)
-    # end
 
     particle_keys = keys(particles) |> collect |> sort
     for i in particle_keys

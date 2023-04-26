@@ -77,7 +77,9 @@ end
 
 
 """
-Main function
+    pure_gravitational_acceleration!(dv,, rs,, params::T where T <: LArray,, i::Integer,, n::Integer,, potential::PureGravitationalPotential)
+
+Acceleration function from gravitational acceleration.
 """
 function pure_gravitational_acceleration!(dv,
                                           rs,
@@ -100,6 +102,12 @@ function pure_gravitational_acceleration!(dv,
 end
 
 
+"""
+    dynamical_tidal_drag_force!(dv, rs, vs, params::T where T <: LArray, i::Integer, n::Integer, potential::DynamicalTidalPotential)
+
+Acceleration function from dynamical tides. This model is adapted from 
+[Implementing Tidal and Gravitational Wave Energy Losses in Few-body Codes: A Fast and Easy Drag Force Model](https://arxiv.org/abs/1803.08215)
+"""
 function dynamical_tidal_drag_force!(dv,
                            rs,
                            vs,
@@ -154,7 +162,10 @@ end
 
 
 """
-Perturbed gravitational force between two stars due to equilibrium tides.
+    dynamical_tidal_drag_force!(dv, rs, vs, params::T where T <: LArray, i::Integer, n::Integer, potential::EquilibriumTidalPotential)
+
+Acceleration function from dynamical tides. This model is adapted from 
+[Tidal evolution in close binary systems.](https://ui.adsabs.harvard.edu/abs/1981A&A....99..126H)
 """
 function equilibrium_tidal_drag_force!(dv,
                                rs,
