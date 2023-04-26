@@ -1,6 +1,6 @@
-using Amulia
+using Syzygy
 using Test
 
-@testset "Amulia.jl" begin
+@testset "Syzygy.jl" begin
     # Write your tests here.
 end
