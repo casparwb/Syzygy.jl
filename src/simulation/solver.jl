@@ -42,7 +42,6 @@ function simulate(simulation::FewBodySimulation)
     prog = ProgressUnknown("Evolving system:", showspeed=true, spinner=true, enabled=args[:showprogress])
 
     maxtime = simulation.tspan[end]
-    runtime = time()
     try
         if args[:showprogress]
             for i in integrator
@@ -68,7 +67,7 @@ function simulate(simulation::FewBodySimulation)
     end
 
     ProgressMeter.finish!(prog)
-    runtime =  (time() - runtime) * u"s"
+    runtime =  (time() - start_time) * u"s"
 
     if args[:verbose]#retcode[1][1] != :Success &&
         if retcodes[:Success]
