@@ -12,7 +12,6 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
     isempty(stopping_conditions) && return nothing
     cbs = []
 
-    pin = (minimum([b.elements.P for b in values(nbody.binaries)]) |> upreferred).val
     for condition in stopping_conditions
         if condition isa String
             if condition == "collision"
@@ -23,7 +22,7 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
                 push!(cbs, callback_collision)
             elseif condition == "escape"
                 function condition_escape(u, t, integrator)
-                    (integrator.iter % 1000) == 0  # check for escape every 1000 iteration
+                    (integrator.iter % 100) == 0  # check for escape every 1000 iteration
                 end
                 affect_escape!(integrator) = unbound_callback!(integrator, retcode, nbody, G=G)
                 callback_escape = DiscreteCallback(condition_escape, affect_escape!, save_positions=(false, false))
@@ -35,14 +34,14 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
                 push!(cbs, callback_evolve)
             elseif condition == "rlof"
                 function condition_rlof(u, t, integrator)
-                    (integrator.iter % 1000) == 0  # check for escape every 1000 iteration
+                    (integrator.iter % 100) == 0  # check for escape every 1000 iteration
                 end
                 affect_rlof!(integrator) =  rlof_callback!(integrator, retcode, nbody, G)
                 callback_rlof = DiscreteCallback(condition_rlof, affect_rlof!, save_positions=(false, false))
                 push!(cbs, callback_rlof)
             elseif condition == "tidal_disruption"
                 function condition_td(u, t, integrator)
-                    (integrator.iter % 1000) == 0  # check for escape every 1000 iteration
+                    (integrator.iter % 100) == 0  # check for escape every 1000 iteration
                 end
                 affect_td!(integrator) =  tidal_disruption_callback!(integrator, retcode, nbody, G)
                 callback_td = DiscreteCallback(condition_td, affect_td!, save_positions=(false, false))
@@ -54,9 +53,10 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
                 callback_cpu_time = DiscreteCallback(condition_cpu_time, affect_cpu_time!, save_positions=(false, false))
                 push!(cbs, callback_cpu_time)
             elseif condition == "manifold"
-                Einit = total_energy(u"m".(reduce(hcat, nbody.r₀))   |> ustrip |> Matrix, 
-                                    u"m/s".(reduce(hcat, nbody.v₀)) |> ustrip |> Matrix, 
-                                    u"kg".(nbody.m) |> ustrip)
+                r0 = [upreferred.(p.position) for p in values(nbody.particles)] 
+                v0 = [upreferred.(p.velocity) for p in values(nbody.particles)] 
+                masses = [upreferred(p.structure.m) for p in values(nbody.particles)] 
+                Einit = total_energy(r0, v0, masses) |> upreferred |> ustrip
                 function g(resid, u, p, t)
                     E = total_energy(u.x[2], u.x[1], p.M)
                     resid[1] = Einit - E
@@ -64,7 +64,6 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
                 end
             
                 callback_manifold = ManifoldProjection(g)
-                # callback_manifold = DiscreteCallback(condition_manifold, affect_s!)
                 push!(cbs, callback_manifold)
 
             elseif condition == "com"
@@ -97,8 +96,6 @@ function collision_callback!(integrator, n, retcode)
         for j ∈ i:n
             if i != j
                 rj = @SVector [integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
-                # d = norm(integrator.u.x[2][:,i] - integrator.u.x[2][:,j])
-                # d = norm(view(integrator.u.x[2], :, i) - view(integrator.u.x[2], :,j))
                 d = norm(ri - rj)
 
                 if (d - integrator.p.R[j]) < integrator.p.R[i]
@@ -169,13 +166,9 @@ function unbound_callback!(integrator, retcode, system; max_a=100, G=upreferred(
             Etot = T + U
             if Etot > zero(Etot)
                 retcode[:Escape] = escapee
-                # return true
-                # @info "Escape"
                 terminate!(integrator)
             elseif d >= upreferred(1.0u"pc").val      # Body is 1 parsec away from its sibling
                 retcode[:Drifter] = escapee
-                # return true
-                # @info "Drift"
                 terminate!(integrator)
             end
         end
