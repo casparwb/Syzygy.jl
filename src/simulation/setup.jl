@@ -117,7 +117,6 @@ function simulation(system::MultiBodySystem; kwargs...)
 
     args = parse_arguments!(kwargs)
 
-    # binaries = values(system.binaries) |> collect
     particles = system.particles
 
     # Setup time step (only used if using symplectic integrator)
@@ -144,6 +143,14 @@ function simulation(system::MultiBodySystem; kwargs...)
 
     if !iszero(args[:npoints])
         args[:saveat] = range(tspan..., length=args[:npoints])
+    end
+
+    if any(x -> x == 14, [p.structure.type for p in values(system.particles)])
+        if ! ("tidal_disruption" in args[:callbacks])
+            if args[:verbose]
+                @warn "Tidal disruption callback not included even though system contains black hole."
+            end
+        end
     end
 
     # Setup parameters for the system

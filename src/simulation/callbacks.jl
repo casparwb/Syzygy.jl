@@ -16,9 +16,7 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args)
     for condition in stopping_conditions
         if condition isa String
             if condition == "collision"
-                n = nbody.n# == 2 ? 1 : 3
-                # condition_collision(u, t, integrator) = collision_callback(u, t, integrator, n, retcode)
-                # affect_c!(integrator) = terminate!(integrator)
+                n = nbody.n
                 condition_collision(u, t, integrator) = true
                 affect_collision!(integrator) = collision_callback!(integrator, n, retcode)
                 callback_collision = DiscreteCallback(condition_collision, affect_collision!, save_positions=(false, false))
@@ -36,13 +34,19 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args)
                 callback_evolve = DiscreteCallback(condition_evolve, affect_s!)
                 push!(cbs, callback_evolve)
             elseif condition == "rlof"
-                # condition_rlof(u, t, integrator) = true
                 function condition_rlof(u, t, integrator)
                     (integrator.iter % 1000) == 0  # check for escape every 1000 iteration
                 end
                 affect_rlof!(integrator) =  rlof_callback!(integrator, retcode, nbody, G)
                 callback_rlof = DiscreteCallback(condition_rlof, affect_rlof!, save_positions=(false, false))
                 push!(cbs, callback_rlof)
+            elseif condition == "tidal_disruption"
+                function condition_td(u, t, integrator)
+                    (integrator.iter % 1000) == 0  # check for escape every 1000 iteration
+                end
+                affect_td!(integrator) =  tidal_disruption_callback!(integrator, retcode, nbody, G)
+                callback_td = DiscreteCallback(condition_td, affect_td!, save_positions=(false, false))
+                push!(cbs, callback_td)
             elseif condition == "manifold"
                 Einit = total_energy(u"m".(reduce(hcat, nbody.r₀))   |> ustrip |> Matrix, 
                                     u"m/s".(reduce(hcat, nbody.v₀)) |> ustrip |> Matrix, 
@@ -81,12 +85,12 @@ Returns a callback for checking if collision has occured in system.
 """
 function collision_callback!(integrator, n, retcode)
 
-    k = 1
+    # k = 1
     @inbounds for i ∈ 1:n
         ri = @SVector [integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
         for j ∈ i:n
-            rj = @SVector [integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
             if i != j
+                rj = @SVector [integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
                 # d = norm(integrator.u.x[2][:,i] - integrator.u.x[2][:,j])
                 # d = norm(view(integrator.u.x[2], :, i) - view(integrator.u.x[2], :,j))
                 d = norm(ri - rj)
@@ -96,7 +100,7 @@ function collision_callback!(integrator, n, retcode)
                     retcode[:Collision] = ([i, j], t)
                     terminate!(integrator)
                 end
-                k += 1
+                # k += 1
             end
         end
     end
@@ -226,6 +230,29 @@ function rlof_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
                 retcode[rcode] = (upreferred(1.0u"s")*integrator.t)
             end
             # outcome(integrator)
+        end
+    end
+end
+
+function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
+
+    @inbounds for i ∈ 1:system.n
+        if any(system.particles[i].structure.type .== (14, 15, 16))
+            continue
+        end
+        ri = @SVector [integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
+        for j ∈ i:system.n
+            if i != j && system.particles[j].structure.type == 14
+                rj = @SVector [integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
+                d = norm(ri - rj)
+
+                tidal_disruption_radius = integrator.p.R[i]*cbrt(integrator.p.M[j]/integrator.p.M[i])
+                if (d - integrator.p.R[i]) < tidal_disruption_radius
+                    t = u"kyr"(integrator.t * u"s")
+                    retcode[:TidalDisruption] = ([i, j], t)
+                    terminate!(integrator)
+                end
+            end
         end
     end
 end

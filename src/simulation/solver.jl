@@ -54,7 +54,7 @@ function simulate(simulation::FewBodySimulation)
     catch e
         if e isa InterruptException
             @info "Stopped at t = $(u"kyr"(integrator.t * u"s"))"
-            # terminate!(integrator)
+            
         else
             throw(e)
             retcodes[:DiffEq] = integrator.sol.retcode
