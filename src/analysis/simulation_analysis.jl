@@ -25,14 +25,14 @@ function setup_simulation_solution(n_steps, n_bodies, n_binaries, masses)
 
     elements = OrbitalElements[]
 
-    radius_matrix = Matrix{typeof(1.0u"m")}(undef, n_bodies, n_steps)
+    radius_matrix = Matrix{typeof((1.0u"m"))}(undef, n_bodies, n_steps)
     mass_matrix = Matrix{typeof(1.0u"kg")}(undef, n_bodies, n_steps)
     type_matrix = Matrix{Int8}(undef, n_bodies, n_steps)
     lum_matrix = Matrix{typeof(1.0u"Lsun")}(undef, n_bodies, n_steps)
-    spin_vec = []#similar(radius_vector, typeof(1.0u"1/yr"))
+    spin_matrix = Matrix{typeof(1.0u"1/s")}(undef, n_bodies, n_steps)
 
     structure = StellarStructure(type_matrix, mass_matrix, 
-                                 radius_matrix, spin_vec, lum_matrix)
+                                 radius_matrix, spin_matrix, lum_matrix)
 
     quantities = PhysicalQuantities(
                                     Array{typeof(1.0u"m^2/s"), 3}(undef, 3, n_binaries, n_steps),
@@ -100,11 +100,18 @@ function analyse_simulation(result::SimulationResult)
     binaries = system.binaries
     binary_keys = keys(binaries)
     n_binaries = length(binaries)
-    time = result.solution.t .* u"s"# .* time_scale_factor
+    time = result.solution.t .* u"s"
     n_steps = length(time)
 
-    masses = result.simulation.params.M .* upreferred(1.0u"kg") #[p.mass for p in values(system.particles)]
-    radii = result.simulation.params.R .* upreferred(1.0u"m") #[p.structure.R for p in values(system.particles)]
+    masses = result.simulation.params.M .* upreferred(1.0u"kg") 
+    radii = result.simulation.params.R  .* upreferred(1.0u"m")
+    spins = result.simulation.params.S  .* upreferred(1.0u"1/s")
+
+    luminosities = if :L in propertynames(result.simulation.params)
+                       result.simulation.params.L  .* upreferred(1.0u"Lsun")
+                   else
+                       [system.particles[i].structure.L for i ∈ 1:system.n]
+                   end
 
     if masses[1] isa Number
         mass_vec = Matrix{typeof(upreferred(1.0u"kg"))}(undef, n_bodies, n_steps)
@@ -122,10 +129,29 @@ function analyse_simulation(result::SimulationResult)
         radii = rad_vec
     end
 
+    if spins[1] isa Number
+        spin_vec = Matrix{typeof(upreferred(1.0u"1/s"))}(undef, n_bodies, n_steps)
+        @inbounds for i = 1:n_bodies
+            spin_vec[i,:] .= spins[i]
+        end
+        spins = spin_vec
+    end
+
+    if luminosities[1] isa Number
+        lum_vec = Matrix{typeof(upreferred(1.0u"Lsun"))}(undef, n_bodies, n_steps)
+        @inbounds for i = 1:n_bodies
+            lum_vec[i,:] .= luminosities[i]
+        end
+        luminosities = lum_vec
+    end
+
     elements, structure, quantities = setup_simulation_solution(n_steps, n_bodies, n_binaries, masses)
     @inbounds for i in eachindex(time)
         structure.m[:,i] .= masses[:,i]
         structure.R[:,i] .= radii[:,i]
+        structure.L[:,i] .= luminosities[:,i]
+        
+        structure.S[:,i] .= spins[:,i]
         structure.type[:,i] .= [system.particles[i].structure.type for i in 1:n_bodies]
     end
 
@@ -211,12 +237,12 @@ function analyse_simulation(result::SimulationResult)
 
     end
 
-    ode_solution = Dict("potential" => result.simulation.system.potential |> values,
-                        "retcodes" => result.retcode,
-                        "timesteps" => result.solution.destats.naccept,
-                        "func_1_evals" => result.solution.destats.nf,
-                        "func_2_evals" => result.solution.destats.nf2,
-                        "runtime" => result.runtime)
+    ode_solution = Dict(:potential => result.simulation.system.potential |> values,
+                        :retcodes => result.retcode,
+                        :timesteps => result.solution.destats.naccept,
+                        :func_1_evals => result.solution.destats.nf,
+                        :func_2_evals => result.solution.destats.nf2,
+                        :runtime => result.runtime)
     attributes = merge(ode_solution, result.simulation.args, result.simulation.diffeq_args)
     # FewBodySolution(system, time, r, v, elements, structure, quantities, system)
     FewBodySolution(system, time, r, v, elements, structure, quantities, attributes)
