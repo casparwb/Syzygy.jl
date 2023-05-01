@@ -20,12 +20,9 @@ function simulate(simulation::FewBodySimulation)
 
     # retcode = Set()
     retcodes = Dict{Symbol, Any}(:Success => false)
-
+    start_time = time()
     if !isinf(args[:max_cpu_time])
         push!(args[:callbacks], "max_cpu_time")
-        start_time = time()
-    else
-        start_time = 0
     end
     
     cbs = setup_callbacks(args[:callbacks], simulation.ic, simulation.params, 
@@ -69,7 +66,7 @@ function simulate(simulation::FewBodySimulation)
     ProgressMeter.finish!(prog)
     runtime =  (time() - start_time) * u"s"
 
-    if args[:verbose]#retcode[1][1] != :Success &&
+    if args[:verbose]
         if retcodes[:Success]
             @info "Simulation successful."
         else
