@@ -7,7 +7,7 @@
 using DiffEqCallbacks: ManifoldProjection
 
 
-function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args)
+function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_time=0)
     isnothing(stopping_conditions) && return stopping_conditions
     isempty(stopping_conditions) && return nothing
     cbs = []
@@ -47,6 +47,12 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args)
                 affect_td!(integrator) =  tidal_disruption_callback!(integrator, retcode, nbody, G)
                 callback_td = DiscreteCallback(condition_td, affect_td!, save_positions=(false, false))
                 push!(cbs, callback_td)
+
+            elseif condition == "max_cpu_time"
+                condition_cpu_time(u, t, integrator) = true
+                affect_cpu_time!(integrator) = max_cpu_time_callback!(integrator, retcode, start_time, args[:max_cpu_time])
+                callback_cpu_time = DiscreteCallback(condition_cpu_time, affect_cpu_time!, save_positions=(false, false))
+                push!(cbs, callback_cpu_time)
             elseif condition == "manifold"
                 Einit = total_energy(u"m".(reduce(hcat, nbody.r₀))   |> ustrip |> Matrix, 
                                     u"m/s".(reduce(hcat, nbody.v₀)) |> ustrip |> Matrix, 
@@ -257,18 +263,13 @@ function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(�
     end
 end
 
-function move_to_com_callback!(integrator, n)
+function max_cpu_time_callback!(integrator, retcode, start_time, max_cpu_time)
 
-    u = integrator.u
-    com = centre_of_mass(u.x[2], integrator.p.M)
-    com_vel = centre_of_mass_velocity(u.x[1], integrator.p.M)
-
-    @inbounds for i = 1:n
-        u.x[2][:,i] .-= com
-        u.x[1][:,i] .-= com_vel
+    if (time() - start_time) >= max_cpu_time
+        retcode[:MaxCPUTime] = true
+        terminate!(integrator)
     end
-    
-    false
+
 end
 
 function supernova_kick_callback(u, t, integrator, t_sn)

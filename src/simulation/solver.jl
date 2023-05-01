@@ -20,9 +20,16 @@ function simulate(simulation::FewBodySimulation)
 
     # retcode = Set()
     retcodes = Dict{Symbol, Any}(:Success => false)
+
+    if !isinf(args[:max_cpu_time])
+        push!(args[:callbacks], "max_cpu_time")
+        start_time = time()
+    else
+        start_time = 0
+    end
     
     cbs = setup_callbacks(args[:callbacks], simulation.ic, simulation.params, 
-                          retcodes, simulation.system.potential[:PureGravitationalPotential].G, args)
+                          retcodes, simulation.system.potential[:PureGravitationalPotential].G, args, start_time=start_time)
     callbacks = isnothing(cbs) ? nothing : CallbackSet(cbs...)
     
     ode_problem = SecondOrderODEProblem(simulation)
@@ -34,12 +41,10 @@ function simulate(simulation::FewBodySimulation)
     
     prog = ProgressUnknown("Evolving system:", showspeed=true, spinner=true, enabled=args[:showprogress])
 
-
     maxtime = simulation.tspan[end]
     runtime = time()
     try
         if args[:showprogress]
-            # println("hello")
             for i in integrator
                 next!(prog; showvalues=[(Symbol("System time"), u"kyr"(integrator.t * u"s")),
                                         (Symbol("System %"), integrator.t/maxtime*100)], 
