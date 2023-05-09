@@ -26,5 +26,4 @@ module Syzygy
     export simulation, simulate
     export analyse_simulation
     export 𝒢, pI, bI, ParticleIndex, BinaryIndex
-
 end
