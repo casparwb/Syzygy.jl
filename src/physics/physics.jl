@@ -280,21 +280,43 @@ function stellar_spin(m::T, R::T) where T <: Real
     Ω = (45.35vᵣₒₜ/R)
 end
 
+"""
+    envelope_radius(mass, radius, core_radius, stellar_type)
+
+Calculate the radius of the envelope with given mass, radius, core radius, and stellar type.
+Reference Hurley et al. 2002 - DOI: 10.1046/j.1365-8711.2002.05038.x
+"""
+function envelope_radius(mass, radius, core_radius, stellar_type)
+
+    if any(stellar_type .== (3, 5, 6, 8, 9))
+        return radius - core_radius
+    else
+        if mass > 1.25u"Msun"
+            return 0.0u"Msun"
+        elseif mass < 0.35u"Msun"
+            return radius
+        else
+            @warn "Envelope radius for 0.35 < M < 1.25 not yet implemented." 
+            return 0.0u"Msun"
+        end
+    end
+end
+
 function mass_luminosity_relation(M)
 
-    M = u"Msun"(M).val
+    # M = u"Msun"(M).val
 
     local F, a
-    if 0.2 < M <= 0.85
+    if 0.2u"Msun" < M <= 0.85u"Msun"
         a = -141.7*M^4 + 232.4*M^3 - 129.1*M^2 + 33.29*M + 0.215
         F = 1.0
-    elseif 0.85 < M <= 2.0
+    elseif 0.85u"Msun" < M <= 2.0u"Msun"
         a = 4
         F = 1
-    elseif 2.0 < M <= 55.0
+    elseif 2.0u"Msun" < M <= 55.0u"Msun"
         a = 3.5
         F = 1.4
-    elseif M > 55.0
+    elseif M > 55.0u"Msun"
         a = 1
         F = 32_000
     end

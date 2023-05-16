@@ -23,6 +23,11 @@ struct EquilibriumTidalPotential{gType <: Real, τType, kType, βType} <: FewBod
     β::βType # radius of gyration
 end
 
+struct EquilibriumTidalPotential2{gType <: Real, kType} <: FewBodyPotential
+    G::gType
+    k_over_T::kType
+end
+
 function PureGravitationalPotential(G=𝒢.val)
     PureGravitationalPotential(G)
 end
@@ -75,6 +80,34 @@ function EquilibriumTidalPotential(M; G, τ)
     return EquilibriumTidalPotential(G, τ, ks, βs)
 end
 
+function EquilibriumTidalPotential2(mass, radius, core_mass, 
+                                    core_radius, stellar_type, spin,
+                                    luminosity, orbital_period,
+                                    mass_perturber, semi_major_axis; 
+                                    G=upreferred(𝒢))
+    if (stellar_type == 1 && mass < 1.25u"Msun") && any(stellar_type .== (0, 2, 3, 5, 6, 8, 9))
+
+        R_env = envelope_radius(mass, radius, core_radius, stellar_type)
+        M_env = mass - core_mass
+        Pspin = 2π/spin
+        Ptid = 1.0/abs(1/orbital_period - 1/Pspin)
+
+        τ_conv = 0.4311*cbrt((M_env*R_env*(R - 0.5*R_env))/(3*luminosity))
+        f_conv = min(1, (Ptid/(2τ_conv))^2)
+
+        k_over_T = 2/21*f_conv/τ_conv*M_env/mass
+
+    elseif (stellar_type == 1 && mass > 1.25u"Msun") || stellar_type == 4 || stellar_type == 7
+        E₂ = 1,592e-9*mass^2.84 # second-order tidal coefficient
+        q₂ = mass_perturber/mass
+
+        k_over_T = 1.9782e4*mass*radius/semi_major_axis^5*(1 - q₂)^(5/6)*E₂
+    else
+        k_over_T = 0.0
+    end
+
+    return k_over_T
+end
 
 """
     pure_gravitational_acceleration!(dv,, rs,, params::T where T <: LArray,, i::Integer,, n::Integer,, potential::PureGravitationalPotential)

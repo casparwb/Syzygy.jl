@@ -35,6 +35,18 @@ struct StellarStructure{tT, mT, RT, ST, LT}
     L::LT # luminosity
 end
 
+struct StellarStructure2{tT, mT, RT, ST, LT}
+    type::tT
+    m::mT # total mass
+    R::RT # total radius
+    S::ST # total spin
+    L::LT # total luminosity
+    R_core::RT # core radius
+    m_core::mT # core mass
+    R_env::RT # envelope radius
+    m_env::mT # envelope mass
+end
+
 struct PhysicalQuantities{hT, ET}
     h::hT # (Specific) Angular momentum
     E::ET # Total energy
