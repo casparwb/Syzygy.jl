@@ -88,7 +88,7 @@ function Base.show(io::IO, particle::Particle)
     # print(io,  " "^indent, "Particle type: ")
     printstyled(io,  " "^indent, "Particle ", color=:yellow)
     print(io, "type: ")
-    print(io, stellar_type_index[particle.structure.type])
+    print(io, stellar_type_index[particle.structure.type.index])
     println(io)
 
     # println(io,  " "^indent, "Particle structure: ")
@@ -121,7 +121,7 @@ end
 
 # function Base.show(io::IO, elements::OrbitalElements{T, T, T, T, T, T, T}) where T <: Number
 
-function Base.show(io::IO, structure::StellarStructure)
+function Base.show(io::IO, structure::StellarStructure2)
     # if structure.R isa AbstractArray
     #     # show(io, elements)
     #     return
@@ -136,6 +136,8 @@ function Base.show(io::IO, structure::StellarStructure)
         prop = getproperty(structure, str)
         if prop isa AbstractArray
             show(io, prop)
+        elseif prop isa StellarType
+            show(io, prop.index)
         else
             prop = prop isa Quantity ? round(prop.val, digits=2)*unit(prop) : round(prop, digits=2)
             show(io, prop)
@@ -208,27 +210,34 @@ julia> quadruple = multibodysystem([1.0, 1.0, 1.0, 1.0]u"Msun", hierarchy=[4, 2,
 
 ```
 """
-function multibodysystem(masses::Vector{<:Quantity}; R = 1.0u"Rsun", 
-                                                     S = 0.0u"1/yr", 
-                                                     L = 1.0u"Lsun", 
-                                                     types = 1, 
-                                                     a = 1.0u"AU", 
-                                                     e = 0.1, 
-                                                     ω = 0.0u"rad", 
-                                                     i = 0.0u"rad", 
-                                                     Ω = 0.0u"rad", 
-                                                     ν = (π)u"rad", 
-                                                     hierarchy = [length(masses), repeat([1], length(masses)-1)...], 
+function multibodysystem(masses::Vector{<:Quantity}; R      = 1.0u"Rsun", 
+                                                     S      = 0.0u"1/yr", 
+                                                     L      = 1.0u"Lsun", 
+                                                     R_core = 0.0u"Rsun",
+                                                     m_core = 0.0u"Msun",
+                                                     R_env  = 0.0u"Rsun",
+                                                     m_env  = 0.0u"Msun",
+                                                     types  = 1, 
+                                                     a      = 1.0u"AU", 
+                                                     e      = 0.1, 
+                                                     ω      = 0.0u"rad", 
+                                                     i      = 0.0u"rad", 
+                                                     Ω      = 0.0u"rad", 
+                                                     ν      = (π)u"rad", 
                                                      t0::Quantity = 0.0u"s", 
                                                      verbose::Bool = false, 
+                                                     hierarchy = [length(masses), repeat([1], length(masses)-1)...], 
                                                      extras::Dict=Dict())
     n_bodies = length(masses)
     n_bins = n_bodies - 1
 
-    # hierarchy = ifelse(iszero(hierarchy) || hierarchy isa Number, [n_bodies, repeat([1], n_bins)...], hierarchy)
     R = ifelse(R isa Number, repeat([R], n_bodies), R)
     S = ifelse(S isa Number, repeat([S], n_bodies), S)
     L = ifelse(L isa Number, repeat([L], n_bodies), L)
+    R_core = ifelse(R_core isa Number, repeat([R_core], n_bodies), R_core)
+    m_core = ifelse(m_core isa Number, repeat([m_core], n_bodies), m_core)
+    R_env  = ifelse(R_env  isa Number, repeat([R_env ], n_bodies), R_env )
+    m_env  = ifelse(m_env  isa Number, repeat([m_env ], n_bodies), m_env )
 
     a = ifelse(a isa Number, repeat([a], n_bins), a)
     e = ifelse(e isa Number, repeat([e], n_bins), e)
@@ -243,12 +252,13 @@ function multibodysystem(masses::Vector{<:Quantity}; R = 1.0u"Rsun",
     end
 
     types = ifelse(types isa Number, repeat([types], n_bodies), types)
-    multibodysystem(masses, R, S, L, types, a, e, ω, i, Ω, ν, hierarchy, t0, verbose=verbose, extras=extras)
+    multibodysystem(masses, R, S, L, types, R_core, m_core, R_env, m_env, a, e, ω, i, Ω, ν, hierarchy, t0, verbose=verbose, extras=extras)
 end
 
 
 function multibodysystem(masses::Vector{<:Quantity}, 
                          R::Vector{<:Quantity}, S::Vector{<:Quantity}, L::Vector{<:Quantity}, types::Vector{Int}, 
+                         R_core::Vector{<:Quantity}, m_core::Vector{<:Quantity}, R_env::Vector{<:Quantity}, m_env::Vector{<:Quantity},
                          a::Vector{<:Quantity}, e::Vector{<:Real},     ω::Vector{<:Quantity}, 
                          i::Vector{<:Quantity}, Ω::Vector{<:Quantity}, ν::Vector{<:Quantity}, 
                          hierarchy::Vector{Int}, t0::Quantity; 
@@ -265,9 +275,12 @@ function multibodysystem(masses::Vector{<:Quantity},
         push!(elements, OrbitalElements(a[idx], 0.0u"d", e[idx], ω[idx], i[idx], Ω[idx], ν[idx]))
     end
 
-    structures = StellarStructure[]
+    structures = StellarStructure2[]
     for idx = 1:n_particles
-        push!(structures, StellarStructure(types[idx], masses[idx], R[idx], S[idx], L[idx]))
+        stellar_type = stellar_type_from_index(types[idx])
+        # push!(structures, StellarStructure(stellar_type, masses[idx], R[idx], S[idx], L[idx]))
+        push!(structures, StellarStructure2(stellar_type, masses[idx], R[idx], S[idx], L[idx],
+                                            R_core[idx], m_core[idx], R_env[idx], m_env[idx]))
     end
 
 
@@ -278,7 +291,7 @@ end
 
 function MultiBodySystem(masses::Vector, hierarchy::Vector, 
                          elements::AbstractVector{T} where T <: OrbitalElements,
-                         structures::AbstractVector{T} where T <: StellarStructure,
+                         structures::AbstractVector{T} where T <: StellarStructure2,
                          t = 0.0u"yr"; verbose=false)
 
     hierarchy_mat = hierarchy_matrix(hierarchy)

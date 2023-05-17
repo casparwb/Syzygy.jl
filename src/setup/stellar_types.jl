@@ -4,114 +4,195 @@ abstract type Star             <: StellarType end
 abstract type CompactObject    <: StellarType end
 abstract type SubStellarObject <: StellarType end
 abstract type Other            <: StellarType end
+abstract type WhiteDwarf       <: CompactObject end
 
-struct DeeplyOrFullyConvectiveLowMassMainSequence <: StellarType
-    key::Int
+"""
+Deeply or fully convective low main sequence star with index 0. 
+"""
+struct DeeplyOrFullyConvectiveLowMassMainSequence <: Star
+    index::Int
     DeeplyOrFullyConvectiveLowMassMainSequence() = new(0)
 end
 
-struct MainSequence <: StellarType
-    key::Int
+"""
+Main sequence star with index 1. 
+"""
+struct MainSequence <: Star
+    index::Int
     MainSequence() = new(1)
 end
 
-struct HertzsprungGap <: StellarType
-    key::Int
+"""
+Hertzsprung gap star with index 2. 
+"""
+struct HertzsprungGap <: Star
+    index::Int
     HertzsprungGap() = new(2)
 end
 
-struct FirstGiantBranch <: StellarType
-    key::Int
+"""
+First giant branch star with index 3. 
+"""
+struct FirstGiantBranch <: Star
+    index::Int
     FirstGiantBranch() = new(3)
 end
 
-struct CoreHeliumBurning <: StellarType
-    key::Int
+"""
+Core helium burning star with index 4. 
+"""
+struct CoreHeliumBurning <: Star
+    index::Int
     CoreHeliumBurning() = new(4)
 end
 
-struct FirstAsymptoticGiantBranch <: StellarType
-    key::Int
+"""
+First asymptotic gant branch star with index 5.
+"""
+struct FirstAsymptoticGiantBranch <: Star
+    index::Int
     FirstAsymptoticGiantBranch() = new(5)
 end
 
-struct SecondAsymptoticGiantBranch <: StellarType
-    key::Int
+"""
+Second asymptotic giant branch star with index 6.
+"""
+struct SecondAsymptoticGiantBranch <: Star
+    index::Int
     SecondAsymptoticGiantBranch() = new(6)
 end
 
-struct MainSequenceNakedHelium <: StellarType
-    key::Int
+"""
+Main sequence naked helium star with index 7.
+"""
+struct MainSequenceNakedHelium <: Star
+    index::Int
     MainSequenceNakedHelium() = new(7)
 end
 
-struct HertzsprungGapNakedHelium <: StellarType
-    key::Int
+"""
+Hertzsprung gap naked helium star with index 8.
+"""
+struct HertzsprungGapNakedHelium <: Star
+    index::Int
     HertzsprungGapNakedHelium() = new(8)
 end
 
-struct GiantBranchNakedHelium <: StellarType
-    key::Int
+"""
+Giant branch naked helium star with index 9.
+"""
+struct GiantBranchNakedHelium <: Star
+    index::Int
     GiantBranchNakedHelium() = new(9)
 end
 
-struct HeliumWhiteDwarf <: CompactObject
-    key::Int
+"""
+Helium white dwarf with index 10.
+"""
+struct HeliumWhiteDwarf <: WhiteDwarf
+    index::Int
     HeliumWhiteDwarf() = new(10)
 end
 
-struct CarbonOxygenWhiteDwarf <: CompactObject
-    key::Int
+"""
+Carbon/oxygen white dwarf with index 11.
+"""
+struct CarbonOxygenWhiteDwarf <: WhiteDwarf
+    index::Int
     CarbonOxygenWhiteDwarf() = new(11)
 end
 
-struct OxygenNeonWhiteDwarf <: CompactObject
-    key::Int
+"""
+Oxygen/neon white dwarf with index 12.
+"""
+struct OxygenNeonWhiteDwarf <: WhiteDwarf
+    index::Int
     OxygenNeonWhiteDwarf() = new(12)
 end
 
+"""
+Neutron star with index 13.
+"""
 struct NeutronStar <: CompactObject
-    key::Int
+    index::Int
     NeutronStar() = new(13)
 end
 
+"""
+Black hole with index 14.
+"""
 struct BlackHole <: CompactObject
-    key::Int
-    BlackHole() = new(14)<: Star
+    index::Int
+    BlackHole() = new(14)
 end
 
+"""
+Massless supernova with index 15.
+"""
 struct MasslessSupernova <: Other
-    key::Int
+    index::Int
     MasslessSupernova() = new(15)
 end
 
+"""
+Unknown stellar type with index 16.
+"""
 struct UnknownStellarType <: Other
-    key::Int
+    index::Int
     UnknownStellarType() = new(16)
 end
 
+"""
+Pre main sequence star with index 17.
+"""
 struct PreMainSequence <: Star
-    key::Int
+    index::Int
     PreMainSequence() = new(17)
 end
 
+"""
+Planet with index 18.
+"""
 struct Planet <: SubStellarObject
-    key::Int
+    index::Int
     Planet() = new(18)
 end
 
+"""
+Brown dwarf with index 19.
+"""
 struct BrownDwarf <: SubStellarObject
-    key::Int
+    index::Int
     BrownDwarf() = new(19)
 end
 
 
-
-
-
-
-
-
+function stellar_type_from_index(index)
+    @assert (0 <= index <= 19) "Stellar index must be in the range {0, 19}."
+    stellar_type_index = Dict(
+                                0  => DeeplyOrFullyConvectiveLowMassMainSequence,
+                                1  => MainSequence,
+                                2  => HertzsprungGap,
+                                3  => FirstGiantBranch,
+                                4  => CoreHeliumBurning,
+                                5  => FirstAsymptoticGiantBranch,
+                                6  => SecondAsymptoticGiantBranch,
+                                7  => MainSequenceNakedHelium,
+                                8  => HertzsprungGapNakedHelium,
+                                9  => GiantBranchNakedHelium,
+                                10 => HeliumWhiteDwarf,
+                                11 => CarbonOxygenWhiteDwarf,
+                                12 => OxygenNeonWhiteDwarf,
+                                13 => NeutronStar,
+                                14 => BlackHole,
+                                15 => MasslessSupernova,
+                                16 => UnknownStellarType,
+                                17 => PreMainSequence,
+                                18 => Planet,
+                                19 => BrownDwarf
+                            )
+    stellar_type_index[index]()
+end
 
 
 

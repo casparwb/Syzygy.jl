@@ -98,7 +98,7 @@ function EquilibriumTidalPotential2(mass, radius, core_mass,
         k_over_T = 2/21*f_conv/τ_conv*M_env/mass
 
     elseif (stellar_type == 1 && mass > 1.25u"Msun") || stellar_type == 4 || stellar_type == 7
-        E₂ = 1,592e-9*mass^2.84 # second-order tidal coefficient
+        E₂ = 1.592e-9*mass^2.84 # second-order tidal coefficient
         q₂ = mass_perturber/mass
 
         k_over_T = 1.9782e4*mass*radius/semi_major_axis^5*(1 - q₂)^(5/6)*E₂

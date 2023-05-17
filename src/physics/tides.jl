@@ -86,7 +86,17 @@ end
 ######################################
 # Equilibrium Tides
 ######################################
+"""
+apsidal_motion_constant_over_tidal_timescale(mass, radius, core_mass, core_radius, 
+                                                    stellar_type, spin, luminosity, 
+                                                    mass_perturber,
+                                                    orbital_period, semi_major_axis)
 
+Calculate and return the fraction of the apsidal motion constant `k` over the 
+tidal timescale `T`. If the given stellar type is a type with a radiative envelope, such as 
+a core helium burning star, or a massive main sequence star, the prescription from 
+Hurley et al. 2002 will be used (Eq. 42). Otherwise, the the prescription from Preece et al. 2022 is used.                   
+"""
 function apsidal_motion_constant_over_tidal_timescale(mass, radius, core_mass, core_radius, 
                                                       stellar_type, spin, luminosity, 
                                                       mass_perturber,
@@ -99,17 +109,35 @@ function apsidal_motion_constant_over_tidal_timescale(mass, radius, core_mass, c
 end
 
 function k_over_T_convective(mass, radius, core_mass, core_radius, 
-                             spin, luminosity, orbital_period)
+                             spin, luminosity, orbital_period; log10z=log10(0.0122))
+                             
         R_env = envelope_radius(mass, radius, core_radius, stellar_type)
         M_env = mass - core_mass
         Pspin = 2π/spin
-        Ptid = 1.0/abs(1/orbital_period - 1/Pspin)
 
-        τ_conv = 0.4311*cbrt((M_env*R_env*(R - 0.5*R_env))/(3*luminosity))
-        f_conv = min(1, (Ptid/(2τ_conv))^2)
+        # τ_conv = 0.4311*cbrt((M_env*R_env*(R - 0.5*R_env))/(3*luminosity)) # from Hurley et al. 2002
+        τ_conv = 0.4311*cbrt((3M_conv*R_conv^2)/luminosity) # Preece et al. 2022
 
-        return 2/21*f_conv/τ_conv*M_env/mass
+        a =  0.630*log10z + 2.72 # a(z) for envelope
+        b = -0.219*log10z + 0.68 # b(z) for envelope
+        c = -0.023*log10z + 0.220 # c(z) for envelope
+
+
+        return (R_conv/R)^a*(M_conv/M)^b*c/τ_conv
 end
+
+# function k_over_T_convective(mass, radius, core_mass, core_radius, 
+#                              spin, luminosity, orbital_period)
+#         R_env = envelope_radius(mass, radius, core_radius, stellar_type)
+#         M_env = mass - core_mass
+#         Pspin = 2π/spin
+#         Ptid = 1.0/abs(1/orbital_period - 1/Pspin)
+
+#         τ_conv = 0.4311*cbrt((M_env*R_env*(R - 0.5*R_env))/(3*luminosity))
+#         f_conv = min(1, (Ptid/(2τ_conv))^2)
+
+#         return 2/21*f_conv/τ_conv*M_env/mass
+# end
 
 function k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
     E₂ = 1,592e-9*mass^2.84 # second-order tidal coefficient
@@ -124,7 +152,7 @@ function k_over_T(mass, radius, core_mass,
                   mass_perturber, semi_major_axis)
 
     if mass < 1.25u"Msun"
-        return k_over_T_convective(mass, radius, core_mass, core_radius, spin, luminosity, orbital_period)
+        return k_over_T_convective2(mass, radius, core_mass, core_radius, spin, luminosity, orbital_period)
     else
         return k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
     end
@@ -208,8 +236,39 @@ function k_over_T(mass, radius, core_mass,
 end
 
 function k_over_T(mass, radius, core_mass, 
-                  core_radius, stellar_type<:CompactObject, spin,
+                  core_radius, stellar_type::T where T <: CompactObject, spin,
                   luminosity, orbital_period,
                   mass_perturber, semi_major_axis)
     return 0.0
+end
+
+function k_over_T(mass, radius, core_mass, 
+                  core_radius, stellar_type::Int, spin,
+                  luminosity, orbital_period,
+                  mass_perturber, semi_major_axis)
+
+        if (stellar_type == 1 && mass < 1.25u"Msun") && (
+            stellar_type == 0 || stellar_type == 2 || stellar_type == 3 || 
+            stellar_type == 5 || stellar_type == 6 || stellar_type == 8 || stellar_type == 9)
+
+        R_env = envelope_radius(mass, radius, core_radius, stellar_type)
+        M_env = mass - core_mass
+        Pspin = 2π/spin
+        Ptid = 1.0/abs(1/orbital_period - 1/Pspin)
+
+        τ_conv = 0.4311*cbrt((M_env*R_env*(R - 0.5*R_env))/(3*luminosity))
+        f_conv = min(1, (Ptid/(2τ_conv))^2)
+
+        k_over_T = 2/21*f_conv/τ_conv*M_env/mass
+
+    elseif (stellar_type == 1 && mass > 1.25u"Msun") || stellar_type == 4 || stellar_type == 7
+        E₂ = 1.592e-9*mass^2.84 # second-order tidal coefficient
+        q₂ = mass_perturber/mass
+
+        k_over_T = 1.9782e4*mass*radius/semi_major_axis^5*(1 - q₂)^(5/6)*E₂
+    else
+        k_over_T = 0.0
+    end
+
+    return k_over_T
 end

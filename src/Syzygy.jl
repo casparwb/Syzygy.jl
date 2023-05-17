@@ -7,6 +7,8 @@ module Syzygy
     include("units.jl")
     include("constants.jl")
     
+    include("setup/stellar_types.jl")
+    
     include("setup/potentials.jl")
     include("setup/framework.jl")
     
@@ -23,7 +25,7 @@ module Syzygy
     include("analysis/visualization.jl")
 
 
-    export multibodysystem, getparticle, getbinary, getparent, getbinaries
+    export multibodysystem#, getparticle, getbinary, getparent, getbinaries
     export PureGravitationalPotential, DynamicalTidalPotential, EquilibriumTidalPotential
     export simulation, simulate
     export analyse_simulation

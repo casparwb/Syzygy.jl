@@ -292,12 +292,12 @@ function envelope_radius(mass, radius, core_radius, stellar_type)
         return radius - core_radius
     else
         if mass > 1.25u"Msun"
-            return 0.0u"Msun"
+            return 0.0u"Rsun"
         elseif mass < 0.35u"Msun"
             return radius
         else
             @warn "Envelope radius for 0.35 < M < 1.25 not yet implemented." 
-            return 0.0u"Msun"
+            return 0.0u"Rsun"
         end
     end
 end
