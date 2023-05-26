@@ -236,12 +236,12 @@ end
 function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
 
     @inbounds for i ∈ 1:system.n
-        if any(system.particles[i].structure.type .== (14, 15, 16))
+        if any(system.particles[i].structure.type.index .== (14, 15, 16))
             continue
         end
         ri = @SVector [integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
         for j ∈ i:system.n
-            if i != j && system.particles[j].structure.type == 14
+            if i != j && system.particles[j].structure.type.index == 14
                 rj = @SVector [integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
                 d = norm(ri - rj)
 

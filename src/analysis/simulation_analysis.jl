@@ -152,7 +152,7 @@ function analyse_simulation(result::SimulationResult)
         structure.L[:,i] .= luminosities[:,i]
         
         structure.S[:,i] .= spins[:,i]
-        structure.type[:,i] .= [system.particles[i].structure.type for i in 1:n_bodies]
+        structure.type[:,i] .= [system.particles[i].structure.type.index for i in 1:n_bodies]
     end
 
     r = Array{typeof(upreferred(1.0u"m")), 3}(undef, 3, n_bodies, n_steps)

@@ -325,20 +325,30 @@ function mass_luminosity_relation(M)
     return (F*M^a)u"Lsun"
 end
 
-function stability_criterion_ma01(;m₁, m₂, m₃, i, eₒ)
-    qₒ = m₃/(m₁ + m₂)
-    return 2.8/(1 - eₒ)*(1 - 0.3i/π)*((1 + qₒ)*(1 + eₒ)/√(1 - eₒ))^(2/5)
+
+"""
+    stability_criterion_ma01(m1, m2, m3, i, eout)
+
+Return the critical semi-major axis ratio (a_out/a_in)_crit as defined in
+Mardling & Aarset 1999.
+"""
+function stability_criterion_ma01(m1, m2, m3, i, eout)
+    qout = m3/(m1 + m2)
+    return 2.8/(1 - eout)*(1 - 0.3i/π)*((1 + qout)*(1 + eout)/√(1 - eout))^(2/5)
 end
 
 function stability_criterion_ma01(p::MultiBodySystem)
-    qₒ = p.particles[3].mass/(p.particles[1].mass + p.particles[2].mass)
+    @assert p.n = 3 "System must be a triple."
     eₒ = p.binaries[2].elements.e
     i = p.binaries[1].elements.i
-    return 2.8/(1 - eₒ)*(1 - 0.3i/π)*((1 + qₒ)*(1 + eₒ)/√(1 - eₒ))^(2/5)
+
+    m1, m2, m3 = [p.particles[i].mass for i = 1:3]
+
+    return stability_criterion_ma01(m1, m2, m3, i, eₒ)    
 end
 
 function get_a_out_on_stability_limit(aᵢ, m₁, m₂, m₃, i, eₒ; ϵ=1e-4)
-    stability = stability_criterion_ma01(m₁=m₁, m₂=m₂, m₃=m₃, i=i, eₒ=eₒ)
+    stability = stability_criterion_ma01(m₁, m₂, m₃, i, eₒ)
     aₒ = stability*aᵢ*(1-ϵ)
 end
 
@@ -350,7 +360,7 @@ function is_unstable(p::MultiBodySystem; criterion="ma01")
 end
 
 function is_unstable(aₒ, aᵢ, m₁, m₂, m₃, i, eₒ; criterion="ma01")
-    α_crit = stability_criterion_ma01(m₁=m₁, m₂=m₂, m₃=m₃, i=i, eₒ=eₒ)
+    α_crit = stability_criterion_ma01(m₁, m₂, m₃, i, eₒ)
     α = aₒ/aᵢ
     return α < α_crit
 end
