@@ -338,7 +338,7 @@ function stability_criterion_ma01(m1, m2, m3, i, eout)
 end
 
 function stability_criterion_ma01(p::MultiBodySystem)
-    @assert p.n = 3 "System must be a triple."
+    @assert p.n == 3 "System must be a triple."
     eₒ = p.binaries[2].elements.e
     i = p.binaries[1].elements.i
 
