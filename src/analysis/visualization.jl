@@ -628,32 +628,44 @@ end
     h12 = sol.quantities.h[:,1,indices]'
     h3  = sol.quantities.h[:,2,indices]'
 
-    if total
-        h12 = norm.(eachrow(h12)) ./ norm(h12[1,:])
-        h3 = norm.(eachrow(h3)) ./ norm(h3[1,:])
+    # if total
+    #     h12 = norm.(eachrow(h12)) ./ norm(h12[1,:])
+    #     h3 = norm.(eachrow(h3)) ./ norm(h3[1,:])
+    # end
+
+    nbodies = sol.initial_conditions.n
+    total_angular_momentum = zeros(typeof(1.0u"m^2/s"), 3, length(t))
+    for i in eachindex(t)
+        for body in 1:nbodies
+            total_angular_momentum[:, i] = sol.r[:,body,i] × (sol.v[:,body,i])
+        end
     end
 
-    layout --> (2, 1)
-    legend --> :bottomleft
-
+    htot = sum(total_angular_momentum, dims=1)[1,:] #./ 3
     @series begin
-        subplot := 1
-        xticks --> nothing
-        ylabel --> "h₁₂"
-        label --> total ? "Total" : ["Primary" "Secondary" "Tertiary"]
-        # ylims --> (0.999*minimum(masses), maximum(masses)*1.001)
-        # linewidth --> 4
-        ustrip(t), h12
+        t, htot ./ htot[1] .- 1
     end
+    # layout --> (2, 1)
+    # legend --> :bottomleft
 
-    @series begin
-        subplot := 2
-        label --> false
-        ylabel --> "h₃"
-        # linewidth --> 4
-        # ylims --> (0.9*minimum(radii), maximum(radii)*1.1)
-        t, h3
-    end
+    # @series begin
+    #     subplot := 1
+    #     xticks --> nothing
+    #     ylabel --> "h₁₂"
+    #     label --> total ? "Total" : ["Primary" "Secondary" "Tertiary"]
+    #     # ylims --> (0.999*minimum(masses), maximum(masses)*1.001)
+    #     # linewidth --> 4
+    #     ustrip(t), h12
+    # end
+
+    # @series begin
+    #     subplot := 2
+    #     label --> false
+    #     ylabel --> "h₃"
+    #     # linewidth --> 4
+    #     # ylims --> (0.9*minimum(radii), maximum(radii)*1.1)
+    #     t, h3
+    # end
 end
 
 # anim = @animate for i in eachindex(sol.t)[1:100:end]
