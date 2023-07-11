@@ -170,6 +170,7 @@ function setup_params(binaries, particles, extras)
     masses = Float64[]
     radii = Float64[]
     spins = Float64[]
+    types = Float64[]
 
     particle_keys = keys(particles) |> collect |> sort
     for i in particle_keys
@@ -185,19 +186,22 @@ function setup_params(binaries, particles, extras)
         mass = p.structure.m |> upreferred 
         radius = p.structure.R |> upreferred 
         spin = p.structure.S |> upreferred 
+        stellar_type = p.structure.type.index
 
         push!(masses, mass.val)
         push!(radii, radius.val)
         push!(spins, spin.val)
+        push!(types, stellar_type)
     end
 
     semi_major_axes = SA[semi_major_axes...]
     masses = SA[masses...]
     radii = SA[radii...]
     spins = SA[spins...]
+    types = SA[types...]
 
     # extras = (;zip(Symbol.(keys(extras)), values(extras))...)
-    all_params = Dict(:a => semi_major_axes, :R => radii, :M => masses, :S => spins)
+    all_params = Dict(:a => semi_major_axes, :R => radii, :M => masses, :S => spins, :stellar_type => types)
     merge!(all_params, extras)
 
     # ode_params = 
