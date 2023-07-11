@@ -28,7 +28,8 @@ function keplerian_to_cartesian(elements::OrbitalElements, mass; G=𝒢)
 
     sqrt_1_min_e² = sqrt(1.0 - e^2)
 
-    E = atan((sqrt_1_min_e²*sin(ν))/(e + cos(ν)))
+    # E = atan((sqrt_1_min_e²*sin(ν))/(e + cos(ν)))
+    E = atan(sqrt_1_min_e²*sin(ν), e + cos(ν))
 
     r = a*(1 - e^2)/(1 + e*cos(ν))
     h = √(μ*a*(1 - e^2))
@@ -65,7 +66,7 @@ function keplerian_to_cartesian(elements::OrbitalElements, mass; G=𝒢)
     v[2] = o_dot[1]*(cosω*sinΩ + sinω*cosi*cosΩ) + o_dot[2]*(cosω*cosi*cosΩ - sinω*sinΩ)
     v[3] = o_dot[1]*sinω*sini + o_dot[2]*cosω*sini
 
-    return x,v
+    return x, v
 end
 
 
