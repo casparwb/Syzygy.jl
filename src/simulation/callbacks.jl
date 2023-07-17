@@ -22,7 +22,7 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
                 push!(cbs, callback_collision)
             elseif condition == "escape"
                 function condition_escape(u, t, integrator)
-                    (integrator.iter % 100) == 0  # check for escape every 1000 iteration
+                    (integrator.iter % 100) == 0  # check for escape every 100 iteration
                 end
                 affect_escape!(integrator) = unbound_callback!(integrator, retcode, nbody, G=G)
                 callback_escape = DiscreteCallback(condition_escape, affect_escape!, save_positions=(false, false))
@@ -30,18 +30,18 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
             elseif condition == "stellar"
                 condition_evolve(u, t, integrator) = evolve_callback(u, t, integrator, p)
                 affect_s!(integrator) = nothing
-                callback_evolve = DiscreteCallback(condition_evolve, affect_s!)
+                callback_evolve = DiscreteCallback(condition_evolve, affect_s!, save_positions=(false, false))
                 push!(cbs, callback_evolve)
             elseif condition == "rlof"
                 function condition_rlof(u, t, integrator)
-                    (integrator.iter % 100) == 0  # check for escape every 1000 iteration
+                    (integrator.iter % 100) == 0  # check for rlof every 100 iteration
                 end
                 affect_rlof!(integrator) =  rlof_callback!(integrator, retcode, nbody, G)
                 callback_rlof = DiscreteCallback(condition_rlof, affect_rlof!, save_positions=(false, false))
                 push!(cbs, callback_rlof)
             elseif condition == "tidal_disruption"
                 function condition_td(u, t, integrator)
-                    (integrator.iter % 100) == 0  # check for escape every 1000 iteration
+                    (integrator.iter % 100) == 0  # check for tidal disruption every 100 iteration
                 end
                 affect_td!(integrator) =  tidal_disruption_callback!(integrator, retcode, nbody, G)
                 callback_td = DiscreteCallback(condition_td, affect_td!, save_positions=(false, false))
@@ -68,10 +68,15 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
 
             elseif condition == "com"
                 n = nbody.n
-                affect!(integrator) = move_to_com_callback!(integrator, n)
-                condition_com(u, t, integrator) = true
-                callback_com = DiscreteCallback(condition_com, affect!)
+                affect_com!(integrator) = move_to_com_callback!(integrator)
+                condition_com(u, t, integrator) = (integrator.iter % 1000) == 0
+                callback_com = DiscreteCallback(condition_com, affect_com!, save_positions=(false, false))
                 push!(cbs, callback_com)
+            elseif condition == "hubbletime"
+                affect_hubble!(integrator) = hubble_time_callback!(integrator, retcode)
+                condition_hubble(u, t, integrator) = true
+                callback_hubble = DiscreteCallback(condition_hubble, affect_hubble!, save_positions=(false, false))
+                push!(cbs, callback_hubble)
             else
                 continue
             end
@@ -236,12 +241,15 @@ end
 function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
 
     @inbounds for i ∈ 1:system.n
-        if any(system.particles[i].structure.type.index .== (14, 15, 16))
+        stellar_type = system.particles[i].structure.type.index
+
+        # check if particle is a black hole, supernova, or unknown type
+        if stellar_type == 14 || stellar_type == 15 || stellar_type == 16
             continue
         end
         ri = @SVector [integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
         for j ∈ i:system.n
-            if i != j && system.particles[j].structure.type.index == 14
+            if i != j && system.particles[j].structure.type isa BlackHole
                 rj = @SVector [integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
                 d = norm(ri - rj)
 
@@ -256,6 +264,16 @@ function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(�
     end
 end
 
+function move_to_com_callback!(integrator)
+
+    com = centre_of_mass(integrator.u.x[2], integrator.p.M)
+    com_vel = centre_of_mass_velocity(integrator.u.x[1], integrator.p.M)
+
+
+    integrator.u.x[2] .-= com
+    integrator.u.x[1] .-= com_vel
+end
+
 function max_cpu_time_callback!(integrator, retcode, start_time, max_cpu_time)
 
     if (time() - start_time) >= max_cpu_time
@@ -263,6 +281,17 @@ function max_cpu_time_callback!(integrator, retcode, start_time, max_cpu_time)
         terminate!(integrator)
     end
 
+end
+
+function hubble_time_callback!(integrator, retcode)
+    if upreferred(1.0u"s")*integrator.t > 13.8u"Gyr"
+        retcode[:HubbleTime] = true
+        terminate!(integrator)
+    end
+end
+
+function democratic_check_callback!(integrator, retcode, system)
+    
 end
 
 function supernova_kick_callback(u, t, integrator, t_sn)
