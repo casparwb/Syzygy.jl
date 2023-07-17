@@ -43,7 +43,7 @@ function simulate(simulation::FewBodySimulation)
         if args[:showprogress]
             for i in integrator
                 next!(prog; showvalues=[(Symbol("System time"), u"kyr"(integrator.t * u"s")),
-                                        (Symbol("System %"), integrator.t/maxtime*100)], 
+                                        (Symbol("System %"), (integrator.t - simulation.tspan[1])/maxtime*100)], 
                                         spinner="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
             end
             solve!(integrator)
