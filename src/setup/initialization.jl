@@ -121,7 +121,7 @@ end
 
 # function Base.show(io::IO, elements::OrbitalElements{T, T, T, T, T, T, T}) where T <: Number
 
-function Base.show(io::IO, structure::StellarStructure2)
+function Base.show(io::IO, structure::StellarStructure)
     # if structure.R isa AbstractArray
     #     # show(io, elements)
     #     return
@@ -275,11 +275,11 @@ function multibodysystem(masses::Vector{<:Quantity},
         push!(elements, OrbitalElements(a[idx], 0.0u"d", e[idx], ω[idx], i[idx], Ω[idx], ν[idx]))
     end
 
-    structures = StellarStructure2[]
+    structures = StellarStructure[]
     for idx = 1:n_particles
         stellar_type = stellar_type_from_index(types[idx])
         # push!(structures, StellarStructure(stellar_type, masses[idx], R[idx], S[idx], L[idx]))
-        push!(structures, StellarStructure2(stellar_type, masses[idx], R[idx], S[idx], L[idx],
+        push!(structures, StellarStructure(stellar_type, masses[idx], R[idx], S[idx], L[idx],
                                             R_core[idx], m_core[idx], R_env[idx], m_env[idx]))
     end
 
@@ -291,7 +291,7 @@ end
 
 function MultiBodySystem(masses::Vector, hierarchy::Vector, 
                          elements::AbstractVector{T} where T <: OrbitalElements,
-                         structures::AbstractVector{T} where T <: StellarStructure2,
+                         structures::AbstractVector{T} where T <: StellarStructure,
                          t = 0.0u"yr"; verbose=false)
 
     hierarchy_mat = hierarchy_matrix(hierarchy)

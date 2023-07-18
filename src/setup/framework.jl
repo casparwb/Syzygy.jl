@@ -29,14 +29,6 @@ OrbitalElements(;a=0.0u"AU", P=0.0u"d", e=0.0, ω=0.0u"°", i=0.0u"°", Ω=0.0u"
 
 struct StellarStructure{tT, mT, RT, ST, LT}
     type::tT
-    m::mT # mass
-    R::RT # radius
-    S::ST # spin
-    L::LT # luminosity
-end
-
-struct StellarStructure2{tT, mT, RT, ST, LT}
-    type::tT
     m::mT # total mass
     R::RT # total radius
     S::ST # total spin

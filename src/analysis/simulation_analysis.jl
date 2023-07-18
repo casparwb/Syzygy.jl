@@ -32,7 +32,9 @@ function setup_simulation_solution(n_steps, n_bodies, n_binaries, masses)
     spin_matrix = Matrix{typeof(1.0u"1/s")}(undef, n_bodies, n_steps)
 
     structure = StellarStructure(type_matrix, mass_matrix, 
-                                 radius_matrix, spin_matrix, lum_matrix)
+                                 radius_matrix, spin_matrix, lum_matrix,
+                                 similar(radius_matrix), similar(mass_matrix), 
+                                 similar(radius_matrix), similar(mass_matrix))
 
     quantities = PhysicalQuantities(
                                     Array{typeof(1.0u"m^2/s"), 3}(undef, 3, n_binaries, n_steps),
