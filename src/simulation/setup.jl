@@ -191,7 +191,7 @@ function setup_params(binaries, particles, extras)
         stellar_type = p.structure.type.index
 
         push!(masses, mass.val)
-        push!(luminosities, luminosity)
+        push!(luminosities, luminosity.val)
         push!(radii, radius.val)
         push!(spins, spin.val)
         push!(types, stellar_type)
