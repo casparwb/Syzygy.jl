@@ -15,35 +15,37 @@ end
 pI(i) = ParticleIndex(i)
 bI(i) = BinaryIndex(i)
 
+#################################### Multibody system setup #########################################
+
 struct OrbitalElements{aT, PT, eT, ωT, iT, ΩT, νT}
-    a::aT
-    P::PT
-    e::eT
-    ω::ωT
-    i::iT
-    Ω::ΩT
-    ν::νT
+    a::aT # semi-major axis
+    P::PT # orbital period
+    e::eT # eccentricity
+    ω::ωT # argument of periapsis
+    i::iT # inclination (with respect to xy-plane)
+    Ω::ΩT # longitude of ascending node
+    ν::νT # true anomaly
 end
 
 OrbitalElements(;a=0.0u"AU", P=0.0u"d", e=0.0, ω=0.0u"°", i=0.0u"°", Ω=0.0u"°", ν=0.0u"°") = OrbitalElements(a, P, e, ω, i, Ω, ν)
 
 struct StellarStructure{tT, mT, RT, ST, LT}
-    type::tT
-    m::mT # total mass
-    R::RT # total radius
-    S::ST # total spin
-    L::LT # total luminosity
+    type::tT   # stellar type
+    m::mT      # total mass
+    R::RT      # total radius
+    S::ST      # total spin
+    L::LT      # total luminosity
     R_core::RT # core radius
     m_core::mT # core mass
-    R_env::RT # envelope radius
-    m_env::mT # envelope mass
+    R_env::RT  # envelope radius
+    m_env::mT  # envelope mass
 end
 
 struct PhysicalQuantities{hT, ET}
     h::hT # (Specific) Angular momentum
-    E::ET # Total energy
-    K::ET # Kinetic energy
-    U::ET # Potential energy
+    E::ET # total energy
+    K::ET # kinetic energy
+    U::ET # potential energy
 end
 
 struct Particle{siblingType, massType, posType, velType, structType, attType} <: AbstractParticle
@@ -81,6 +83,10 @@ struct MultiBodySystem{timeType, bodType, binType, hierType, quanType} <: FewBod
     quantities::quanType
 end
 
+####################################################################################################
+
+
+####################################### Simulation  setup ##########################################
 
 abstract type CelestialBody end
 
@@ -122,6 +128,7 @@ struct FewBodySolution{tT, rT, vT, eT, sT, qT, oT}
     quantities::qT
     ode_system::oT
 end
+##################################################################################################
 
 
 ################################ Framework for the different potentials ################################
@@ -208,3 +215,4 @@ function EquilibriumTidalPotential(system::MultiBodySystem, τ, G=𝒢.val)
 end
 
 ###########################################################################################
+

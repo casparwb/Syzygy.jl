@@ -43,8 +43,7 @@ end
     eccentricity(r, v, a, M)
 
 Eccentricity of binary orbit with total mass `M`, semi-major axis `a`,
-relative positions `r`, and relative velocities `v`. Returns 0 if 
-the estimated eccentricity `e > 1`.
+relative positions `r`, and relative velocities `v`.
 
 ``e = \\sqrt{1 - \\frac{|r×v|²}{GMa}}`` 
 """
