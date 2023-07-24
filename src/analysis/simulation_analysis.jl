@@ -155,6 +155,12 @@ function analyse_simulation(result::SimulationResult)
         
         structure.S[:,i] .= spins[:,i]
         structure.type[:,i] .= [system.particles[i].structure.type.index for i in 1:n_bodies]
+
+        structure.R_core[:,i] = [system.particles[i].structure.R_core for i in 1:n_bodies]
+        structure.m_core[:,i] = [system.particles[i].structure.m_core for i in 1:n_bodies]
+        structure.R_env[:,i] = [system.particles[i].structure.R_env for i in 1:n_bodies]
+        structure.m_env[:,i] = [system.particles[i].structure.m_env for i in 1:n_bodies]
+
     end
 
     r = Array{typeof(upreferred(1.0u"m")), 3}(undef, 3, n_bodies, n_steps)
@@ -308,8 +314,12 @@ function multibodysystem(sol::FewBodySolution, time)
 
     n_bodies = length(masses)
     multibodysystem(masses, R = sol.structure.R[:,time_index], 
-                            L = [sol.initial_conditions.particles[i].structure.L for i = 1:n_bodies],
-                            S = [sol.initial_conditions.particles[i].structure.S for i = 1:n_bodies],
+                            L = sol.structure.L[:,time_index],
+                            S = sol.structure.S[:,time_index],
+                            R_core = sol.structure.R_core[:,time_index],
+                            m_core = sol.structure.m_core[:,time_index],
+                            R_env = sol.structure.R_env[:,time_index],
+                            m_env = sol.structure.m_env[:,time_index],
                             types = Int.(sol.structure.type[:,time_index]),
                             a = [e.a[time_index] for e in sol.elements],
                             e = [e.e[time_index] for e in sol.elements], 
