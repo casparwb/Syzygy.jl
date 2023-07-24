@@ -56,7 +56,7 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
                 v0 = [upreferred.(p.velocity) for p in values(nbody.particles)] 
                 masses = [upreferred(p.structure.m) for p in values(nbody.particles)] 
                 Einit = total_energy(r0, v0, masses) |> upreferred |> ustrip
-                
+
                 function g(resid, u, p, t)
                     E = total_energy(u.x[2], u.x[1], p.M)
                     resid[1] = Einit - E
@@ -80,10 +80,17 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
                 push!(cbs, callback_hubble)
 
             elseif condition == "democratic"
-                affect_democratic!(integrator) = democratic_check_callback3!(integrator, retcode, nbody)
+                affect_democratic1!(integrator) = democratic_check_callback1!(integrator, retcode, nbody)
+                affect_democratic2!(integrator) = democratic_check_callback2!(integrator, retcode, nbody)
+                affect_democratic3!(integrator) = democratic_check_callback3!(integrator, retcode, nbody)
                 condition_democratic(u, t, integrator) = (integrator.iter % 1) == 0
-                callback_democratic = DiscreteCallback(condition_democratic, affect_democratic!, save_positions=(false, false))
-                push!(cbs, callback_democratic)
+                callback_democratic1 = DiscreteCallback(condition_democratic, affect_democratic1!, save_positions=(false, false))
+                callback_democratic2 = DiscreteCallback(condition_democratic, affect_democratic2!, save_positions=(false, false))
+                callback_democratic3 = DiscreteCallback(condition_democratic, affect_democratic3!, save_positions=(false, false))
+
+                push!(cbs, callback_democratic1)
+                push!(cbs, callback_democratic2)
+                push!(cbs, callback_democratic3)
             
             else
                 continue
@@ -310,9 +317,13 @@ function hubble_time_callback!(integrator, retcode)
     end
 end
 
-function democratic_check_callback!(integrator, retcode, system)
-        
-    if haskey(retcode, :Democratic) # only need to raise flag once
+
+"""
+Check if the pair with the smallest distance is no longer the initial inner binary.
+"""
+function democratic_check_callback1!(integrator, retcode, system)
+
+    if haskey(retcode, :Democratic1) # only need to raise flag once
         return
     end
 
@@ -332,17 +343,16 @@ function democratic_check_callback!(integrator, retcode, system)
 
     inner_pericenter = system.binaries[1].elements.a*(1 - system.binaries[1].elements.e) |> upreferred |> ustrip
     if smallest_distance < inner_pericenter
-        retcode[:Democratic] = (true, integrator.t)
+        retcode[:Democratic1] = (true, integrator.t)
     end
 
 end
 
+"""
+Check if the original inner binary is no longer the one with the smallest semi-major axis.
+"""
 function democratic_check_callback2!(integrator, retcode, system)
-    # check if distance between tertiary and primary/secondary is ever smaller
-    # than the initial inner semi-major axis
-    
-    
-    if haskey(retcode, :Democratic) # only need to raise flag once
+    if haskey(retcode, :Democratic2) # only need to raise flag once
         return
     end
 
@@ -356,14 +366,17 @@ function democratic_check_callback2!(integrator, retcode, system)
         d = norm(ri - r3)
         
         if d < pericenter/2
-        retcode[:Democratic] = (true, integrator.t)
+        retcode[:Democratic2] = (true, integrator.t)
             break
         end     
     end
 end
 
+"""
+Check if the a binary has an eccentricity > 1.
+"""
 function democratic_check_callback3!(integrator, retcode, system)
-    if haskey(retcode, :Democratic) # only need to raise flag once
+    if haskey(retcode, :Democratic3) # only need to raise flag once
         return
     end
 
@@ -388,7 +401,7 @@ function democratic_check_callback3!(integrator, retcode, system)
     e = eccentricity(r_rel, v_rel, a, M, upreferred(𝒢).val)
 
     if e >= 1
-        retcode[:Democratic] = (true, integrator.t)
+        retcode[:Democratic3] = (true, integrator.t)
     end
 
 
