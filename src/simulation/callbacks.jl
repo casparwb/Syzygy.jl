@@ -77,6 +77,12 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
                 condition_hubble(u, t, integrator) = true
                 callback_hubble = DiscreteCallback(condition_hubble, affect_hubble!, save_positions=(false, false))
                 push!(cbs, callback_hubble)
+            elseif condition == "democratic"
+                affect_democratic!(integrator) = democratic_check_callback2!(integrator, retcode, nbody)
+                condition_democratic(u, t, integrator) = (integrator.iter % 100) == 0
+                callback_democratic = DiscreteCallback(condition_democratic, affect_democratic!, save_positions=(false, false))
+                push!(cbs, callback_democratic)
+            
             else
                 continue
             end
@@ -129,6 +135,25 @@ function get_state_vectors(positions, velocities, masses, binary::Binary, siblin
            #m
 end
 
+function get_positions(positions, masses, particle::Particle, sibling_ids)
+    return SA[positions[1,particle.key.i], positions[2,particle.key.i], positions[3,particle.key.i]]
+end
+
+function get_positions(positions, masses, binary::Binary, sibling_ids)
+    m = masses[sibling_ids]
+    return centre_of_mass(view(positions, :, sibling_ids), m)
+end
+
+function get_velocities(velocities, masses, particle::Particle, sibling_ids)
+    return SA[velocities[1,particle.key.i], velocities[2,particle.key.i], velocities[3,particle.key.i]]
+end
+
+function get_velocities(velocities, masses, binary::Binary, sibling_ids)
+    m = masses[sibling_ids]
+    return centre_of_mass_velocity(view(velocities, :, sibling_ids), m)
+end
+
+
 """
 
 Returns a callback for checking if system has become unbound.
@@ -147,7 +172,8 @@ function unbound_callback!(integrator, retcode, system; max_a=100, G=upreferred(
         sibling = particle.sibling
         sibling_ids = get_particle_ids(system[sibling])
 
-        r = get_state_vectors(u.x[2], u.x[1], integrator.p.M, system[sibling], sibling_ids)[1]
+        # r = get_state_vectors(u.x[2], u.x[1], integrator.p.M, system[sibling], sibling_ids)[1]
+        r = get_positions(u.x[2], integrator.p.M, system[sibling], sibling_ids)
         r_rel = position  - r#, velocity  - v
 
         d = norm(r_rel)
@@ -269,7 +295,6 @@ function move_to_com_callback!(integrator)
     com = centre_of_mass(integrator.u.x[2], integrator.p.M)
     com_vel = centre_of_mass_velocity(integrator.u.x[1], integrator.p.M)
 
-
     integrator.u.x[2] .-= com
     integrator.u.x[1] .-= com_vel
 end
@@ -290,76 +315,122 @@ function hubble_time_callback!(integrator, retcode)
     end
 end
 
-function democratic_check_callback!(integrator, retcode, system)
+# function democratic_check_callback!(integrator, retcode, system)
     
+#     smallest_distance = Inf
+#     @inbounds for i ∈ 1:n
+#         ri = SA[integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
+#         for j ∈ i:n
+#             if i != j
+#                 rj = SA[integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
+#                 d = norm(ri - rj)
+#                 smallest_distance = min(d, smallest_distance)
+
+#             end
+
+#         end
+#     end
+
+
+
+# end
+
+function democratic_check_callback2!(integrator, retcode, system)
+    # check if distance between tertiary and primary/secondary is ever smaller
+    # than the initial inner semi-major axis
+    
+    
+    if get(retcode, :Democratic, false) # only need to raise flag once
+        return
+    end
+
+    pericenter = system.binaries[2].elements.a*(1 - system.binaries[2].elements.e) |> upreferred |> ustrip
+
+    n = system.n
+    @assert n == 3
+    r3 = SA[integrator.u.x[2][1, 3], integrator.u.x[2][2, 3], integrator.u.x[2][3, 3]]
+    @inbounds for i ∈ 1:2
+        ri = SA[integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
+        d = norm(ri - r3)
+        
+        if d < pericenter/2
+            retcode[:Democratic] = true
+            break
+        end
+            
+    end
+
 end
 
+"""
+TO DO
+"""
 function supernova_kick_callback(u, t, integrator, t_sn)
 
 
 end
 
-function equilibrium_tidal_spin_evolution_callback(u, t, integrator, tidal_potential)
+# function equilibrium_tidal_spin_evolution_callback(u, t, integrator, tidal_potential)
 
-    k = tidal_potential.k
-    τ = tidal_potential.τ
+#     k = tidal_potential.k
+#     τ = tidal_potential.τ
 
-    R = integrator.p.R
-    Ms = integrator.p.M
-    # T = R .^ 3 / (tidal_potential.G*)
+#     R = integrator.p.R
+#     Ms = integrator.p.M
+#     # T = R .^ 3 / (tidal_potential.G*)
 
-    @inbounds for i in eachindex(R)
-        # T = R[j]
-        ri = @SVector [rs[1, i], rs[2, i], rs[3, i]]
-        vi = @SVector [vs[1, i], vs[2, i], vs[3, i]]
-        T = R[i]^3/(tidal_potential.G*M[i]*τ)
+#     @inbounds for i in eachindex(R)
+#         # T = R[j]
+#         ri = @SVector [rs[1, i], rs[2, i], rs[3, i]]
+#         vi = @SVector [vs[1, i], vs[2, i], vs[3, i]]
+#         T = R[i]^3/(tidal_potential.G*M[i]*τ)
         
-        # I = moment_of_inertia(...)
-        rg = √(I/(Ms[i]*R^2)) # radius of gyrations
-        for j in eachindex(R)
-            if i != j
-                rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
-                vj = @SVector [vs[1, j], vs[2, j], vs[3, j]]
-                rij, vij = ri - rj, vi - vj
-                d = norm(rij)
-                v = norm(vij)
-                a = semi_major_axis(d, v^2, M, potential.G)
-                e = eccentricity(rij, vij, a, M, potential.G)
-                q = Ms[j]/Ms[i]
-                M = ms[i] + ms[j]
+#         # I = moment_of_inertia(...)
+#         rg = √(I/(Ms[i]*R^2)) # radius of gyrations
+#         for j in eachindex(R)
+#             if i != j
+#                 rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
+#                 vj = @SVector [vs[1, j], vs[2, j], vs[3, j]]
+#                 rij, vij = ri - rj, vi - vj
+#                 d = norm(rij)
+#                 v = norm(vij)
+#                 a = semi_major_axis(d, v^2, M, potential.G)
+#                 e = eccentricity(rij, vij, a, M, potential.G)
+#                 q = Ms[j]/Ms[i]
+#                 M = ms[i] + ms[j]
                
-                n = √(G*M)*(-1/a^3) # mean orbital angular velocity
+#                 n = √(G*M)*(-1/a^3) # mean orbital angular velocity
 
-                e² = e^2
+#                 e² = e^2
 
-                f₂ = f₂(e²)
-                f₅ = f₅(e²)
+#                 f₂ = f₂(e²)
+#                 f₅ = f₅(e²)
 
-                dΩ_dt = 3k/T*q^2/rg^2*(Rs[i]/a)^6*n/(1 - e²)^6*(
-                        f₂ - √((1 - e)^3)*f₅*Ω/n)
-            end
-        end
+#                 dΩ_dt = 3k/T*q^2/rg^2*(Rs[i]/a)^6*n/(1 - e²)^6*(
+#                         f₂ - √((1 - e)^3)*f₅*Ω/n)
+#             end
+#         end
     
-    end
-end
+#     end
+# end
 
 
-function f₁(e²)
-    1 + 31e²/2 + 255e²^2/8 + 185e²^3/16 + 25e²^4/65
-end
+# function f₁(e²)
+#     1 + 31e²/2 + 255e²^2/8 + 185e²^3/16 + 25e²^4/65
+# end
 
-function f₂(e²)
-    1 + 15e²/2 + 45e²^2/8 + 5e²^3/16
-end
+# function f₂(e²)
+#     1 + 15e²/2 + 45e²^2/8 + 5e²^3/16
+# end
 
-function f₃(e²)
-    1 + 15e²/4 + 15e²^2/8 + 5e²^3/64
-end
+# function f₃(e²)
+#     1 + 15e²/4 + 15e²^2/8 + 5e²^3/64
+# end
 
-function f₄(e²)
-    1 + 3e²/2 + e²^2/8
-end
+# function f₄(e²)
+#     1 + 3e²/2 + e²^2/8
+# end
 
-function f₅(e²)
-    1 + 3e² + 3e²^2/8
-end
+# function f₅(e²)
+#     1 + 3e² + 3e²^2/8
+# end
