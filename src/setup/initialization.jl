@@ -257,8 +257,14 @@ end
 
 
 function multibodysystem(masses::Vector{<:Quantity}, 
-                         R::Vector{<:Quantity}, S::Vector{<:Quantity}, L::Vector{<:Quantity}, types::Vector{Int}, 
-                         R_core::Vector{<:Quantity}, m_core::Vector{<:Quantity}, R_env::Vector{<:Quantity}, m_env::Vector{<:Quantity},
+                         R::Vector{<:Quantity}, 
+                         S::Vector{<:Quantity}, 
+                         L::Vector{<:Quantity}, 
+                         types::Vector{Int}, 
+                         R_core::Vector{<:Quantity}, 
+                         m_core::Vector{<:Quantity}, 
+                         R_env::Vector{<:Quantity}, 
+                         m_env::Vector{<:Quantity},
                          a::Vector{<:Quantity}, e::Vector{<:Real},     ω::Vector{<:Quantity}, 
                          i::Vector{<:Quantity}, Ω::Vector{<:Quantity}, ν::Vector{<:Quantity}, 
                          hierarchy::Vector{Int}, t0::Quantity; 
@@ -493,14 +499,11 @@ function create_binary(child1::Binary, child2::Binary, elements, level, binary_k
            children, nested_children, com_position, com_velocity, binary_masses, elements)
 end
 
-
-
 get_particle_ids(binary::Binary) = binary.nested_children
 get_particle_ids(particle::Particle) = SA[particle.key.i]
 
 function get_particles(binary::Binary, particles=Particle[])
     children = binary.children
-    # particles = Particle[]
     for child in children
         if child isa Particle
             push!(particles, child)
@@ -539,20 +542,21 @@ function get_binaries(binary::Binary)
 end
 
 function get_binaries(system::MultiBodySystem)
-    root = system.root
-    binaries = Binary[root]
-    append!(binaries, get_binaries(root))
+    # root = system.root
+    # binaries = Binary[root]
+    # append!(binaries, get_binaries(root))
 
-    # levels = [bin.level for bin in binaries]
-    keys = [bin.key.i for bin in binaries]
-    binaries = binaries[sortperm(keys)]
-    return binaries
+    # # levels = [bin.level for bin in binaries]
+    # keys = [bin.key.i for bin in binaries]
+    # binaries = binaries[sortperm(keys)]
+    # return binaries
+    collect(sort(system.binaries))
 end
 
 # match_key(x) = x.ke
 
 function get_binary(system::MultiBodySystem, key::Int)
-    system.binaries[findfirst(x -> x.key.i == key, system.binaries)]
+    system.binares[key]
 end
 
 function get_binary(binary::Binary, key::Int)
@@ -568,17 +572,7 @@ function get_binary(binary::Binary, key::Int)
 end
 
 function get_particle(system::MultiBodySystem, key::Int)
-
-    # match_key(x::Particle)::Bool = x.key.i == key
-    system.particles[findfirst(x -> x.key.i == key, system.particles)]
-    # @inbounds for body in system.particles
-    #     if body.key.i == key
-    #         return body
-    #     end
-    # end
-
-    # @info "Particle with key $key not found."
-    # return nothing
+    system.particles[key]
 end
 
 function get_particle(binary::Binary, key::Int)
@@ -602,13 +596,13 @@ function getparent(system::MultiBodySystem, object::Union{Binary, Particle})
         @info "$tpe is root."
     end
 
-    for (level, bin) in system.binaries
-        # @show level, bin.key
-        if bin.key == parent_key
-            return bin
-        end
-    end
-
+    # for (level, bin) in system.binaries
+    #     # @show level, bin.key
+    #     if bin.key == parent_key
+    #         return bin
+    #     end
+    # end
+    system[parent_key]
 end
 
 """
@@ -652,15 +646,3 @@ function multibodysystem(system::MultiBodySystem; new_params...)
 
     multibodysystem(masses; args...)
 end
-
-
-"""
-m = FewBodySimulator.multibodysystem([1.0, 1.0, 1.0, 1.0]u"Msun", a=[0.1, 0.1, 5.0]u"AU", e=[0.1, 0.1, 0.1], ω=[0.0, 0.0, 0.0]u"rad", 
-                                      i = [0.0, 0.0, 0.0]u"rad", Ω=[0.0, 0.0, 0.0]u"rad", 
-                                      ν=[0.0, 0.0, 0.0]u"rad", hierarchy=[4, 2, 1]);
-
-
-m = FewBodySimulator.multibodysystem([1.0, 1.0]u"Msun", a=[0.1]u"AU", e=[0.1], 
-                                ω=[0.0]u"rad", i=[0.0]u"rad", Ω=[0.0]u"rad", 
-                                ν=[0.0]u"rad", hierarchy=[2,1])
-"""
