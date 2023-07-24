@@ -807,3 +807,72 @@ end
 #     println(i)
 #     p
 # end
+
+# function animate(sol; dims=[1,2,3], ids=eachindex(sol.t), step=1, fps=60, filename="animation.mp4", args...)
+           
+#     com = Syzygy.centre_of_mass(sol, [1,2], tspan=extrema(sol.t[ids]))
+
+#     k = 1
+#     anim = @animate for i in ids#eachindex(sol.t)[ids]
+#         sidx = 1
+#         p = plot(legend=:outerright, aspect_ratio=1; args...)
+#         scatter!(p, [[sol.r[dim,1,i] - com[dim,k] |> u"AU"] for dim in dims]..., 
+#                     label="Primary", c=:blue)
+
+#         scatter!(p, [[sol.r[dim,2,i] - com[dim,k] |> u"AU"] for dim in dims]...,
+#                     label="Secondary", c=:green)
+#         # scatter!(p, [sol.r[1,1,i] - com[1,k] |> u"AU"], 
+#         #             [sol.r[2,1,i] - com[2,k] |> u"AU"], 
+#         #             3 in dims ? [sol.r[3,1,i] - com[3,k] |> u"AU"] : nothing, 
+#         #             label="Primary", c=:blue)
+#         # scatter!(p, [sol.r[1,2,i] - com[1,k] |> u"AU"], 
+#         #             [sol.r[2,2,i] - com[2,k] |> u"AU"], 
+#         #             3 in dims ? [sol.r[3,2,i] - com[3,k] |> u"AU"] : nothing, 
+#         #             label="Secondary", c=:green)
+#         # scatter!(p, [sol.r[1,3,i] - com[1,k] |> u"AU"], 
+#         #             [sol.r[2,3,i] - com[2,k] |> u"AU"], 
+#         #             3 in dims ? [sol.r[3,2,i] - com[3,k] |> u"AU"] : nothing, 
+#         #             label="Tertiary", c=:red)
+
+#         # plot!(p, sol.r[1,1,sidx:10:i] .|> u"AU", 
+#         #          sol.r[2,1,sidx:10:i] .|> u"AU", 
+#         #          3 in dims ? sol.r[3,1,sidx:10:i] .|> u"AU" : nothing, 
+#         #          label=false, c=:blue, alpha=0.5)
+#         # plot!(p, sol.r[1,2,sidx:10:i] .|> u"AU", 
+#         #          sol.r[2,2,sidx:10:i] .|> u"AU", 
+#         #          3 in dims ? sol.r[3,2,sidx:10:i] .|> u"AU" : nothing, 
+#         #          label=false, c=:green, alpha=0.5)
+#         # plot!(p, sol.r[1,3,sidx:10:i] .|> u"AU", 
+#         #          sol.r[2,3,sidx:10:i] .|> u"AU", 
+#         #          3 in dims ? sol.r[3,3,sidx:10:i] .|> u"AU" : nothing, 
+#         #          label=false, c=:red, alpha=0.5)
+#         k += 1
+#     end every step
+
+#     outpath = filename
+#     gif(anim, outpath, fps=fps)
+# end
+
+# function animate(sol; dims=[1,2,3], ids=eachindex(sol.t), step=1, fps=60, filename="animation.mp4", args...)
+                  
+#     com = Syzygy.centre_of_mass(sol, [1,2, 3], tspan=extrema(sol.t[ids]))
+
+#     k = 1
+#     anim = @animate for i in ids#eachindex(sol.t)[ids]
+#         sidx = 1
+#         p = plot(legend=:outerright, aspect_ratio=1; args...)
+#         scatter!(p, [[sol.r[dim,1,i] - com[dim,k] |> u"AU"] for dim in dims]..., 
+#                     label="Primary", c=:blue)
+
+#         scatter!(p, [[sol.r[dim,2,i] - com[dim,k] |> u"AU"] for dim in dims]...,
+#                     label="Secondary", c=:green)
+
+#         scatter!(p, [[sol.r[dim,3,i] - com[dim,k] |> u"AU"] for dim in dims]...,
+#                     label="Tertiary", c=:red)
+
+#         k += 1
+#     end every step
+
+#     outpath = filename
+#     gif(anim, outpath, fps=fps)
+# end

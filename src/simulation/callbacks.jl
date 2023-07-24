@@ -20,6 +20,7 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
                 affect_collision!(integrator) = collision_callback!(integrator, n, retcode)
                 callback_collision = DiscreteCallback(condition_collision, affect_collision!, save_positions=(false, false))
                 push!(cbs, callback_collision)
+
             elseif condition == "escape"
                 function condition_escape(u, t, integrator)
                     (integrator.iter % 100) == 0  # check for escape every 100 iteration
@@ -27,11 +28,7 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
                 affect_escape!(integrator) = unbound_callback!(integrator, retcode, nbody, G=G)
                 callback_escape = DiscreteCallback(condition_escape, affect_escape!, save_positions=(false, false))
                 push!(cbs, callback_escape)
-            elseif condition == "stellar"
-                condition_evolve(u, t, integrator) = evolve_callback(u, t, integrator, p)
-                affect_s!(integrator) = nothing
-                callback_evolve = DiscreteCallback(condition_evolve, affect_s!, save_positions=(false, false))
-                push!(cbs, callback_evolve)
+
             elseif condition == "rlof"
                 function condition_rlof(u, t, integrator)
                     (integrator.iter % 100) == 0  # check for rlof every 100 iteration
@@ -39,6 +36,7 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
                 affect_rlof!(integrator) =  rlof_callback!(integrator, retcode, nbody, G)
                 callback_rlof = DiscreteCallback(condition_rlof, affect_rlof!, save_positions=(false, false))
                 push!(cbs, callback_rlof)
+
             elseif condition == "tidal_disruption"
                 function condition_td(u, t, integrator)
                     (integrator.iter % 100) == 0  # check for tidal disruption every 100 iteration
@@ -52,11 +50,13 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
                 affect_cpu_time!(integrator) = max_cpu_time_callback!(integrator, retcode, start_time, args[:max_cpu_time])
                 callback_cpu_time = DiscreteCallback(condition_cpu_time, affect_cpu_time!, save_positions=(false, false))
                 push!(cbs, callback_cpu_time)
+
             elseif condition == "manifold"
                 r0 = [upreferred.(p.position) for p in values(nbody.particles)] 
                 v0 = [upreferred.(p.velocity) for p in values(nbody.particles)] 
                 masses = [upreferred(p.structure.m) for p in values(nbody.particles)] 
                 Einit = total_energy(r0, v0, masses) |> upreferred |> ustrip
+                
                 function g(resid, u, p, t)
                     E = total_energy(u.x[2], u.x[1], p.M)
                     resid[1] = Einit - E
@@ -72,14 +72,16 @@ function setup_callbacks(stopping_conditions, nbody, p, retcode, G, args; start_
                 condition_com(u, t, integrator) = (integrator.iter % 1000) == 0
                 callback_com = DiscreteCallback(condition_com, affect_com!, save_positions=(false, false))
                 push!(cbs, callback_com)
+
             elseif condition == "hubbletime"
                 affect_hubble!(integrator) = hubble_time_callback!(integrator, retcode)
                 condition_hubble(u, t, integrator) = true
                 callback_hubble = DiscreteCallback(condition_hubble, affect_hubble!, save_positions=(false, false))
                 push!(cbs, callback_hubble)
+
             elseif condition == "democratic"
-                affect_democratic!(integrator) = democratic_check_callback2!(integrator, retcode, nbody)
-                condition_democratic(u, t, integrator) = (integrator.iter % 100) == 0
+                affect_democratic!(integrator) = democratic_check_callback3!(integrator, retcode, nbody)
+                condition_democratic(u, t, integrator) = (integrator.iter % 1) == 0
                 callback_democratic = DiscreteCallback(condition_democratic, affect_democratic!, save_positions=(false, false))
                 push!(cbs, callback_democratic)
             
@@ -100,7 +102,6 @@ end
 Returns a callback for checking if collision has occured in system.
 """
 function collision_callback!(integrator, n, retcode)
-
     # k = 1
     @inbounds for i ∈ 1:n
         ri = @SVector [integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
@@ -208,12 +209,6 @@ function unbound_callback!(integrator, retcode, system; max_a=100, G=upreferred(
 
 end
 
-function evolve_callback(u, t, integrator, p)
-    integrator.p[2] = p.R(t)
-    integrator.p[3] = p.m(t)
-    false
-end
-
 do_nothing!(integrator) = nothing
 
 function rlof_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
@@ -315,32 +310,39 @@ function hubble_time_callback!(integrator, retcode)
     end
 end
 
-# function democratic_check_callback!(integrator, retcode, system)
-    
-#     smallest_distance = Inf
-#     @inbounds for i ∈ 1:n
-#         ri = SA[integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
-#         for j ∈ i:n
-#             if i != j
-#                 rj = SA[integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
-#                 d = norm(ri - rj)
-#                 smallest_distance = min(d, smallest_distance)
+function democratic_check_callback!(integrator, retcode, system)
+        
+    if haskey(retcode, :Democratic) # only need to raise flag once
+        return
+    end
 
-#             end
+    smallest_distance = Inf
+    @inbounds for i ∈ 1:system.n
+        ri = SA[integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
+        for j ∈ i:system.n
+            if i != j
+                rj = SA[integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
+                d = norm(ri - rj)
+                smallest_distance = min(d, smallest_distance)
 
-#         end
-#     end
+            end
 
+        end
+    end
 
+    inner_pericenter = system.binaries[1].elements.a*(1 - system.binaries[1].elements.e) |> upreferred |> ustrip
+    if smallest_distance < inner_pericenter
+        retcode[:Democratic] = (true, integrator.t)
+    end
 
-# end
+end
 
 function democratic_check_callback2!(integrator, retcode, system)
     # check if distance between tertiary and primary/secondary is ever smaller
     # than the initial inner semi-major axis
     
     
-    if get(retcode, :Democratic, false) # only need to raise flag once
+    if haskey(retcode, :Democratic) # only need to raise flag once
         return
     end
 
@@ -354,11 +356,41 @@ function democratic_check_callback2!(integrator, retcode, system)
         d = norm(ri - r3)
         
         if d < pericenter/2
-            retcode[:Democratic] = true
+        retcode[:Democratic] = (true, integrator.t)
             break
-        end
-            
+        end     
     end
+end
+
+function democratic_check_callback3!(integrator, retcode, system)
+    if haskey(retcode, :Democratic) # only need to raise flag once
+        return
+    end
+
+    u = integrator.u
+
+    r1 = SA[u.x[2][1,1], u.x[2][2,1], u.x[2][3,1]]
+    r2 = SA[u.x[2][1,2], u.x[2][2,2], u.x[2][3,2]]
+
+    v1 = SA[u.x[1][1,1], u.x[1][2,1], u.x[1][3,1]]
+    v2 = SA[u.x[1][1,2], u.x[1][2,2], u.x[1][3,2]]
+
+    M = integrator.p.M[1] + integrator.p.M[2]
+
+    # M₂ = sum(m)
+    r_rel = r2 - r1
+    v_rel = v2 - v1
+
+    d = norm(r_rel)
+    v² = norm(v_rel)^2
+
+    a = semi_major_axis(d, v², M, upreferred(𝒢).val)
+    e = eccentricity(r_rel, v_rel, a, M, upreferred(𝒢).val)
+
+    if e >= 1
+        retcode[:Democratic] = (true, integrator.t)
+    end
+
 
 end
 
