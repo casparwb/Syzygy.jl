@@ -251,7 +251,7 @@ function roche_radius(a, q)
     return a*roche_radius_fraction(q)
 end
 
-function roche_radius_fraction(M₁, M₂)
+-function roche_radius_fraction(M₁, M₂)
     q = M₁/M₂
 
     q²³ = cbrt(q)^2
@@ -263,7 +263,6 @@ function roche_radius_fraction(q::Real)
     cbrt_q² = cbrt(q)^2
     return 0.49cbrt_q²/(0.6cbrt_q² + log(1 + q^(1/3)))
 end
-
 
 """ 
     stellar_spin(m::T, R::T)
