@@ -226,54 +226,6 @@ end
 
 do_nothing!(integrator) = nothing
 
-# function rlof_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
-
-#     u = integrator.u
-#     @inbounds for i ∈ 1:system.n
-#         rcode = Symbol("RLOF_$i")
-#         haskey(retcode, rcode) && continue
-        
-#         if !(stellar_type_from_index(integrator.p.stellar_type[i]) isa Star)
-#             continue
-#         end
-        
-#         particle = system.particles[i]
-
-#         position = SA[u.x[2][1,i], u.x[2][2,i], u.x[2][3,i]]
-#         velocity = SA[u.x[1][1,i], u.x[1][2,i], u.x[1][3,i]]
-
-#         sibling = particle.sibling
-#         siblings = system[sibling]
-#         sibling_ids = get_particle_ids(siblings)
-        
-#         r, v = get_state_vectors(u.x[2], u.x[1], integrator.p.M, siblings, sibling_ids)
-
-#         # m = integrator.p.M[sibling_ids]
-#         M₁ = integrator.p.M[i]
-#         M₂ = zero(M₁)
-
-#         for k in integrator.p.M[sibling_ids]
-#             M₂ += k
-#         end
-#         # M₂ = sum(m)
-#         r_rel = position - r
-#         v_rel = velocity - v
-
-#         d = norm(r_rel)
-#         # v² = norm(v_rel)^2
-
-#         # a = semi_major_axis(d, v², M₁ + M₂, G)
-#         # e = eccentricity(r_rel, v_rel, a, M₁ + M₂, G)
-
-#         R_roche = roche_radius(d, M₁/M₂)#*(1 - e)
-
-#         rlof = R_roche <= integrator.p.R[i]
-#         if rlof
-#             retcode[rcode] = (upreferred(1.0u"s")*integrator.t)
-#         end
-#     end
-# end
-
 function rlof_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
 
     if haskey(retcode, :Democratic_dist) || haskey(retcode, :Democratic_ecc) || haskey(retcode, :Democratic_sma)
@@ -283,6 +235,9 @@ function rlof_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
     end # end if
 end
 
+"""
+The hierarchical RLOF check uses the siblings (the inner binary for the tertiary, and the companion)
+"""
 function rlof_callback_hierarchical!(integrator, retcode, system, G=upreferred(𝒢).val, particles=SA[(1:system.n)...])
     u = integrator.u
     @inbounds for i ∈ 1:system.n
@@ -317,10 +272,10 @@ function rlof_callback_hierarchical!(integrator, retcode, system, G=upreferred(�
         v_rel = velocity - v
 
         d = norm(r_rel)
-        v² = norm(v_rel)^2
+        # v² = norm(v_rel)^2
 
-        a = semi_major_axis(d, v², M₁ + M₂, G)
-        e = eccentricity(r_rel, v_rel, a, M₁ + M₂, G)
+        # a = semi_major_axis(d, v², M₁ + M₂, G)
+        # e = eccentricity(r_rel, v_rel, a, M₁ + M₂, G)
 
         R_roche = roche_radius(d, M₁/M₂)#*(1 - e)
 
@@ -331,6 +286,9 @@ function rlof_callback_hierarchical!(integrator, retcode, system, G=upreferred(�
     end
 end
 
+"""
+The democratic RLOF check uses the nearest particle.
+"""
 function rlof_callback_democratic!(integrator, retcode, system, G=upreferred(𝒢).val, particles=SA[(1:system.n)...])
     u = integrator.u
     @inbounds for i ∈ particles

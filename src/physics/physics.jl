@@ -251,7 +251,7 @@ function roche_radius(a, q)
     return a*roche_radius_fraction(q)
 end
 
--function roche_radius_fraction(M₁, M₂)
+function roche_radius_fraction(M₁, M₂)
     q = M₁/M₂
 
     q²³ = cbrt(q)^2
