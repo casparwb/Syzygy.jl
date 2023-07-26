@@ -171,7 +171,7 @@ function setup_params(binaries, particles, extras)
     luminosities = Float64[]
     radii = Float64[]
     spins = Float64[]
-    types = Float64[]
+    types = Int[]
 
     particle_keys = keys(particles) |> collect |> sort
     for i in particle_keys
@@ -204,16 +204,13 @@ function setup_params(binaries, particles, extras)
     spins = SA[spins...]
     types = SA[types...]
 
-    # extras = (;zip(Symbol.(keys(extras)), values(extras))...)
     all_params = Dict(:a => semi_major_axes, :R => radii, 
                       :M => masses, :S => spins,
                       :L => luminosities, 
                       :stellar_type => types)
     merge!(all_params, extras)
 
-    # ode_params = 
     ode_params = LVector((;zip(keys(all_params), values(all_params))...))
-
     return ode_params
 end
 
