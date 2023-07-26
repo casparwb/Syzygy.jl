@@ -171,7 +171,7 @@ function setup_params(binaries, particles, extras)
     luminosities = Float64[]
     radii = Float64[]
     spins = Float64[]
-    types = Int[]
+    types = Float64[]
 
     particle_keys = keys(particles) |> collect |> sort
     for i in particle_keys
