@@ -34,8 +34,6 @@ function simulate(simulation::FewBodySimulation)
                                      callback=callbacks, maxiters=args[:maxiters], 
                                      abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                      diffeq_args...)
-
-    
     prog = ProgressUnknown("Evolving system:", showspeed=true, spinner=true, enabled=args[:showprogress])
 
     maxtime = simulation.tspan[end]

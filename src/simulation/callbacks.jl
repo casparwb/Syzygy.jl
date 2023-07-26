@@ -26,7 +26,7 @@ function setup_callbacks(stopping_conditions, system, p, retcode, G, args; start
                 function condition_escape(u, t, integrator)
                     (integrator.iter % 100) == 0  # check for escape every 100 iteration
                 end
-                affect_escape!(integrator) = unbound_callback!(integrator, retcode, system, G=G)
+                affect_escape!(integrator) = unbound_callback!(integrator, retcode, G=G)
                 callback_escape = DiscreteCallback(condition_escape, affect_escape!, save_positions=(false, false))
                 push!(cbs, callback_escape)
 
@@ -35,6 +35,7 @@ function setup_callbacks(stopping_conditions, system, p, retcode, G, args; start
                     (integrator.iter % 100) == 0  # check for rlof every 100 iteration
                 end
                 affect_rlof!(integrator) =  rlof_callback!(integrator, retcode, system, G)
+                # affect_rlof!(integrator) =  rlof_callback_hierarchical!(integrator, retcode, system, G)
                 callback_rlof = DiscreteCallback(condition_rlof, affect_rlof!, save_positions=(false, false))
                 push!(cbs, callback_rlof)
 
@@ -113,15 +114,15 @@ Returns a callback for checking if collision has occured in system.
 function collision_callback!(integrator, n, retcode)
     # k = 1
     @inbounds for i ∈ 1:n
-        ri = @SVector [integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
+        ri = SA[integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
         for j ∈ i:n
             if i != j
-                rj = @SVector [integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
+                rj = SA[integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
                 d = norm(ri - rj)
 
-                if (d - integrator.p.R[j]) < integrator.p.R[i]
+                if isless(d - integrator.p.R[j], integrator.p.R[i])
                     t = integrator.t * upreferred(1.0u"s")
-                    retcode[:Collision] = ([i, j], t)
+                    retcode[:Collision] = (SA[i, j], t)
                     terminate!(integrator)
                 end
                 # k += 1
@@ -133,9 +134,8 @@ end
 
 
 function get_state_vectors(positions, velocities, masses, particle::Particle, sibling_ids)
-    return SA[positions[1,particle.key.i], positions[2,particle.key.i], positions[3,particle.key.i]],
-           SA[velocities[1,particle.key.i], velocities[2,particle.key.i], velocities[3,particle.key.i]]
-    #view(positions, :, particle.key.i)#, view(velocities, :, particle.key.i), view(masses, particle.key.i)
+    return SA[SA[positions[1,particle.key.i], positions[2,particle.key.i], positions[3,particle.key.i]],
+              SA[velocities[1,particle.key.i], velocities[2,particle.key.i], velocities[3,particle.key.i]]]
 end
 
 function get_state_vectors(positions, velocities, masses, binary::Binary, sibling_ids)
@@ -167,7 +167,7 @@ end
 """
 Returns a callback for checking if system has become unbound.
 """
-function unbound_callback!(integrator, retcode, system; max_a=100, G=upreferred(𝒢).val)
+function unbound_callback!(integrator, retcode; max_a=100, G=upreferred(𝒢).val)
 
     u = integrator.u
     combinations = SA[(1, SA[2, 3]), (2, SA[1, 3]), (3, SA[1, 2])]
@@ -238,13 +238,13 @@ end
 """
 The hierarchical RLOF check uses the siblings (the inner binary for the tertiary, and the companion)
 """
-function rlof_callback_hierarchical!(integrator, retcode, system, G=upreferred(𝒢).val, particles=SA[(1:system.n)...])
+function rlof_callback_hierarchical!(integrator, retcode, system, G=upreferred(𝒢).val)
     u = integrator.u
     @inbounds for i ∈ 1:system.n
-        rcode = Symbol("RLOF_$i")
+        rcode = Symbol(:RLOF_, i)
         haskey(retcode, rcode) && continue
         
-        if !(stellar_type_from_index(integrator.p.stellar_type[i]) isa Star)
+        if !(stellar_types[round(Int, integrator.p.stellar_type[i])] isa Star)
             continue
         end
         
@@ -278,10 +278,9 @@ function rlof_callback_hierarchical!(integrator, retcode, system, G=upreferred(�
         # e = eccentricity(r_rel, v_rel, a, M₁ + M₂, G)
 
         R_roche = roche_radius(d, M₁/M₂)#*(1 - e)
-
         rlof = R_roche <= integrator.p.R[i]
         if rlof
-            retcode[rcode] = (upreferred(1.0u"s")*integrator.t)
+            retcode[rcode] = upreferred(1.0u"s")*integrator.t
         end
     end
 end
@@ -295,7 +294,7 @@ function rlof_callback_democratic!(integrator, retcode, system, G=upreferred(�
         rcode = Symbol("RLOF_$i")
         haskey(retcode, rcode) && continue
 
-        if !(stellar_type_from_index(integrator.p.stellar_type[i]) isa Star)
+        if !(stellar_types[round(Int, integrator.p.stellar_type[i])] isa Star)
             continue
         end
 
@@ -325,7 +324,7 @@ function rlof_callback_democratic!(integrator, retcode, system, G=upreferred(�
 
         rlof = R_roche <= integrator.p.R[i]
         if rlof
-            retcode[rcode] = (upreferred(1.0u"s")*integrator.t)
+            retcode[rcode] = upreferred(1.0u"s")*integrator.t
         end
     end
 
@@ -335,7 +334,7 @@ end
 function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
 
     @inbounds for i ∈ 1:system.n
-        stellar_type = system.particles[i].structure.type.index
+        stellar_type = round(Int, integrator.p.stellar_type[i])
 
         # check if particle is a black hole, supernova, or unknown type
         if stellar_type == 14 || stellar_type == 15 || stellar_type == 16
@@ -343,14 +342,15 @@ function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(�
         end
         ri = @SVector [integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
         for j ∈ i:system.n
-            if system.particles[j].structure.type isa BlackHole && i != j
+            stellar_type_j = round(Int, integrator.p.stellar_type[j])
+            if stellar_type_j == 14 && i != j
                 rj = @SVector [integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
                 d = norm(ri - rj)
 
                 tidal_disruption_radius = integrator.p.R[i]*cbrt(integrator.p.M[j]/integrator.p.M[i])
                 if (d - integrator.p.R[i]) < tidal_disruption_radius
                     t = integrator.t * upreferred(1.0u"s")
-                    retcode[:TidalDisruption] = ([i, j], t)
+                    retcode[:TidalDisruption] = (SA[i, j], t)
                     terminate!(integrator)
                 end
             end

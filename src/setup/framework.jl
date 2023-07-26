@@ -181,7 +181,7 @@ function DiffEqBase.SecondOrderODEProblem(simulation::FewBodySimulation)
     acceleration_functions = gather_accelerations_for_potentials(simulation)
 
     # a = @SVector zeros(3)
-    a = MVector(0.0, 0.0, 0.0)
+    a = MVector{3, Float64}(0.0, 0.0, 0.0)
     function soode_system!(dv, v, u, p, t)
         @inbounds for i = 1:n
             # a = MVector(0.0, 0.0, 0.0)

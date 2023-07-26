@@ -166,32 +166,32 @@ struct BrownDwarf <: SubStellarObject
     BrownDwarf() = new(19)
 end
 
+const  stellar_types = Dict(
+                                0  => DeeplyOrFullyConvectiveLowMassMainSequence(),
+                                1  => MainSequence(),
+                                2  => HertzsprungGap(),
+                                3  => FirstGiantBranch(),
+                                4  => CoreHeliumBurning(),
+                                5  => FirstAsymptoticGiantBranch(),
+                                6  => SecondAsymptoticGiantBranch(),
+                                7  => MainSequenceNakedHelium(),
+                                8  => HertzsprungGapNakedHelium(),
+                                9  => GiantBranchNakedHelium(),
+                                10 => HeliumWhiteDwarf(),
+                                11 => CarbonOxygenWhiteDwarf(),
+                                12 => OxygenNeonWhiteDwarf(),
+                                13 => NeutronStar(),
+                                14 => BlackHole(),
+                                15 => MasslessSupernova(),
+                                16 => UnknownStellarType(),
+                                17 => PreMainSequence(),
+                                18 => Planet(),
+                                19 => BrownDwarf()
+                            )
 
 function stellar_type_from_index(index)
     @assert (0 <= index <= 19) "Stellar index must be in the range {0, 19}."
-    stellar_type_index = Dict(
-                                0  => DeeplyOrFullyConvectiveLowMassMainSequence,
-                                1  => MainSequence,
-                                2  => HertzsprungGap,
-                                3  => FirstGiantBranch,
-                                4  => CoreHeliumBurning,
-                                5  => FirstAsymptoticGiantBranch,
-                                6  => SecondAsymptoticGiantBranch,
-                                7  => MainSequenceNakedHelium,
-                                8  => HertzsprungGapNakedHelium,
-                                9  => GiantBranchNakedHelium,
-                                10 => HeliumWhiteDwarf,
-                                11 => CarbonOxygenWhiteDwarf,
-                                12 => OxygenNeonWhiteDwarf,
-                                13 => NeutronStar,
-                                14 => BlackHole,
-                                15 => MasslessSupernova,
-                                16 => UnknownStellarType,
-                                17 => PreMainSequence,
-                                18 => Planet,
-                                19 => BrownDwarf
-                            )
-    stellar_type_index[index]()
+    stellar_types[index]
 end
 
 
