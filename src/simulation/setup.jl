@@ -245,9 +245,12 @@ end
 function Base.show(io::IO, sim::SimulationResult)
 
     println(io, "Simulation result:\n====================================\n")
-    println(io, "Retcode: $(sim.retcode)\n")
+    println(io, "Retcodes: ")
+    for (k, v) in sim.retcode
+        println(io, "   $k", " ", v)
+    end
 
-    println(io, "Runtime: $(sim.runtime)\n")
+    println(io, "\nRuntime: $(sim.runtime)\n")
 
     println(io, "Number of datapoints: $(length(sim.solution.t))\n")
     println(io, "ODE Retcode: $(sim.solution.retcode)\n")
