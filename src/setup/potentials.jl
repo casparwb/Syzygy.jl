@@ -132,6 +132,9 @@ function pure_gravitational_acceleration!(dv,
         end
     end
     @. dv += accel
+
+    # nothing
+    # accel
 end
 
 

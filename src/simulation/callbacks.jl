@@ -12,10 +12,11 @@ function setup_callbacks(stopping_conditions, system, p, retcode, G, args; start
     isempty(stopping_conditions) && return nothing
     cbs = []
 
+    n = system.n
     for condition in stopping_conditions
         if condition isa String
             if condition == "collision"
-                n = system.n
+                
                 condition_collision(u, t, integrator) = true
                 affect_collision!(integrator) = collision_callback!(integrator, n, retcode)
                 callback_collision = DiscreteCallback(condition_collision, affect_collision!, save_positions=(false, false))
@@ -34,7 +35,9 @@ function setup_callbacks(stopping_conditions, system, p, retcode, G, args; start
                 function condition_rlof(u, t, integrator)
                     (integrator.iter % 100) == 0  # check for rlof every 100 iteration
                 end
-                affect_rlof!(integrator) =  rlof_callback!(integrator, retcode, system, G)
+                rlof_rcodes = [Symbol(:RLOF_, i) for i = 1:n]
+                rlof_rcodes = SA[rlof_rcodes...]
+                affect_rlof!(integrator) =  rlof_callback!(integrator, retcode, system, n, rlof_rcodes, G)
                 # affect_rlof!(integrator) =  rlof_callback_hierarchical!(integrator, retcode, system, G)
                 callback_rlof = DiscreteCallback(condition_rlof, affect_rlof!, save_positions=(false, false))
                 push!(cbs, callback_rlof)
@@ -69,7 +72,7 @@ function setup_callbacks(stopping_conditions, system, p, retcode, G, args; start
                 push!(cbs, callback_manifold)
 
             elseif condition == "com"
-                n = system.n
+                
                 affect_com!(integrator) = move_to_com_callback!(integrator)
                 condition_com(u, t, integrator) = (integrator.iter % 1000) == 0
                 callback_com = DiscreteCallback(condition_com, affect_com!, save_positions=(false, false))
@@ -131,35 +134,56 @@ function collision_callback!(integrator, n, retcode)
     end
 end
 
+@inline function get_masses(masses, sibling_ids::SVector{N, Int}) where N
+    masses[sibling_ids]
+end 
 
+@inline function total_mass(masses, sibling_ids::SVector{N, Int}) where N
+    sum(i -> masses[i], sibling_ids)
+end
 
-function get_state_vectors(positions, velocities, masses, particle::Particle, sibling_ids)
+function get_state_vectors(positions, velocities, masses, sibling::Particle, sibling_ids::SVector{N, Int}) where N
     return SA[SA[positions[1,particle.key.i], positions[2,particle.key.i], positions[3,particle.key.i]],
               SA[velocities[1,particle.key.i], velocities[2,particle.key.i], velocities[3,particle.key.i]]]
 end
 
-function get_state_vectors(positions, velocities, masses, binary::Binary, sibling_ids)
-    m = masses[sibling_ids]
+function get_state_vectors(positions, velocities, masses, binary::Binary, sibling_ids::SVector{N, Int}) where N
+    m = get_masses(masses, sibling_ids)
     return SA[centre_of_mass(view(positions, :, sibling_ids), m),
               centre_of_mass_velocity(view(velocities, :, sibling_ids), m)]
            #m
 end
 
-function get_positions(positions, masses, particle::Particle, sibling_ids)
-    return SA[positions[1,particle.key.i], positions[2,particle.key.i], positions[3,particle.key.i]]
+@inline function get_positions(positions, masses, sibling::T where T <: Particle, sibling_ids::SVector{N, Int}) where N
+    return SA[positions[1,sibling.key.i], positions[2,sibling.key.i], positions[3,sibling.key.i]]
 end
 
-function get_positions(positions, masses, binary::Binary, sibling_ids)
-    m = masses[sibling_ids]
-    return centre_of_mass(view(positions, :, sibling_ids), m)
+@inline function get_positions(positions, masses, sibling::T where T <: Binary, sibling_ids::SVector{N, Int}) where N
+    # m = get_masses(masses, sibling_ids)
+    # return centre_of_mass(view(positions, :, sibling_ids), m)\
+
+    M = total_mass(masses, sibling_ids)
+
+    # com = SA[0.0, 0.0, 0.0]
+    # for k ∈ sibling_ids
+    #     # k == i && continue
+    #     r = SA[positions[1,k], positions[2,k], positions[3,k]]
+    #     com += r * masses[k] / M
+    # end
+    # return com
+
+    mapreduce(+, sibling_ids) do k
+        r = SA[positions[1,k], positions[2,k], positions[3,k]]
+        r * masses[k] / M
+    end
 end
 
-function get_velocities(velocities, masses, particle::Particle, sibling_ids)
-    return SA[velocities[1,particle.key.i], velocities[2,particle.key.i], velocities[3,particle.key.i]]
+function get_velocities(velocities, masses, sibling::Particle, sibling_ids::SVector{N, Int} where N)
+    return SA[velocities[1,sibling.key.i], velocities[2,sibling.key.i], velocities[3,sibling.key.i]]
 end
 
-function get_velocities(velocities, masses, binary::Binary, sibling_ids)
-    m = masses[sibling_ids]
+function get_velocities(velocities, masses, sibling::Binary, sibling_ids::SVector{N, Int} where N)
+    m = get_masses(masses, sibling_ids)
     return centre_of_mass_velocity(view(velocities, :, sibling_ids), m)
 end
 
@@ -226,50 +250,55 @@ end
 
 do_nothing!(integrator) = nothing
 
-function rlof_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
+function rlof_callback!(integrator, retcode, system, n, rlof_rcodes, G=upreferred(𝒢).val)
+    rlof_callback_hierarchical!(integrator, retcode, system, n, rlof_rcodes)
 
-    if haskey(retcode, :Democratic_dist) || haskey(retcode, :Democratic_ecc) || haskey(retcode, :Democratic_sma)
-        rlof_callback_democratic!(integrator, retcode, system, G)
-    else
-        rlof_callback_hierarchical!(integrator, retcode, system, G)
-    end # end if
+    # if true#haskey(retcode, :Democratic_dist) || haskey(retcode, :Democratic_ecc) || haskey(retcode, :Democratic_sma)
+    #     # rlof_callback_democratic!(integrator, retcode, n, rlof_rcodes)
+    #     # rlof_callback_hierarchical!(integrator, retcode, system, n, rlof_rcodes)
+    # # else
+    # #     rlof_callback_hierarchical!(integrator, retcode, system, G)
+    # end # end if
 end
+
+function get_sibling(system, sibling::BinaryIndex)
+    system.binaries[sibling.i]
+end
+
+function get_sibling(system, sibling::ParticleIndex)
+    system.particles[sibling.i]
+end
+
 
 """
 The hierarchical RLOF check uses the siblings (the inner binary for the tertiary, and the companion)
 """
-function rlof_callback_hierarchical!(integrator, retcode, system, G=upreferred(𝒢).val)
+function rlof_callback_hierarchical!(integrator, retcode, system, n, rlof_rcodes)
     u = integrator.u
-    @inbounds for i ∈ 1:system.n
-        rcode = Symbol(:RLOF_, i)
+    @inbounds for i ∈ 1:n
+        rcode = rlof_rcodes[i]
         haskey(retcode, rcode) && continue
         
         if !(stellar_types[round(Int, integrator.p.stellar_type[i])] isa Star)
             continue
         end
         
-        particle = system.particles[i]
+        particle::Particle = system.particles[i]
 
         position = SA[u.x[2][1,i], u.x[2][2,i], u.x[2][3,i]]
-        velocity = SA[u.x[1][1,i], u.x[1][2,i], u.x[1][3,i]]
 
         sibling = particle.sibling
-        siblings = system[sibling]
+        siblings = get_sibling(system, sibling)#system[sibling]
         sibling_ids = get_particle_ids(siblings)
-        
-        r, v = get_state_vectors(u.x[2], u.x[1], integrator.p.M, siblings, sibling_ids)
 
-        # m = integrator.p.M[sibling_ids]
+
         M₁ = integrator.p.M[i]
-        M₂ = zero(M₁)
+        M₂ = total_mass(integrator.p.M, sibling_ids)
 
-        for k in integrator.p.M[sibling_ids]
-            M₂ += k
-        end
+        com = get_positions(u.x[2], integrator.p.M, siblings, sibling_ids)
 
-        # M₂ = sum(m)
-        r_rel = position - r
-        v_rel = velocity - v
+        r_rel = position - com
+        # v_rel = velocity - v_com
 
         d = norm(r_rel)
         # v² = norm(v_rel)^2
@@ -278,7 +307,7 @@ function rlof_callback_hierarchical!(integrator, retcode, system, G=upreferred(�
         # e = eccentricity(r_rel, v_rel, a, M₁ + M₂, G)
 
         R_roche = roche_radius(d, M₁/M₂)#*(1 - e)
-        rlof = R_roche <= integrator.p.R[i]
+        rlof = isless(R_roche, integrator.p.R[i])
         if rlof
             retcode[rcode] = upreferred(1.0u"s")*integrator.t
         end
@@ -288,11 +317,11 @@ end
 """
 The democratic RLOF check uses the nearest particle.
 """
-function rlof_callback_democratic!(integrator, retcode, system, G=upreferred(𝒢).val, particles=SA[(1:system.n)...])
+function rlof_callback_democratic!(integrator, retcode, n, rlof_rcodes)
     u = integrator.u
-    @inbounds for i ∈ particles
-        rcode = Symbol("RLOF_$i")
-        haskey(retcode, rcode) && continue
+    @inbounds for i ∈ 1:n
+        # rcode = Symbol("RLOF_$i")
+        # haskey(retcode, rcode) && continue
 
         if !(stellar_types[round(Int, integrator.p.stellar_type[i])] isa Star)
             continue
@@ -301,9 +330,22 @@ function rlof_callback_democratic!(integrator, retcode, system, G=upreferred(�
         position = SA[u.x[2][1,i], u.x[2][2,i], u.x[2][3,i]]
         velocity = SA[u.x[1][1,i], u.x[1][2,i], u.x[1][3,i]]
 
-        sibling_ids = [part for part in particles if part != i]
-        distances = [norm(position - SA[u.x[2][1,j], u.x[2][2,j], u.x[2][3,j]]) for j in sibling_ids]
-        sibling = sibling_ids[argmin(distances)]
+        # sibling_ids = [part for part in particles if part != i]
+        # distances = [norm(position - SA[u.x[2][1,j], u.x[2][2,j], u.x[2][3,j]]) for j in sibling_ids]
+        # sibling = sibling_ids[argmin(distances)]
+
+        dist = Inf
+        sibling = i
+        for k ∈ 1:n
+            if k != i
+                r = SA[u.x[2][1,k], u.x[2][2,k], u.x[2][3,k]]
+                d = norm(position - r)
+                if d < dist
+                    dist = d
+                    sibling = k
+                end
+            end
+        end
         
         r = SA[u.x[2][1,sibling], u.x[2][2,sibling], u.x[2][3,sibling]]
         v = SA[u.x[1][1,sibling], u.x[1][2,sibling], u.x[1][3,sibling]]
@@ -324,10 +366,10 @@ function rlof_callback_democratic!(integrator, retcode, system, G=upreferred(�
 
         rlof = R_roche <= integrator.p.R[i]
         if rlof
-            retcode[rcode] = upreferred(1.0u"s")*integrator.t
+            # retcode[rcode] = upreferred(1.0u"s")*integrator.t
         end
     end
-
+    nothing
 end
 
 

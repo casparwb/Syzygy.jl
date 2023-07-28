@@ -499,8 +499,12 @@ function create_binary(child1::Binary, child2::Binary, elements, level, binary_k
            children, nested_children, com_position, com_velocity, binary_masses, elements)
 end
 
-get_particle_ids(binary::Binary) = binary.nested_children
-get_particle_ids(particle::Particle) = SA[particle.key.i]
+function get_particle_ids(binary::Binary)
+    binary.nested_children
+end
+function get_particle_ids(particle::Particle)
+    SA[particle.key.i]
+end
 
 function get_particles(binary::Binary, particles=Particle[])
     children = binary.children

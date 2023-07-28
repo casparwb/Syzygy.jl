@@ -18,7 +18,6 @@ function simulate(simulation::FewBodySimulation)
     args        = simulation.args
     diffeq_args = simulation.diffeq_args
 
-    # retcode = Set()
     retcodes = Dict{Symbol, Any}(:Success => false)
     start_time = time()
     if !isinf(args[:max_cpu_time])
@@ -28,14 +27,30 @@ function simulate(simulation::FewBodySimulation)
     cbs = setup_callbacks(args[:callbacks], simulation.ic, simulation.params, 
                           retcodes, simulation.system.potential[:PureGravitationalPotential].G, args, start_time=start_time)
     callbacks = isnothing(cbs) ? nothing : CallbackSet(cbs...)
+
+
+    ##############################################################################################################
+    #              This block allows the full simulation to run without allocations. Don't know why.             #
+    ##############################################################################################################
+    let
+        ode_prob_static = sodeprob_static(simulation)
+        integrator_static = OrdinaryDiffEq.init(ode_prob_static, args[:alg], saveat=args[:saveat], 
+                                                callback=callbacks, maxiters=args[:maxiters], 
+                                                abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
+                                                diffeq_args...)
+        step!(integrator_static)
+        terminate!(integrator_static)
+
+    end
+    ##############################################################################################################
     
+
     ode_problem = SecondOrderODEProblem(simulation)
     integrator = OrdinaryDiffEq.init(ode_problem, args[:alg], saveat=args[:saveat], 
                                      callback=callbacks, maxiters=args[:maxiters], 
                                      abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                      diffeq_args...)
     prog = ProgressUnknown("Evolving system:", showspeed=true, spinner=true, enabled=args[:showprogress])
-
     maxtime = simulation.tspan[end]
     try
         if args[:showprogress]
