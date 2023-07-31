@@ -279,26 +279,95 @@ function stellar_spin(m::T, R::T) where T <: Real
     Ω = (45.35vᵣₒₜ/R)
 end
 
+
+
+function envelope_structure(mass, radius, core_mass, core_radius, stellar_type, age)
+    tMS, tBGB = main_sequence_lifetime(mass, Z)
+    envelope_radius = convective_envelope_radius(mass, radius, core_radius, stellar_type, age, tMS, tBGB)
+    envelope_mass = convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
+
+    return envelope_radius, envelope_mass
+end
+
 """
     envelope_radius(mass, radius, core_radius, stellar_type)
 
 Calculate the radius of the envelope with given mass, radius, core radius, and stellar type.
 Reference Hurley et al. 2002 - DOI: 10.1046/j.1365-8711.2002.05038.x
 """
-function envelope_radius(mass, radius, core_radius, stellar_type)
+function convective_envelope_radius(mass, radius, core_radius, stellar_type, age, tMS, tBGB)
 
-    if any(stellar_type .== (3, 5, 6, 8, 9))
+    if any(stellar_type .== (3, 5, 6, 8, 9)) # giant-like stars
         return radius - core_radius
-    else
-        if mass > 1.25u"Msun"
-            return 0.0u"Rsun"
-        elseif mass < 0.35u"Msun"
-            return radius
-        else
-            @warn "Envelope radius for 0.35 < M < 1.25 not yet implemented." 
-            return 0.0u"Rsun"
-        end
+    elseif any(stellar_type .== (1, 7))   # main sequence stars
+        R_env₀ = if mass > 1.25u"Msun"
+                    0.0u"Rsun"
+                elseif mass < 0.35u"Msun"
+                    radius
+                else
+                    @warn "Envelope radius for 0.35 < M < 1.25 not yet implemented." 
+                    return 0.0u"Rsun"
+                end
+
+        τ = age/tMS
+        return R_env₀*(1 - τ)^0.25
+    elseif any(stellar_type .== (2, 8)) # Hertzsprung gap stars
+        τ = (age - tMS)/(tBGB - tMS)
+        return sqrt(τ)*(radius - core_radius)
     end
+
+end
+
+function convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
+    @assert stellar_types[stellar_type] isa Star "Only stars have envelopes."
+
+    if any(stellar_type .== (1, 7)) 
+        M_env₀ = if mass < 0.35u"Msun"
+                     mass
+                 elseif mass > 1.25u"Msun"
+                     0.0u"Msun"
+                 else
+                    0.35*((1.25 - mass)/0.9)^2
+                 end
+        
+        τ = age/tMS
+        return M_env₀*(1 - τ)^0.25
+    elseif any(stellar_type .== (2, 8))
+        τ = (age - tMS)/(tBGB - tMS)
+        return τ*(mass - core_mass)
+    else 
+        return mass - core_mass
+    end
+end 
+
+function main_sequence_lifetime(mass, Z)
+    # 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+
+    ζ = log(Z/0.02) # Hurley et al 2000 page 5
+
+    aₙ(α, β, γ, η, μ) = α + β*ζ + γ*ζ^2 + η*ζ^3 + μ*ζ^4
+
+    a₁ = aₙ(1.593890, 2.053038, 1.231226, 2.327785, 0.0)
+    a₂ = aₙ(2.706708, 1.483131, 5.772723, 7.411230, 0.0)
+    a₃ = aₙ(1.466143, -1.048442, -6.795374, -1.391127, 0.0)
+    a₄ = aₙ(4.141960, 4.564888, 2.958542, 5.571483, 0.0)
+    a₅ = aₙ(3.426349, 0.0, 0.0, 0.0, 0.0)
+    a₆ = aₙ(1.949814, 1.758178, -6.008212, -4.470533, 0.0)
+    a₇ = aₙ(4.903830, 0.0, 0.0, 0.0, 0.0)
+    a₈ = aₙ(5.212154, 3.166411, -2.750074, -2.271549, 0.0)
+    a₉ = aₙ(1.312179, -3.294936, 9.231860, 2.610989, 0.0)
+    a₁₀ = aₙ(8.073972, 0.0, 0.0, 0.0, 0.0)
+
+
+    μ = max(0.5, 1.0 - 0.01*max(a₆/M^a₇, a₈ + a₉/M^a₁₀))
+    x = max(0.95, min(0.95 - 0.03*(ζ + 0.30103), 0.99))
+
+    tBGB = (a₁ + a₂*M^4 + a₃*M^5.5 + M^7)/(a₄*M^2 + a₅*M^7)
+
+    t_hook = μ*tBGB
+    tMS = max(t_hook, x*tBGB)
+
+    return tMS, tBGB
 end
 
 function mass_luminosity_relation(M)
