@@ -105,46 +105,59 @@ function analyse_simulation(result::SimulationResult)
     time = result.solution.t .* u"s"
     n_steps = length(time)
 
-    masses = result.simulation.params.M .* upreferred(1.0u"kg") 
-    radii = result.simulation.params.R  .* upreferred(1.0u"m")
-    spins = result.simulation.params.S  .* upreferred(1.0u"1/s")
-
-    luminosities = if :L in propertynames(result.simulation.params)
-                       result.simulation.params.L  .* upreferred(1.0u"Lsun")
-                   else
-                       [system.particles[i].structure.L for i ∈ 1:system.n]
-                   end
+    masses = result.ode_params.M .* upreferred(1.0u"kg") 
+    radii = result.ode_params.R  .* upreferred(1.0u"m")
+    spins = result.ode_params.S  .* upreferred(1.0u"1/s")
+    luminosities = result.ode_params.L  .* upreferred(1.0u"Lsun")
+    stellar_types = result.ode_params.stellar_type
 
     if masses[1] isa Number
         mass_vec = Matrix{typeof(upreferred(1.0u"kg"))}(undef, n_bodies, n_steps)
+        mass_vec[:,1] .= [system.particles[i].structure.m for i = 1:n_bodies]
         @inbounds for i = 1:n_bodies
-            mass_vec[i,:] .= masses[i]
+            mass_vec[i,2:end] .= masses[i]
         end
         masses = mass_vec
     end
 
     if radii[1] isa Number
         rad_vec = Matrix{typeof(upreferred(1.0u"m"))}(undef, n_bodies, n_steps)
+        rad_vec[:,1] .= [system.particles[i].structure.R for i = 1:n_bodies]
+
         @inbounds for i = 1:n_bodies
-            rad_vec[i,:] .= radii[i]
+            rad_vec[i,2:end] .= radii[i]
         end
         radii = rad_vec
     end
 
     if spins[1] isa Number
         spin_vec = Matrix{typeof(upreferred(1.0u"1/s"))}(undef, n_bodies, n_steps)
+        spin_vec[:,1] .= [system.particles[i].structure.S for i = 1:n_bodies]
+
         @inbounds for i = 1:n_bodies
-            spin_vec[i,:] .= spins[i]
+            spin_vec[i,2:end] .= spins[i]
         end
         spins = spin_vec
     end
 
     if luminosities[1] isa Number
         lum_vec = Matrix{typeof(upreferred(1.0u"Lsun"))}(undef, n_bodies, n_steps)
+        lum_vec[:,1] .= [system.particles[i].structure.L for i = 1:n_bodies]
+
         @inbounds for i = 1:n_bodies
-            lum_vec[i,:] .= luminosities[i]
+            lum_vec[i,2:end] .= luminosities[i]
         end
         luminosities = lum_vec
+    end
+
+    if stellar_types[1] isa Number
+        st_ty_vec = Matrix{typeof(upreferred(1.0u"1"))}(undef, n_bodies, n_steps)
+        st_ty_vec[:,1] .= [system.particles[i].structure.type.index for i = 1:n_bodies]
+
+        @inbounds for i = 1:n_bodies
+            st_ty_vec[i,2:end] .= stellar_types[i]
+        end
+        stellar_types = st_ty_vec
     end
 
     elements, structure, quantities = setup_simulation_solution(n_steps, n_bodies, n_binaries, masses)
@@ -152,9 +165,8 @@ function analyse_simulation(result::SimulationResult)
         structure.m[:,i] .= masses[:,i]
         structure.R[:,i] .= radii[:,i]
         structure.L[:,i] .= luminosities[:,i]
-        
         structure.S[:,i] .= spins[:,i]
-        structure.type[:,i] .= [system.particles[i].structure.type.index for i in 1:n_bodies]
+        structure.type[:,i] .= st_ty_vec[:,i]
 
         structure.R_core[:,i] = [system.particles[i].structure.R_core for i in 1:n_bodies]
         structure.m_core[:,i] = [system.particles[i].structure.m_core for i in 1:n_bodies]
