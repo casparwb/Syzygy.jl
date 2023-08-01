@@ -57,7 +57,7 @@ function parse_arguments!(kwargs::Dict)
                         :maxiters => Inf,
                         :abstol => 1.0e-10, :reltol => 1.0e-10,
                         :potential => PureGravitationalPotential(), :potential_params => [𝒢.val],
-                        :callbacks => ["collision", "escape"], :showprogress => true,
+                        :callbacks => ["collision", "escape"], :showprogress => false,
                         :verbose => false, :ode_params => Dict(), :max_cpu_time => Inf
                         )
 
