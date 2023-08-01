@@ -7,7 +7,15 @@ abstract type FewBodyPotential end
 
 struct PureGravitationalPotential{gType <: Real} <: FewBodyPotential
     G::gType
-    PureGravitationalPotential(G=upreferred(𝒢).val) = new(G)
+end
+
+PureGravitationalPotential() = PureGravitationalPotential(upreferred(𝒢).val)
+
+struct DynamicalTidalPotential{gType <: Real, nType, fType <: Function} <: FewBodyPotential
+    G::gType # Gravitational constant
+    nₜ::Int  # Tidal force power constant
+    γ::nType # Polytropic index of each star
+    tidal_factor::fType
 end
 
 """
@@ -21,61 +29,54 @@ Set up the dynamical tidal potential for a system.
 - `n`: tidal force power index
 - `γ`: vector of polytropic indices of each body in the system
 """
-struct DynamicalTidalPotential{gType <: Real, nType, fType <: Function} <: FewBodyPotential
-    G::gType # Gravitational constant
-    nₜ::Int  # Tidal force power constant
-    γ::nType # Polytropic index of each star
-    tidal_factor::fType
+function DynamicalTidalPotential(;G, n, γ)
 
-    function DynamicalTidalPotential(;G, n, γ)
-
-        if n == 4
-            f = tidal_factor_n4
-        elseif n == 10
-            f = tidal_factor_n10
-        else
-            f = x -> x
-        end
-    
-        new(G, n, γ, f)
+    if n == 4
+        f = tidal_factor_n4
+    elseif n == 10
+        f = tidal_factor_n10
+    else
+        f = x -> x
     end
+
+    DynamicalTidalPotential(G, n, γ, f)
 end
 
 
 struct EquilibriumTidalPotential{gType <: Real, kType, k_TType} <: FewBodyPotential
     G::gType
     k::kType
-    k_over_T::k_T_Type
+    k_over_T::k_TType
+end
 
-    function EquilibriumTidalPotential(system::MultiBodySystem, G=upreferred(𝒢).val)
-        n_particles = system.n
+function EquilibriumTidalPotential(system, G=upreferred(𝒢).val; Z=0.0122)
+    n_particles = system.n
 
-        k_itp = LinearInterpolation(JLD2.load("../../deps/tidal_evolution_constants/grid.jld2", "logk2"),
-                                    JLD2.load("../../deps/tidal_evolution_constants/grid.jld2", "logg"))
+    k_itp = LinearInterpolation(JLD2.load("../../deps/tidal_evolution_constants/grid.jld2", "logk2"),
+                                JLD2.load("../../deps/tidal_evolution_constants/grid.jld2", "logg"))
 
-        k_over_Ts = Function[]
-        for i ∈ 1:n_particles
-            particle = system.particles[i]
-            
-            mass = particle.structure.m
-            radius = particle.structure.R
-            core_mass = particle.structure.m_core
-            core_radius = particle.structure.R_core
-            stellar_type = particle.structure.type
-            luminosity = particle.structure.L
-            stellar_type = particle.structure.type
-            
-            logg = log10(u"cm/s^2"(G*mass/radius^2).val)*u"cm/s^2"
-            k = k_itp(logg)
+    k_over_Ts = Function[]
+    for i ∈ 1:n_particles
+        particle = system.particles[i]
+        
+        mass = particle.structure.m
+        radius = particle.structure.R
+        core_mass = particle.structure.m_core
+        core_radius = particle.structure.R_core
+        stellar_type = particle.structure.type
+        luminosity = particle.structure.L
+        stellar_type = particle.structure.type
+        
+        logg = log10(u"cm/s^2"(G*mass/radius^2).val)*u"cm/s^2"
+        k = k_itp(logg)
 
-            kT(mass_perturber) = k_over_T(mass, radius, core_mass, 
-                                          core_radius, stellar_type, spin,
-                                          luminosity, orbital_period,
-                                          mass_perturber, semi_major_axis, Z=0.0122)
-            push!(k_over_Ts, kT)
-        end
-
+        kT(mass_perturber) = k_over_T(mass, radius, core_mass, 
+                                      core_radius, stellar_type, spin,
+                                      luminosity, orbital_period,
+                                      mass_perturber, semi_major_axis, Z)
+        push!(k_over_Ts, kT)
     end
+
 end
 
 
