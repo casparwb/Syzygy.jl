@@ -118,7 +118,7 @@ struct SimulationResult{cType, rType <: Quantity{T} where T <: Real, aType}
     args::aType
 end
 
-struct FewBodySolution{tT, rT, vT, eT, sT, qT, oT}
+struct FewBodySolution{tT, rT, vT, eT, sT, qT, oT, pT}
     initial_conditions::MultiBodySystem
     t::tT
     r::rT
@@ -127,6 +127,7 @@ struct FewBodySolution{tT, rT, vT, eT, sT, qT, oT}
     structure::sT
     quantities::qT
     ode_system::oT
+    ode_params::pT
 end
 ##################################################################################################
 
