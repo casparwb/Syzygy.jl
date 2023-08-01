@@ -199,7 +199,7 @@ function analyse_simulation(result::SimulationResult)
                 r_rel = pos[:,particles[2]] .- pos[:,particles[1]]# |> vec
                 v_rel = vel[:,particles[2]] .- vel[:,particles[1]]# |> vec
                 h = angular_momentum(r_rel, v_rel)
-                mass = masses[particles[1], i] + masses[particles[2], i]
+                mass = structure.m[particles[1], i] + structure.m[particles[2], i]
                 
                 new_elements = binary_orbital_elements(r_rel, v_rel, mass)
                 add_orbital_elements!(elements, new_elements, i, idx)
@@ -213,7 +213,7 @@ function analyse_simulation(result::SimulationResult)
                 p_idx = particle.key.i
 
                 sibling_keys = sort(binary.nested_children)
-                m = masses[sibling_keys,i]
+                m = structure.m[sibling_keys,i]
                 
                 binary_com = centre_of_mass(pos[:, sibling_keys], m) 
                 binary_com_vel = centre_of_mass_velocity(vel[:, sibling_keys], m) 
@@ -222,7 +222,7 @@ function analyse_simulation(result::SimulationResult)
                 v_rel = vel[:, p_idx] .- binary_com_vel
                 h = angular_momentum(r_rel, v_rel)
 
-                mass = sum(m) + particle.mass
+                mass = sum(m) + structure.m[p_idx,idx]
 
                 new_elements = binary_orbital_elements(r_rel, v_rel, mass)
                 add_orbital_elements!(elements, new_elements, i, idx)
@@ -233,20 +233,21 @@ function analyse_simulation(result::SimulationResult)
                 # binary_1_particles = get_particles_recursive(children[1])
                 binary_1_keys = binary_1.nested_children#[p.key.i for p in binary_1_particles]
 
-                binary_1_com = centre_of_mass(view(pos, :, binary_1_keys), masses[binary_1_keys,i]) 
-                binary_1_com_vel = centre_of_mass_velocity(view(vel, :, binary_1_keys), masses[binary_1_keys,i]) 
+                binary_1_com = centre_of_mass(view(pos, :, binary_1_keys), structure.m[binary_1_keys,i]) 
+                binary_1_com_vel = centre_of_mass_velocity(view(vel, :, binary_1_keys), structure.m[binary_1_keys,i]) 
 
                 # binary_2_particles = get_particles_recursive(children[1])
                 binary_2_keys = binary_2.nested_children#[p.key.i for p in binary_2_particles]
 
-                binary_2_com = centre_of_mass(view(pos, :, binary_2_keys), masses[binary_2_keys,i]) 
-                binary_2_com_vel = centre_of_mass_velocity(view(vel, :, binary_2_keys), masses[binary_2_keys,i]) 
+                binary_2_com = centre_of_mass(view(pos, :, binary_2_keys), structure.m[binary_2_keys,i]) 
+                binary_2_com_vel = centre_of_mass_velocity(view(vel, :, binary_2_keys), structure.m[binary_2_keys,i]) 
 
                 r_rel = binary_2_com .- binary_1_com 
                 v_rel = binary_2_com_vel .- binary_1_com_vel
                 h = angular_momentum(r_rel, v_rel)
 
-                mass = sum(children[1].masses) + sum(children[2].masses)
+                # mass = sum(children[1].masses) + sum(children[2].masses)
+                mass = sim(structure.m[binary_1_keys,idx]) + sim(structure.m[binary_2_keys,idx])
                 new_elements = binary_orbital_elements(r_rel, v_rel, mass)
 
                 add_orbital_elements!(elements, new_elements, i, idx)
