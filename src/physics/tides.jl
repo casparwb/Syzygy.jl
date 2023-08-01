@@ -82,16 +82,6 @@ function apsidal_motion_constant_over_tidal_timescale(mass, radius, core_mass, c
                     mass_perturber, semi_major_axis)
 end
 
-function apsidal_motion_constant_over_tidal_timescale(particle::Particle)
-
-    apsidal_motion_constant_over_tidal_timescale(mass, radius, core_mass, core_radius, 
-                                                      stellar_type, spin, luminosity, 
-                                                      mass_perturber,
-                                                      orbital_period, semi_major_axis)
-
-end
-
-
 
 function k_over_T(mass, radius, core_mass, 
                   core_radius, stellar_type, spin,
