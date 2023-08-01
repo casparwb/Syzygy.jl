@@ -90,7 +90,7 @@ function simulate(simulation::FewBodySimulation)
     end
 
     result = SimulationResult(integrator.sol, simulation, 
-                              retcodes, runtime, 
+                              retcodes, runtime, integrator.p,
                               merge(args, diffeq_args))
 
     if args[:verbose]

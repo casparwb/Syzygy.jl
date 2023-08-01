@@ -110,11 +110,12 @@ struct FewBodySimulation{tType, pType, aType}
     diffeq_args::aType
 end
 
-struct SimulationResult{cType, rType <: Quantity{T} where T <: Real, aType}
+struct SimulationResult{cType, rType <: Quantity{T} where T <: Real, opType, aType}
     solution::DiffEqBase.AbstractTimeseriesSolution
     simulation::FewBodySimulation
     retcode::cType
     runtime::rType
+    ode_params::opType
     args::aType
 end
 
@@ -262,18 +263,18 @@ end
 ################################ Potential setup functions ################################
 
 
-function EquilibriumTidalPotential(system::MultiBodySystem, τ, G=𝒢.val)
+# function EquilibriumTidalPotential(system::MultiBodySystem, τ, G=𝒢.val)
 
-    m = [u"Msun"(p.mass) for p in values(system.particles)] |> ustrip
+#     m = [u"Msun"(p.mass) for p in values(system.particles)] |> ustrip
 
-    if τ[1] isa Quantity
-        τ = upreferred.(τ) |> ustrip
-    else
-        τ = τ .* minimum(upreferred(bin.elements.P) |> ustrip for bin in values(system.binaries))
-    end
+#     if τ[1] isa Quantity
+#         τ = upreferred.(τ) |> ustrip
+#     else
+#         τ = τ .* minimum(upreferred(bin.elements.P) |> ustrip for bin in values(system.binaries))
+#     end
 
-    return EquilibriumTidalPotential(m, G=G, τ=τ)
-end
+#     return EquilibriumTidalPotential(m, G=G, τ=τ)
+# end
 
 ###########################################################################################
 

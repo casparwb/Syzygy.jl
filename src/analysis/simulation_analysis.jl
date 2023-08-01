@@ -253,7 +253,8 @@ function analyse_simulation(result::SimulationResult)
                         :runtime => result.runtime)
     attributes = merge(ode_solution, result.simulation.args, result.simulation.diffeq_args)
     # FewBodySolution(system, time, r, v, elements, structure, quantities, system)
-    FewBodySolution(system, time, r, v, elements, structure, quantities, attributes, result.simulation.params)
+    FewBodySolution(system, time, r, v, elements, structure, 
+                    quantities, attributes, result.ode_params)
 end
 
 
