@@ -154,6 +154,31 @@ function simulation(system::MultiBodySystem; kwargs...)
     end
 
     # Setup parameters for the system
+    if args[:potential] isa Vector && any(x -> x isa EquilibriumTidalPotential, args[:potential])
+
+        core_masses = Float64[]
+        core_radii = Float64[]
+        ages = Float64[]
+        for particle_index in 1:system.n
+            p = system.particles[particle_index]
+
+            core_mass = p.structure.m_core |> upreferred
+            core_radius = p.structure.R_core |> upreferred
+
+            push!(core_masses, core_mass.val)
+            push!(core_radii, core_radius.val)
+            push!(ages, upreferred(system.time).val)
+        end
+
+        core_masses = SA[core_masses...]
+        core_radii = SA[core_radii...]
+        ages = SA[ages...]
+
+        args[:ode_params][:core_masses] = core_masses
+        args[:ode_params][:core_radii] = core_radii
+        args[:ode_params][:ages] = ages
+    end
+
     ode_params = setup_params(system.binaries, particles, args[:ode_params])
    
     simulation = FewBodySimulation(system, args[:tspan], 
@@ -165,7 +190,6 @@ end
 
 
 function setup_params(binaries, particles, extras)
-
     semi_major_axes = Float64[]
     masses = Float64[]
     luminosities = Float64[]
@@ -179,8 +203,6 @@ function setup_params(binaries, particles, extras)
         sma = parent.elements.a |> upreferred
         push!(semi_major_axes, sma.val)
     end
-
-    # pushfirst!(semi_major_axes, u"m"(binaries[bin_keys[1]].elements.a).val)
 
     for i in particle_keys
         p = particles[i]
@@ -227,6 +249,7 @@ function Base.show(io::IO, sim::FewBodySimulation)
 
     println(io, "Arguments ")
     for (arg, val) in sim.args
+        arg == :potential && continue 
         @printf(io, "   %-16s %s", "$arg", "$val")
         # @printf(io, "%7s ", "$val")
         println(io)
@@ -239,6 +262,19 @@ function Base.show(io::IO, sim::FewBodySimulation)
         @printf(io, "   %-16s %s", "$arg", "$val")
         println(io)
     end
+
+    print(io, "\nPotential(s): \n")
+    if sim.args[:potential] isa Vector
+        for pot in sim.args[:potential]
+            pot = nameof(typeof(pot))
+            @printf(io, "   %-16s", "$pot")
+            println(io)
+        end
+    else
+        pot = nameof(typeof(sim.args[:potential]))
+        @printf(io, "   %-16s", "$pot")
+    end
+
     println(io)
 end
 

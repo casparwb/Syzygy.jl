@@ -293,29 +293,20 @@ end
 
 function orbital_elements_from_kinematics(r, d, v, v², M, G=𝒢)
 
-    # M = sum(masses)
-
-    # Semi major axes
     a =  semi_major_axis(d, v², M)
 
-    # Period 
     P = orbital_period(a, M, G)
 
-    # Eccentricities
     e = eccentricity(r, v, a, M)
 
     h = angular_momentum(r, v)
 
-    # Inclination
     i = inclination(h)
 
-    # Longitude of ascending node
     Ω = longitude_of_ascending_node(h)
 
-    # Argument of periapsis
     ω = argument_of_periapsis(r, v, h, M)
 
-    # True anomaly
     ν = true_anomaly(r, v, h, M)
 
     return a, P, e, i, Ω, ω, ν

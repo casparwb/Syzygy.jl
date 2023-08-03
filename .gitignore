@@ -1,2 +1,3 @@
 /Manifest.toml
 /Syzygy.jl/git_old
+*.mem

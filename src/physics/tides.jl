@@ -71,22 +71,30 @@ tidal timescale `T`. If the given stellar type is a type with a radiative envelo
 a core helium burning star, or a massive main sequence star, the prescription from 
 Hurley et al. 2002 will be used (Eq. 42). Otherwise, the the prescription from Preece et al. 2022 is used.                   
 """
-function apsidal_motion_constant_over_tidal_timescale(mass, radius, core_mass, core_radius, 
-                                                      stellar_type, spin, luminosity, 
+function apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
+                                                      stellar_type, luminosity, 
                                                       mass_perturber,
-                                                      orbital_period, semi_major_axis)
-
-    return k_over_T(mass, radius, core_mass, 
-                    core_radius, stellar_type, spin,
-                    luminosity, orbital_period,
+                                                      semi_major_axis)
+    return k_over_T(mass, radius, core_mass, age,
+                    core_radius, stellar_type,
+                    luminosity,
                     mass_perturber, semi_major_axis)
 end
 
 
-function k_over_T(mass, radius, core_mass, 
-                  core_radius, stellar_type, spin,
-                  luminosity, orbital_period,
+function k_over_T(mass, radius, core_mass, age,
+                  core_radius, stellar_type,
+                  luminosity,
                   mass_perturber, semi_major_axis, Z=0.0122)
+
+    mass = u"Msun"(upreferred(u"kg")*mass)
+    radius = u"Rsun"(upreferred(u"m")*radius)
+    core_mass = u"Msun"(upreferred(u"kg")*core_mass)
+    core_radius = u"Rsun"(upreferred(u"m")*core_radius)
+    luminosity = u"Lsun"(upreferred(u"Lsun")*luminosity)
+
+    mass_perturber = u"Msun"(upreferred(u"kg")*mass_perturber)
+    semi_major_axis = u"Rsun"(upreferred(u"m")*semi_major_axis)
 
     if !(stellar_types[stellar_type] isa Star)
         return 0.0u"1/yr"
@@ -98,7 +106,7 @@ function k_over_T(mass, radius, core_mass,
 
         return k_over_T_convective(mass, radius, envelope_mass, envelope_radius, luminosity, Z)
     else
-        return k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
+        return k_over_T_radiative(mass.val, radius.val, mass_perturber.val, semi_major_axis.val)
     end
 end
 
@@ -122,8 +130,7 @@ end
 function k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
     E₂ = 1.592e-9*mass^2.84 # second-order tidal coefficient
     q₂ = mass_perturber/mass
-
-    return 1.9782e4*mass*radius/semi_major_axis^5*(1 - q₂)^(5/6)*E₂
+    return 1.9782e4*mass*radius/semi_major_axis^5*(1 + q₂)^(5/6)*E₂ * u"1/yr"
 end
 
 

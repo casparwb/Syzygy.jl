@@ -151,7 +151,7 @@ end
 
 
 function gather_accelerations_for_potentials(simulation::FewBodySimulation)
-    acceleration_functions = Function[]
+    acceleration_functions = []
 
     n = simulation.ic.n
     for (potential, parameters) in simulation.system.potential
@@ -166,29 +166,23 @@ function get_initial_conditions(simulation::FewBodySimulation)
     bodies = system.bodies;
     n = length(bodies)
 
-    # u0 = zeros(eltype(bodies[1].position), 3, n)
-    # v0 = zeros(eltype(bodies[1].velocity), 3, n)
-
-    u0 = MMatrix{3, n, eltype(bodies[1].position)}(undef)
-    v0 = MMatrix{3, n, eltype(bodies[1].velocity)}(undef)
+    L = 3*n
+    u0 = MMatrix{3, n, eltype(bodies[1].position), L}(undef)
+    v0 = MMatrix{3, n, eltype(bodies[1].velocity), L}(undef)
 
     for i = 1:n
         u0[:, i] = bodies[i].position
         v0[:, i] = bodies[i].velocity
     end
 
-    # u0 = SMatrix{3, n}(u0)
-    # v0 = SMatrix{3, n}(v0)
-
-    (u0, v0, n)
+    u0, v0, n
 end
 
 function DiffEqBase.SecondOrderODEProblem(simulation::FewBodySimulation)
 
-    (u0, v0, n) = get_initial_conditions(simulation)
+    u0, v0, n = get_initial_conditions(simulation)
 
     acceleration_functions = gather_accelerations_for_potentials(simulation)
-
     a = MVector{3, Float64}(0.0, 0.0, 0.0)
     # dv = MMatrix{3, n, Float64}(undef)
     function soode_system!(dv, v, u, p, t)

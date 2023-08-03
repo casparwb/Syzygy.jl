@@ -281,10 +281,10 @@ end
 
 
 
-function envelope_structure(mass, radius, core_mass, core_radius, stellar_type, age)
+function envelope_structure(mass, radius, core_mass, core_radius, stellar_type, age, Z=0.0122)
     tMS, tBGB = main_sequence_lifetime(mass, Z)
-    envelope_radius = convective_envelope_radius(mass, radius, core_radius, stellar_type, age, tMS, tBGB)
-    envelope_mass = convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
+    envelope_radius = convective_envelope_radius(mass, radius, core_radius, stellar_type.index, age, tMS, tBGB)
+    envelope_mass = convective_envelope_mass(mass, core_mass, stellar_type.index, age, tMS, tBGB)
 
     return envelope_radius, envelope_mass
 end
@@ -340,10 +340,11 @@ function convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
     end
 end 
 
-function main_sequence_lifetime(mass, Z)
+function main_sequence_lifetime(M, Z)
     # 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 
-    ζ = log(Z/0.02) # Hurley et al 2000 page 5
+    M = u"Msun"(M).val
+    ζ = log10(Z/0.02) # Hurley et al 2000 page 5
 
     aₙ(α, β, γ, η, μ) = α + β*ζ + γ*ζ^2 + η*ζ^3 + μ*ζ^4
 
@@ -364,8 +365,8 @@ function main_sequence_lifetime(mass, Z)
 
     tBGB = (a₁ + a₂*M^4 + a₃*M^5.5 + M^7)/(a₄*M^2 + a₅*M^7)
 
-    t_hook = μ*tBGB
-    tMS = max(t_hook, x*tBGB)
+    t_hook = μ*tBGB * u"Myr"
+    tMS = max(t_hook, x*tBGB) * u"Myr"
 
     return tMS, tBGB
 end

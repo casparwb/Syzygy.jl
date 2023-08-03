@@ -43,40 +43,49 @@ function DynamicalTidalPotential(;G, n, γ)
 end
 
 
-struct EquilibriumTidalPotential{gType <: Real, kType, k_TType} <: FewBodyPotential
+# struct EquilibriumTidalPotential{gType <: Real, kType, k_TType} <: FewBodyPotential
+#     G::gType
+#     k::kType
+#     k_over_T::k_TType
+# end
+
+struct EquilibriumTidalPotential{gType <: Real, kType} <: FewBodyPotential
     G::gType
     k::kType
-    k_over_T::k_TType
 end
+
 
 function EquilibriumTidalPotential(system, G=upreferred(𝒢).val; Z=0.0122)
     n_particles = system.n
 
-    k_itp = LinearInterpolation(JLD2.load("../../deps/tidal_evolution_constants/grid.jld2", "logk2"),
-                                JLD2.load("../../deps/tidal_evolution_constants/grid.jld2", "logg"))
+    k_data_location = joinpath(@__DIR__, "..", "..", "deps", "tidal_evolution_constants", "grid.jld2")
+    k_itp = LinearInterpolation(JLD2.load(k_data_location, "logk2"),
+                                upreferred.(JLD2.load(k_data_location, "logg")) |> ustrip)
 
-    k_over_Ts = Function[]
-    for i ∈ 1:n_particles
-        particle = system.particles[i]
+    # k_over_Ts = Function[]
+    # age = system.time
+    # for i ∈ 1:n_particles
+    #     particle = system.particles[i]
         
-        mass = particle.structure.m
-        radius = particle.structure.R
-        core_mass = particle.structure.m_core
-        core_radius = particle.structure.R_core
-        stellar_type = particle.structure.type
-        luminosity = particle.structure.L
-        stellar_type = particle.structure.type
+    #     mass = particle.structure.m
+    #     radius = particle.structure.R
+    #     core_mass = particle.structure.m_core
+    #     core_radius = particle.structure.R_core
+    #     stellar_type = particle.structure.type
+    #     luminosity = particle.structure.L
+    #     stellar_type = particle.structure.type
         
-        logg = log10(u"cm/s^2"(G*mass/radius^2).val)*u"cm/s^2"
-        k = k_itp(logg)
+    #     # logg = log10(u"cm/s^2"(G*mass/radius^2).val)*u"cm/s^2"
+    #     # k = k_itp(logg)
 
-        kT(mass_perturber) = k_over_T(mass, radius, core_mass, 
-                                      core_radius, stellar_type, spin,
-                                      luminosity, orbital_period,
-                                      mass_perturber, semi_major_axis, Z)
-        push!(k_over_Ts, kT)
-    end
+    #     kT(mass_perturber) = apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
+    #                                                                       stellar_type, luminosity, 
+    #                                                                       mass_perturber,
+    #                                                                       semi_major_axis)
+    #     push!(k_over_Ts, kT)
+    # end
 
+    EquilibriumTidalPotential(G, k_itp)
 end
 
 
@@ -170,10 +179,9 @@ end
 
 
 """
-    dynamical_tidal_drag_force!(dv, rs, vs, params::T where T <: LArray, i::Integer, n::Integer, potential::EquilibriumTidalPotential)
+equilibrium_tidal_drag_force!(dv, rs, vs, params::T where T <: LArray, i::Integer, n::Integer, potential::EquilibriumTidalPotential)
 
-Acceleration function from dynamical tides. This model is adapted from 
-[Tidal evolution in close binary systems.](https://ui.adsabs.harvard.edu/abs/1981A&A....99..126H)
+Acceleration function from equilibrium tides using the Hut 1981 prescription.
 """
 function equilibrium_tidal_drag_force!(dv,
                                rs,
@@ -191,14 +199,24 @@ function equilibrium_tidal_drag_force!(dv,
     Rs = params.R
     ms = params.M
     S = params.S
-
-    τ = potential.τ[i]
-    k = potential.k[i]
-
+    
     M = ms[i]
     R = Rs[i]
     Ω = S[i]
-    # by j on i => i is Primary
+    logg = log10(potential.G*M/R^2)
+    k = potential.k(logg)
+
+    core_mass = params.core_masses[i]
+    core_radius = params.core_radii[i]
+    stellar_type = params.stellar_type[i] |> Int
+    luminosity = params.L[i]
+    age = params.ages[i]
+    
+    k_over_T(mass_perturber, sma) = apsidal_motion_constant_over_tidal_timescale(M, R, age, core_mass, core_radius, 
+                                                                                 stellar_type, luminosity, 
+                                                                                 mass_perturber, sma)
+
+    # tidal force on i by j
     @inbounds for j = 1:n
         if j != i
             rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
@@ -218,10 +236,13 @@ function equilibrium_tidal_drag_force!(dv,
             m = ms[j]
 
             μ = potential.G*m/r²
-            accel += @. μ*3m/M*(R/r)^5*k*((1 + 3vij/r*τ)*r_hat - (Ω - θ_dot_norm)*τ*θ_hat)
+
+            a = semi_major_axis(r, norm(vij)^2, m+M, potential.G)
+            kτ = R^3/(potential.G*M)*upreferred(k_over_T(m, a)).val
+
+            accel += @. -μ*3m/M*(R/r)^5*((k + 33vij/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
         end
     end
-    # @show accel
     @. dv += accel
 end
 
