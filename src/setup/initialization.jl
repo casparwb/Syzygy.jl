@@ -650,3 +650,87 @@ function multibodysystem(system::MultiBodySystem; new_params...)
 
     multibodysystem(masses; args...)
 end
+
+"""
+    multibodysystem(masses, positions, velocities)
+
+Create a binary MultiBodySystem from masses, positions, and velocities.
+"""
+function multibodysystem(masses, positions, velocities; kwargs...)
+
+    # possible_kwargs = [:R, :S, :L, :types, :a, :e, :ω, :i, :Ω, :ν, 
+    #                    :hierarchy, :t0, :verbose, :extras]
+
+    # new_kwargs = Dict(kwargs)
+    # unchanched_kwargs = [kw for kw in possible_kwargs if (!in(kw, keys(new_kwargs)))]
+
+    n_bodies = length(masses)
+    com = centre_of_mass(positions, masses)
+    v_com = centre_of_mass_velocity(velocities, masses)
+
+    positions = reduce(hcat, positions)
+    velocities = reduce(hcat, velocities)
+
+    positions .-= com
+    velocities .-= v_com
+
+    main_binary = BinaryIndex(1)
+    parent_key = BinaryIndex(-1)
+
+    particles = Particle[]
+
+    siblings = (ParticleIndex(2), ParticleIndex(1))
+    for i = 1:2
+
+        structure = if haskey(kwargs, :structure)
+                        kwargs[:structure][i]
+                    else
+                        stellar_type = stellar_types[1]
+                        mass = masses[i]
+                        R = 1.0u"Rsun"
+                        S = 0.0u"1/yr"
+                        L = 1.0u"Lsun"
+                        R_core = 0.0u"Rsun"
+                        m_core = 0.0u"Msun"
+                        R_env = 0.0u"Rsun"
+                        m_env = 0.0u"Msun"
+                        StellarStructure(stellar_type, mass, R, S, L,
+                                            R_core, m_core, R_env, m_env)
+                    end
+
+        pos = SA[positions[:,i]...]
+        vel = SA[velocities[:,i]...]
+        particle = Particle(ParticleIndex(i), main_binary, siblings[i],
+                            masses[i], pos, vel,
+                            structure, Dict()
+                            )    
+        push!(particles, particle)
+    end
+
+    r_rel = positions[:, 2] .- positions[:, 1]
+    v_rel = velocities[:, 2] .- velocities[:, 1]
+
+    d = norm(r_rel)
+    v = norm(v_rel)
+    M = sum(masses)
+
+    a = semi_major_axis(d, v^2, M, 𝒢) |> u"Rsun"
+    e = eccentricity(r_rel, v_rel, a, M, 𝒢) 
+    P = orbital_period(a, M, 𝒢) |> u"d"
+    h = angular_momentum(r_rel, v_rel)
+    ω = argument_of_periapsis(r_rel, v_rel, h, M, 𝒢) 
+    i = inclination(h)
+    Ω = longitude_of_ascending_node(h)
+    ν = true_anomaly(r_rel, v_rel, h, M, 𝒢)
+
+    els = OrbitalElements(a, P, e, ω, i, Ω, ν)
+
+    bodies = Dict{Int, Particle}(i => particles[i] for i = 1:2)
+    binary = Binary(main_binary, 0, parent_key, main_binary, particles, SA[1,2],
+                    com, v_com, masses, els)
+
+    binaries = Dict{Int, Binary}(1 => binary)
+    time = get(kwargs, :time, 0.0u"s")
+    MultiBodySystem(n_bodies, time, bodies, binaries, 
+                    SA[1], binary, SA[2, 1], nothing)
+end
