@@ -1,5 +1,6 @@
 using Printf, LabelledArrays, Unitful, UnitfulAstro
 
+
 function bodies(nbody::T where T <: FewBodyInitialConditions, frame="com")
 
     positions = [zeros(3) for i = 1:nbody.n]
@@ -156,18 +157,18 @@ function simulation(system::MultiBodySystem; kwargs...)
     # Setup parameters for the system
     if args[:potential] isa Vector && any(x -> x isa EquilibriumTidalPotential, args[:potential])
 
-        core_masses = Float64[]
-        core_radii = Float64[]
-        ages = Float64[]
+        core_masses = typeof(upreferred(1.0u"Msun"))[]
+        core_radii = typeof(upreferred(1.0u"Rsun"))[]
+        ages = typeof(upreferred(1.0u"yr"))[]
         for particle_index in 1:system.n
             p = system.particles[particle_index]
 
             core_mass = p.structure.m_core |> upreferred
             core_radius = p.structure.R_core |> upreferred
 
-            push!(core_masses, core_mass.val)
-            push!(core_radii, core_radius.val)
-            push!(ages, upreferred(system.time).val)
+            push!(core_masses, core_mass)
+            push!(core_radii, core_radius)
+            push!(ages, upreferred(system.time))
         end
 
         core_masses = SA[core_masses...]
@@ -190,18 +191,18 @@ end
 
 
 function setup_params(binaries, particles, extras)
-    semi_major_axes = Float64[]
-    masses = Float64[]
-    luminosities = Float64[]
-    radii = Float64[]
-    spins = Float64[]
-    types = Float64[]
+    semi_major_axes = typeof(upreferred(1.0u"m"))[]
+    masses = typeof(upreferred(1.0u"Msun"))[]
+    luminosities = typeof(upreferred(1.0u"Lsun"))[]
+    radii = typeof(upreferred(1.0u"Rsun"))[]
+    spins = typeof(upreferred(1.0u"1/yr"))[]
+    types = typeof(1.0u"stp")[]
 
     particle_keys = keys(particles) |> collect |> sort
     for i in particle_keys
         parent = binaries[particles[i].parent.i]
         sma = parent.elements.a |> upreferred
-        push!(semi_major_axes, sma.val)
+        push!(semi_major_axes, sma)
     end
 
     for i in particle_keys
@@ -212,10 +213,10 @@ function setup_params(binaries, particles, extras)
         spin = p.structure.S |> upreferred 
         stellar_type = p.structure.type.index
 
-        push!(masses, mass.val)
-        push!(luminosities, luminosity.val)
-        push!(radii, radius.val)
-        push!(spins, spin.val)
+        push!(masses, mass)
+        push!(luminosities, luminosity)
+        push!(radii, radius)
+        push!(spins, spin)
         push!(types, stellar_type)
     end
 
@@ -228,11 +229,20 @@ function setup_params(binaries, particles, extras)
 
     all_params = Dict(:a => semi_major_axes, :R => radii, 
                       :M => masses, :S => spins,
-                      :L => luminosities, 
+                      :L => luminosities,
                       :stellar_type => types)
     merge!(all_params, extras)
 
-    ode_params = LVector((;zip(keys(all_params), values(all_params))...))
+    tpes = [typeof(arr) for arr in values(all_params)] |> unique
+    nmes = tuple(collect(keys(all_params))...)
+    ode_params = @LVector Union{tpes...} nmes
+    
+    for (k, v) in all_params
+        setproperty!(ode_params, k, v)
+    end
+
+    # ode_params = LVector(NamedTuple(all_params))
+
     return ode_params
 end
 

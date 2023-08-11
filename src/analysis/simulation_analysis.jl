@@ -105,10 +105,10 @@ function analyse_simulation(result::SimulationResult)
     time = result.solution.t .* u"s"
     n_steps = length(time)
 
-    masses = result.ode_params.M .* upreferred(1.0u"kg") 
-    radii = result.ode_params.R  .* upreferred(1.0u"m")
-    spins = result.ode_params.S  .* upreferred(1.0u"1/s")
-    luminosities = result.ode_params.L  .* upreferred(1.0u"Lsun")
+    masses = result.ode_params.M 
+    radii = result.ode_params.R 
+    spins = result.ode_params.S 
+    luminosities = result.ode_params.L 
     stellar_types = result.ode_params.stellar_type
 
     if masses[1] isa Number

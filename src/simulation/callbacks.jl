@@ -128,7 +128,7 @@ function collision_callback!(integrator, n, retcode)
                 rj = SA[integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
                 d = norm(ri - rj)
 
-                if isless(d - integrator.p.R[j], integrator.p.R[i])
+                if isless(d - integrator.p.R[j].val, integrator.p.R[i].val)
                     t = integrator.t * upreferred(1.0u"s")
                     retcode[:Collision] = (SA[i, j], t)
                     terminate!(integrator)
@@ -211,7 +211,7 @@ function unbound_callback!(integrator, retcode; max_a=100, G=upreferred(𝒢).va
         v_rel_bin = v_comp1 - v_comp2
 
         # binary properties of remaining components
-        M_bin = SA[integrator.p.M[binary_ids[1]], integrator.p.M[binary_ids[2]]]
+        M_bin = SA[integrator.p.M[binary_ids[1]].val, integrator.p.M[binary_ids[2]].val]
         a_bin = semi_major_axis(norm(r_rel_bin), norm(v_rel_bin)^2, M_bin[1] + M_bin[2], G)
 
         r_bin = centre_of_mass(SA[r_comp1, r_comp2], M_bin)
@@ -228,7 +228,7 @@ function unbound_callback!(integrator, retcode; max_a=100, G=upreferred(𝒢).va
         escape = criteria_1 && criteria_2
         if escape
             escapee = particle
-            M = integrator.p.M[particle]
+            M = integrator.p.M[particle].val
             T = kinetic_energy(v_part, M) 
             
             U = -(G*M)*(M_bin[1]/norm(r_part - r_comp1) + M_bin[2]/norm(r_part - r_comp2))
@@ -272,17 +272,17 @@ function rlof_callback_hierarchical!(integrator, retcode, particles, binaries, n
             binaries[sibling.i].nested_children
         end 
 
-        M₁ = integrator.p.M[i]
-        M₂ = total_mass(integrator.p.M, sibling_ids)
+        M₁ = integrator.p.M[i].val
+        M₂ = total_mass(integrator.p.M, sibling_ids).val
 
-        com = get_positions(u.x[2], integrator.p.M, sibling, sibling_ids)
+        com = get_positions(u.x[2], ustrip(integrator.p.M), sibling, sibling_ids)
 
         r_rel = position - com
 
         d = norm(r_rel)
 
         R_roche = roche_radius(d, M₁/M₂)
-        rlof = isless(R_roche, integrator.p.R[i])
+        rlof = isless(R_roche, integrator.p.R[i].val)
         if rlof
             retcode[rcode] = upreferred(1.0u"s")*integrator.t
         end
@@ -325,8 +325,8 @@ function rlof_callback_democratic!(integrator, retcode, n, rlof_rcodes)
         r = SA[u.x[2][1,sibling], u.x[2][2,sibling], u.x[2][3,sibling]]
         v = SA[u.x[1][1,sibling], u.x[1][2,sibling], u.x[1][3,sibling]]
         
-        M₁ = integrator.p.M[i]
-        M₂ = integrator.p.M[sibling]
+        M₁ = integrator.p.M[i].val
+        M₂ = integrator.p.M[sibling].val
 
         r_rel = position - r
         v_rel = velocity - v
@@ -339,7 +339,7 @@ function rlof_callback_democratic!(integrator, retcode, n, rlof_rcodes)
 
         R_roche = roche_radius(d, M₁/M₂)#*(1 - e)
 
-        rlof = R_roche <= integrator.p.R[i]
+        rlof = R_roche <= integrator.p.R[i].val
         if rlof
             retcode[rcode] = integrator.t * upreferred(1.0u"s")
         end
@@ -364,8 +364,8 @@ function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(�
                 rj = @SVector [integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
                 d = norm(ri - rj)
 
-                tidal_disruption_radius = integrator.p.R[i]*cbrt(integrator.p.M[j]/integrator.p.M[i])
-                if (d - integrator.p.R[i]) < tidal_disruption_radius
+                tidal_disruption_radius = integrator.p.R[i].val*cbrt(integrator.p.M[j].val/integrator.p.M[i].val)
+                if (d - integrator.p.R[i].val) < tidal_disruption_radius
                     t = integrator.t * upreferred(1.0u"s")
                     retcode[:TidalDisruption] = (SA[i, j], t)
                     terminate!(integrator)
@@ -377,8 +377,8 @@ end
 
 function move_to_com_callback!(integrator)
 
-    com = centre_of_mass(integrator.u.x[2], integrator.p.M)
-    com_vel = centre_of_mass_velocity(integrator.u.x[1], integrator.p.M)
+    com = centre_of_mass(integrator.u.x[2], integrator.p.M.val)
+    com_vel = centre_of_mass_velocity(integrator.u.x[1], integrator.p.M.val)
 
     integrator.u.x[2] .-= com
     integrator.u.x[1] .-= com_vel
@@ -454,7 +454,7 @@ function democratic_check_callback2!(integrator, retcode, system)
         vi = SA[integrator.u.x[1][1, i], integrator.u.x[1][2, i], integrator.u.x[1][3, i]]
         vj = SA[integrator.u.x[1][1, j], integrator.u.x[1][2, j], integrator.u.x[1][3, j]]
 
-        Mi, Mj = integrator.p.M[i], integrator.p.M[j]
+        Mi, Mj = integrator.p.M[i].val, integrator.p.M[j].val
         M = Mi + Mj
 
         r_rel = rj - ri
@@ -503,7 +503,7 @@ function democratic_check_callback3!(integrator, retcode, system)
     v1 = SA[u.x[1][1,1], u.x[1][2,1], u.x[1][3,1]]
     v2 = SA[u.x[1][1,2], u.x[1][2,2], u.x[1][3,2]]
 
-    M1, M2 = integrator.p.M[1], integrator.p.M[2]
+    M1, M2 = integrator.p.M[1].val, integrator.p.M[2].val
     M12 = M1 + M2
 
     r_rel = r2 - r1
