@@ -74,11 +74,11 @@ Hurley et al. 2002 will be used (Eq. 42). Otherwise, the the prescription from P
 function apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
                                                       stellar_type, luminosity, 
                                                       mass_perturber,
-                                                      semi_major_axis)
+                                                      semi_major_axis)::typeof(1.0u"s^-1")
     return k_over_T(mass, radius, core_mass, age,
                     core_radius, stellar_type,
                     luminosity,
-                    mass_perturber, semi_major_axis)
+                    mass_perturber, semi_major_axis) |> upreferred
 end
 
 
@@ -87,14 +87,15 @@ function k_over_T(mass, radius, core_mass, age,
                   luminosity,
                   mass_perturber, semi_major_axis, Z=0.0122)
 
-    mass = u"Msun"(upreferred(u"kg")*mass)
-    radius = u"Rsun"(upreferred(u"m")*radius)
-    core_mass = u"Msun"(upreferred(u"kg")*core_mass)
-    core_radius = u"Rsun"(upreferred(u"m")*core_radius)
-    luminosity = u"Lsun"(upreferred(u"Lsun")*luminosity)
+    mass = u"Msun"(mass)
+    radius = u"Rsun"(radius)
+    core_mass = u"Msun"(core_mass)
+    core_radius = u"Rsun"(core_radius)
+    luminosity = u"Lsun"(luminosity)
+    age = u"Myr"(age)
 
-    mass_perturber = u"Msun"(upreferred(u"kg")*mass_perturber)
-    semi_major_axis = u"Rsun"(upreferred(u"m")*semi_major_axis)
+    mass_perturber = u"Msun"(mass_perturber)
+    semi_major_axis = u"Rsun"(semi_major_axis)
 
     if !(stellar_types[stellar_type] isa Star)
         return 0.0u"1/yr"

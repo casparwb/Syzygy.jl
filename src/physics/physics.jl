@@ -283,10 +283,47 @@ end
 
 function envelope_structure(mass, radius, core_mass, core_radius, stellar_type, age, Z=0.0122)
     tMS, tBGB = main_sequence_lifetime(mass, Z)
-    envelope_radius = convective_envelope_radius(mass, radius, core_radius, stellar_type.index, age, tMS, tBGB)
-    envelope_mass = convective_envelope_mass(mass, core_mass, stellar_type.index, age, tMS, tBGB)
+    envelope_radius = convective_envelope_radius(mass, radius, core_radius, stellar_type, age, tMS, tBGB)
+    envelope_mass = convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
 
     return envelope_radius, envelope_mass
+end
+
+"""
+
+Radius of a zero-age main-sequence star. From Tout et al 1996.
+"""
+function zero_age_main_sequence_radius(M)
+    θ = 1.71535900
+    ι = 6.59778800
+    κ = 10.08855000
+    λ = 1.01249500
+    μ = 0.07490166
+    ν = 0.01077422
+    ξ = 3.08223400
+    o = 17.84778000
+    Π = 0.00022582
+
+
+    M = ustrip(u"Msun", M)
+
+    (θ*M^2.5 + ι*M^6.5 + κ*M^11 + λ*M^19 + μ*M^19.5)/(ν + ξ*M^2 + o*M^8.5 + M^18.5 + Π*M^19.5)
+end
+
+function main_sequence_radius_035_msun(τ, Z=0.0134)
+    M = 0.35
+
+    R_zams = zero_age_main_sequence_radius(M)
+
+    ζ = log10(Z/0.02)
+    Mhook = 1.0185 + 0.16015ζ + 0.0892ζ^2
+    @assert Mhook >= M "Only valid for M <= Mhook right now."
+    # α
+    # β
+    # γ
+    # τ₁
+    # τ₂
+
 end
 
 """
@@ -300,16 +337,19 @@ function convective_envelope_radius(mass, radius, core_radius, stellar_type, age
     if any(stellar_type .== (3, 5, 6, 8, 9)) # giant-like stars
         return radius - core_radius
     elseif any(stellar_type .== (1, 7))   # main sequence stars
+        τ = age/tMS
         R_env₀ = if mass > 1.25u"Msun"
                     0.0u"Rsun"
                 elseif mass < 0.35u"Msun"
                     radius
                 else
                     @warn "Envelope radius for 0.35 < M < 1.25 not yet implemented." 
+                    R_zams_035_msun = zero_age_main_sequence_radius(0.35u"Msun", τ)
+                    # R′ is the radius of a MS star with M = 0.35 M⊙ at τ
+                    # R′*sqrt(1.25 - ustrip(u"Msun", mass)/0.9)
                     return 0.0u"Rsun"
                 end
 
-        τ = age/tMS
         return R_env₀*(1 - τ)^0.25
     elseif any(stellar_type .== (2, 8)) # Hertzsprung gap stars
         τ = (age - tMS)/(tBGB - tMS)
@@ -327,7 +367,7 @@ function convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
                  elseif mass > 1.25u"Msun"
                      0.0u"Msun"
                  else
-                    0.35*((1.25 - mass)/0.9)^2
+                   ( 0.35*((1.25 - ustrip(u"Msun", mass))/0.9)^2 )u"Msun"
                  end
         
         τ = age/tMS
@@ -363,10 +403,10 @@ function main_sequence_lifetime(M, Z)
     μ = max(0.5, 1.0 - 0.01*max(a₆/M^a₇, a₈ + a₉/M^a₁₀))
     x = max(0.95, min(0.95 - 0.03*(ζ + 0.30103), 0.99))
 
-    tBGB = (a₁ + a₂*M^4 + a₃*M^5.5 + M^7)/(a₄*M^2 + a₅*M^7)
+    tBGB = ((a₁ + a₂*M^4 + a₃*M^5.5 + M^7)/(a₄*M^2 + a₅*M^7))u"Myr"
+    t_hook = μ*tBGB
 
-    t_hook = μ*tBGB * u"Myr"
-    tMS = max(t_hook, x*tBGB) * u"Myr"
+    tMS = max(t_hook, x*tBGB)
 
     return tMS, tBGB
 end
