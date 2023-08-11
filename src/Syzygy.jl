@@ -2,6 +2,10 @@
 
 module Syzygy
 
+    function __init__()
+        Unitful.register(@__MODULE__)
+    end
+
     using PrecompileTools
 
     include("units.jl")
