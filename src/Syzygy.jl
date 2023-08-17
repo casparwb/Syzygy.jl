@@ -1,12 +1,11 @@
-# __precompile__(false)
+__precompile__()
 
 module Syzygy
+    using PrecompileTools
 
     function __init__()
-        Unitful.register(@__MODULE__)
+        Unitful.register(Syzygy)
     end
-
-    using PrecompileTools
 
     include("units.jl")
     include("constants.jl")
