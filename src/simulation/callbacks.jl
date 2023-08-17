@@ -213,6 +213,7 @@ function unbound_callback!(integrator, retcode; max_a=100, G=upreferred(𝒢).va
         # binary properties of remaining components
         M_bin = SA[integrator.p.M[binary_ids[1]].val, integrator.p.M[binary_ids[2]].val]
         a_bin = semi_major_axis(norm(r_rel_bin), norm(v_rel_bin)^2, M_bin[1] + M_bin[2], G)
+        a_bin < zero(a_bin) && continue
 
         r_bin = centre_of_mass(SA[r_comp1, r_comp2], M_bin)
 
@@ -377,8 +378,8 @@ end
 
 function move_to_com_callback!(integrator)
 
-    com = centre_of_mass(integrator.u.x[2], integrator.p.M.val)
-    com_vel = centre_of_mass_velocity(integrator.u.x[1], integrator.p.M.val)
+    com = centre_of_mass(integrator.u.x[2], ustrip(integrator.p.M))
+    com_vel = centre_of_mass_velocity(integrator.u.x[1], ustrip(integrator.p.M))
 
     integrator.u.x[2] .-= com
     integrator.u.x[1] .-= com_vel
