@@ -74,56 +74,59 @@ Hurley et al. 2002 will be used (Eq. 42). Otherwise, the the prescription from P
 function apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
                                                       stellar_type, luminosity, 
                                                       mass_perturber,
-                                                      semi_major_axis)::typeof(1.0u"s^-1")
+                                                      semi_major_axis)
     return k_over_T(mass, radius, core_mass, age,
                     core_radius, stellar_type,
                     luminosity,
-                    mass_perturber, semi_major_axis) |> upreferred
+                    mass_perturber, semi_major_axis)
 end
 
 
+"""
+
+1/yr
+"""
 function k_over_T(mass, radius, core_mass, age,
                   core_radius, stellar_type,
                   luminosity,
-                  mass_perturber, semi_major_axis, Z=0.0122)
+                  mass_perturber, semi_major_axis, Z=0.02)
 
-    mass = u"Msun"(mass)
-    radius = u"Rsun"(radius)
-    core_mass = u"Msun"(core_mass)
-    core_radius = u"Rsun"(core_radius)
-    luminosity = u"Lsun"(luminosity)
-    age = u"Myr"(age)
+    mass = mass / DynamicQuantities.Constants.M_sun |> dustrip
+    radius = radius / DynamicQuantities.Constants.R_sun |> dustrip
+    core_mass = core_mass / DynamicQuantities.Constants.M_sun |> dustrip
+    core_radius = core_radius / DynamicQuantities.Constants.R_sun |> dustrip
+    luminosity = luminosity / DynamicQuantities.Constants.L_sun |> dustrip
+    age = age / DynamicQuantities.Quantity(3.15576e13, time=1) |> dustrip
 
-    mass_perturber = u"Msun"(mass_perturber)
-    semi_major_axis = u"Rsun"(semi_major_axis)
+    mass_perturber = mass_perturber / DynamicQuantities.Constants.M_sun |> dustrip
+    semi_major_axis = semi_major_axis / DynamicQuantities.Constants.R_sun |> dustrip
 
     if !(stellar_types[stellar_type] isa Star)
-        return 0.0u"1/yr"
+        return 0.0
     end
 
-    if mass < 1.25u"Msun"
+    if mass < 1.25
         envelope_radius, envelope_mass = envelope_structure(mass, radius, core_mass, 
                                                             core_radius, stellar_type, age)
 
-        return k_over_T_convective(mass, radius, envelope_mass, envelope_radius, luminosity, Z)
+        return k_over_T_convective(mass, radius, envelope_mass, envelope_radius, luminosity, Z) |> ustrip
     else
-        return k_over_T_radiative(mass.val, radius.val, mass_perturber.val, semi_major_axis.val)
+        return k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis) |> ustrip
     end
 end
 
 
 function k_over_T_convective(mass, radius, envelope_mass, envelope_radius,
-                             luminosity, Z=0.0122)
+                             luminosity, Z=0.02)
                              
 
         R_conv, M_conv = envelope_radius, envelope_mass
-        t_conv = 0.4311*u"yr"(cbrt((3M_conv*R_conv^2)/luminosity)) # Preece et al. 2022
+        t_conv = 0.4311*(cbrt((3M_conv*R_conv^2)/luminosity)) # Preece et al. 2022
 
         log10z = log10(Z)
         a =  0.630*log10z + 2.72  # a(z) for envelope
         b = -0.219*log10z + 0.68  # b(z) for envelope
         c = -0.023*log10z + 0.220 # c(z) for envelope
-
 
         return (R_conv/radius)^a*(M_conv/mass)^b*c/t_conv
 end
@@ -131,121 +134,5 @@ end
 function k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
     E₂ = 1.592e-9*mass^2.84 # second-order tidal coefficient
     q₂ = mass_perturber/mass
-    return 1.9782e4*mass*radius/semi_major_axis^5*(1 + q₂)^(5/6)*E₂ * u"1/yr"
+    return 1.9782e4*mass*radius/semi_major_axis^5*(1 + q₂)^(5/6)*E₂
 end
-
-
-# function k_over_T(mass, radius, core_mass, 
-#                   core_radius, stellar_type::DeeplyOrFullyConvectiveLowMassMainSequence, spin,
-#                   luminosity, orbital_period,
-#                   mass_perturber, semi_major_axis)
-
-#     return k_over_T_convective(mass, radius, core_mass, core_radius, spin, luminosity, orbital_period)
-# end
-
-# function k_over_T(mass, radius, core_mass, 
-#                   core_radius, stellar_type::HertzsprungGap, spin,
-#                   luminosity, orbital_period,
-#                   mass_perturber, semi_major_axis)
-
-#     return k_over_T_convective(mass, radius, core_mass, core_radius, spin, luminosity, orbital_period)
-# end
-
-
-# function k_over_T(mass, radius, core_mass, 
-#                   core_radius, stellar_type::FirstGiantBranch, spin,
-#                   luminosity, orbital_period,
-#                   mass_perturber, semi_major_axis)
-
-#     return k_over_T_convective(mass, radius, core_mass, core_radius, spin, luminosity, orbital_period)
-# end
-
-
-# function k_over_T(mass, radius, core_mass, 
-#                   core_radius, stellar_type::FirstAsymptoticGiantBranch, spin,
-#                   luminosity, orbital_period,
-#                   mass_perturber, semi_major_axis)
-
-#     return k_over_T_convective(mass, radius, core_mass, core_radius, spin, luminosity, orbital_period)
-# end
-
-
-# function k_over_T(mass, radius, core_mass, 
-#                   core_radius, stellar_type::SecondAsymptoticGiantBranch, spin,
-#                   luminosity, orbital_period,
-#                   mass_perturber, semi_major_axis)
-
-#     return k_over_T_convective(mass, radius, core_mass, core_radius, spin, luminosity, orbital_period)
-# end
-
-
-# function k_over_T(mass, radius, core_mass, 
-#                   core_radius, stellar_type::HertzsprungGapNakedHelium, spin,
-#                   luminosity, orbital_period,
-#                   mass_perturber, semi_major_axis)
-
-#     return k_over_T_convective(mass, radius, core_mass, core_radius, spin, luminosity, orbital_period)
-# end
-
-
-# function k_over_T(mass, radius, core_mass, 
-#                   core_radius, stellar_type::GiantBranchNakedHelium, spin,
-#                   luminosity, orbital_period,
-#                   mass_perturber, semi_major_axis)
-
-#     return k_over_T_convective(mass, radius, core_mass, core_radius, spin, luminosity, orbital_period)
-# end
-
-# function k_over_T(mass, radius, core_mass, 
-#                   core_radius, stellar_type::CoreHeliumBurning, spin,
-#                   luminosity, orbital_period,
-#                   mass_perturber, semi_major_axis)
-
-#     return k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
-# end
-
-# function k_over_T(mass, radius, core_mass, 
-#                   core_radius, stellar_type::MainSequenceNakedHelium, spin,
-#                   luminosity, orbital_period,
-#                   mass_perturber, semi_major_axis)
-
-#     return k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
-# end
-
-# function k_over_T(mass, radius, core_mass, 
-#                   core_radius, stellar_type::T where T <: CompactObject, spin,
-#                   luminosity, orbital_period,
-#                   mass_perturber, semi_major_axis)
-#     return 0.0
-# end
-
-# function k_over_T(mass, radius, core_mass, 
-#                   core_radius, stellar_type::Int, spin,
-#                   luminosity, orbital_period,
-#                   mass_perturber, semi_major_axis)
-
-#         if (stellar_type == 1 && mass < 1.25u"Msun") && (
-#             stellar_type == 0 || stellar_type == 2 || stellar_type == 3 || 
-#             stellar_type == 5 || stellar_type == 6 || stellar_type == 8 || stellar_type == 9)
-
-#         R_env = envelope_radius(mass, radius, core_radius, stellar_type)
-#         M_env = mass - core_mass
-#         Pspin = 2π/spin
-#         Ptid = 1.0/abs(1/orbital_period - 1/Pspin)
-
-#         τ_conv = 0.4311*cbrt((M_env*R_env*(R - 0.5*R_env))/(3*luminosity))
-#         f_conv = min(1, (Ptid/(2τ_conv))^2)
-
-#         k_over_T = 2/21*f_conv/τ_conv*M_env/mass
-
-#     elseif (stellar_type == 1 && mass > 1.25u"Msun") || stellar_type == 4 || stellar_type == 7
-#         E₂ = 1.592e-9*mass^2.84 # second-order tidal coefficient
-#         q₂ = mass_perturber/mass
-
-#         k_over_T = 1.9782e4*mass*radius/semi_major_axis^5*(1 - q₂)^(5/6)*E₂
-#     else
-#         k_over_T = 0.0
-#     end
-
-#     return k_over_T
-# end

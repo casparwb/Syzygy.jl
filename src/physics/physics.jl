@@ -56,7 +56,7 @@ function centre_of_mass(sol::FewBodySolution, bodies=eachindex(sol.initial_condi
     com = Matrix{typeof(upreferred(1.0u"m"))}(undef, 3, length(indices))
     for (c, idx) in enumerate(indices)
         r = [sol.r[:,body,idx] for body in bodies]
-        ms = [sol.structure.m[body,idx] for body in bodies]
+        ms = [sol.structure.m[body,ifelse(idx == 1, 1, 2)] for body in bodies]
         com[:,c] = centre_of_mass(r, ms)
     end
 
@@ -281,7 +281,7 @@ end
 
 
 
-function envelope_structure(mass, radius, core_mass, core_radius, stellar_type, age, Z=0.0122)
+function envelope_structure(mass, radius, core_mass, core_radius, stellar_type, age, Z=0.02)
     tMS, tBGB = main_sequence_lifetime(mass, Z)
     envelope_radius = convective_envelope_radius(mass, radius, core_radius, stellar_type, age, tMS, tBGB)
     envelope_mass = convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
@@ -289,11 +289,14 @@ function envelope_structure(mass, radius, core_mass, core_radius, stellar_type, 
     return envelope_radius, envelope_mass
 end
 
-"""
 
+zero_age_main_sequence_radius(M::Unitful.Quantity) = zero_age_main_sequence_radius(ustrip(u"Msun", M))
+zero_age_main_sequence_radius(M::DynamicQuantities.Quantity) = zero_age_main_sequence_radius(M / DynamicQuantities.Constants.M_sun |> dustrip)
+
+"""
 Radius of a zero-age main-sequence star. From Tout et al 1996.
 """
-function zero_age_main_sequence_radius(M)
+function zero_age_main_sequence_radius(M::Real)
     θ = 1.71535900
     ι = 6.59778800
     κ = 10.08855000
@@ -305,31 +308,113 @@ function zero_age_main_sequence_radius(M)
     Π = 0.00022582
 
 
-    M = ustrip(u"Msun", M)
-
     (θ*M^2.5 + ι*M^6.5 + κ*M^11 + λ*M^19 + μ*M^19.5)/(ν + ξ*M^2 + o*M^8.5 + M^18.5 + Π*M^19.5)
 end
 
-function main_sequence_radius_035_msun(τ, Z=0.0134)
+# const main_sequence_radius_035_msun_factors = begin
+#     M = 0.35
+#     Z = 0.02
+#     ζ = log10(Z/0.02)
+#     aₙ(α, β, γ, η, μ) = α + β*ζ + γ*ζ^2 + η*ζ^3 + μ*ζ^4
+
+#     a₁₈′ = aₙ(2.187715, -2.154437, -3.768678, -1.975518, -3.021475)
+#     a₁₉′ = aₙ(1.466440, 1.839725, 6.442199, 4.023635, 6.957529)
+#     a₂₀ = aₙ(2.652091, 8.178458, 1.156058, 7.633811, 1.950698)
+
+#     a₁₈ = a₁₈′*a₂₀
+#     a₁₉ = a₁₉′*a₂₀
+#     a₂₁ = aₙ(1.472103, -2.947609, -3.312828, -9.945065, 0)
+#     a₂₂ = aₙ(3.071048, -5.679941, -9.745523, -3.594543, 0)
+
+#     R_zams = zero_age_main_sequence_radius(M)
+#     R_tms = (a₁₈ + a₁₉*M^a₂₁)/(a₂₀ + M^a₂₂) # Hurley et al 2000 eq. 9
+
+#     Mhook = 1.0185 + 0.16015ζ + 0.0892ζ^2
+#     @assert Mhook >= M "Only valid for M <= Mhook right now."
+
+
+#     a₆₂ = aₙ(8.4300, -4.7500, -3.5200, 0, 0)
+#     a₇₆ = aₙ(1.192334, 1.083057, 1.230969, 1.551656, 0)
+#     a₇₇ = aₙ(-1.668868, 5.818123, -1.105027, -1.668070, 0)
+#     a₇₈ = aₙ(7.615495, 1.068243, -2.011333, -9.371415, 0)
+#     a₇₉ = aₙ(9.409838, 1.522928, 0, 0, 0)
+
+#     a₇₆ = max(a₇₆, -0.1015564 - 0.2161264ζ - 0.05182516*ζ^2) 
+#     a₇₇ = max(-0.3868776 - 0.5457078*ζ - 0.1463472ζ^2, min(0.0, a₇₇))
+#     a₇₈ = max(0.0, min(a₇₈, 7.454 + 9.046*ζ)) 
+#     a₇₉ = min(a₇₉, max(2.0, -13.3 - 18.6*ζ)) 
+
+#     αR = a₆₂
+#     βR = 1.06
+
+#     γ = a₇₆ + a₇₇*(M - a₇₈)^a₇₉
+#     Dict{String, Float64}("αR" => αR, "βR" => βR, "γ" => γ, "R_tms" => R_tms,
+#                           "R_zams" => R_zams)
+# end
+
+"""
+    main_sequence_radius_035_msun(τ, Z=0.02)
+
+Radius of a 0.35 M⊙ main-sequence star at a time τ = t/tMS.  
+"""
+function main_sequence_radius_035_msun(τ, Z=0.02)
     M = 0.35
 
-    R_zams = zero_age_main_sequence_radius(M)
-
     ζ = log10(Z/0.02)
+    aₙ(α, β, γ, η, μ) = α + β*ζ + γ*ζ^2 + η*ζ^3 + μ*ζ^4
+
+    a₁₈′ = aₙ(2.187715, -2.154437, -3.768678, -1.975518, -3.021475)
+    a₁₉′ = aₙ(1.466440, 1.839725, 6.442199, 4.023635, 6.957529)
+    a₂₀ = aₙ(2.652091, 8.178458, 1.156058, 7.633811, 1.950698)
+
+    a₁₈ = a₁₈′*a₂₀
+    a₁₉ = a₁₉′*a₂₀
+    a₂₁ = aₙ(1.472103, -2.947609, -3.312828, -9.945065, 0)
+    a₂₂ = aₙ(3.071048, -5.679941, -9.745523, -3.594543, 0)
+
+    R_zams = zero_age_main_sequence_radius(M)
+    R_tms = (a₁₈ + a₁₉*M^a₂₁)/(a₂₀ + M^a₂₂) # Hurley et al 2000 eq. 9
+
     Mhook = 1.0185 + 0.16015ζ + 0.0892ζ^2
     @assert Mhook >= M "Only valid for M <= Mhook right now."
-    # α
-    # β
-    # γ
-    # τ₁
-    # τ₂
 
+
+    a₆₂ = aₙ(8.4300, -4.7500, -3.5200, 0, 0)
+    a₇₆ = aₙ(1.192334, 1.083057, 1.230969, 1.551656, 0)
+    a₇₇ = aₙ(-1.668868, 5.818123, -1.105027, -1.668070, 0)
+    a₇₈ = aₙ(7.615495, 1.068243, -2.011333, -9.371415, 0)
+    a₇₉ = aₙ(9.409838, 1.522928, 0, 0, 0)
+
+    a₇₆ = max(a₇₆, -0.1015564 - 0.2161264ζ - 0.05182516*ζ^2) 
+    a₇₇ = max(-0.3868776 - 0.5457078*ζ - 0.1463472ζ^2, min(0.0, a₇₇))
+    a₇₈ = max(0.0, min(a₇₈, 7.454 + 9.046*ζ)) 
+    a₇₉ = min(a₇₉, max(2.0, -13.3 - 18.6*ζ)) 
+
+    αR = a₆₂
+    βR = 1.06
+
+    γ = a₇₆ + a₇₇*(M - a₇₈)^a₇₉
+
+    logRMS_over_RZAMS = αR*τ + βR * τ^10 + γ*τ^40 + 
+                            (log10(R_tms/R_zams) - αR - βR - γ)*τ^3
+
+
+    10^logRMS_over_RZAMS*R_zams
+
+    # let f = main_sequence_radius_035_msun_factors
+    #     logRMS_over_RZAMS = f["αR"]*τ + f["βR"] * τ^10 + f["γ"]*τ^40 + 
+    #                         (log10(f["R_tms"]/f["R_zams"]) - f["αR"] - f["βR"] - f["γ"])*τ^3
+
+
+    #     10^logRMS_over_RZAMS*R_zams
+    # end
 end
 
 """
     envelope_radius(mass, radius, core_radius, stellar_type)
 
 Calculate the radius of the envelope with given mass, radius, core radius, and stellar type.
+Quantities must be in units of solar mass and solar radii.
 Reference Hurley et al. 2002 - DOI: 10.1046/j.1365-8711.2002.05038.x
 """
 function convective_envelope_radius(mass, radius, core_radius, stellar_type, age, tMS, tBGB)
@@ -338,16 +423,15 @@ function convective_envelope_radius(mass, radius, core_radius, stellar_type, age
         return radius - core_radius
     elseif any(stellar_type .== (1, 7))   # main sequence stars
         τ = age/tMS
-        R_env₀ = if mass > 1.25u"Msun"
-                    0.0u"Rsun"
-                elseif mass < 0.35u"Msun"
+        R_env₀ = if mass > 1.25
+                    0.0
+                elseif mass < 0.35
                     radius
                 else
-                    @warn "Envelope radius for 0.35 < M < 1.25 not yet implemented." 
-                    R_zams_035_msun = zero_age_main_sequence_radius(0.35u"Msun", τ)
+
+                    R′ = main_sequence_radius_035_msun(τ)
                     # R′ is the radius of a MS star with M = 0.35 M⊙ at τ
-                    # R′*sqrt(1.25 - ustrip(u"Msun", mass)/0.9)
-                    return 0.0u"Rsun"
+                    return R′*sqrt(1.25 - mass)/0.9
                 end
 
         return R_env₀*(1 - τ)^0.25
@@ -358,16 +442,24 @@ function convective_envelope_radius(mass, radius, core_radius, stellar_type, age
 
 end
 
+"""
+convective_envelope_mass(mass, radius, core_radius, stellar_type)
+
+Calculate the mass of the envelope with given stellar mass, core mass, stellar age, 
+stellar main sequence lifetime, stellar base giant branch (BHG) lifetime and stellar type.
+Quantities must be in units of solar mass and solar radii.
+Reference Hurley et al. 2000 - https://ui.adsabs.harvard.edu/abs/1981A&A....99..126H
+"""
 function convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
     @assert stellar_types[stellar_type] isa Star "Only stars have envelopes."
 
     if any(stellar_type .== (1, 7)) 
-        M_env₀ = if mass < 0.35u"Msun"
+        M_env₀ = if mass < 0.35
                      mass
-                 elseif mass > 1.25u"Msun"
-                     0.0u"Msun"
+                 elseif mass > 1.25
+                     0.0
                  else
-                   ( 0.35*((1.25 - ustrip(u"Msun", mass))/0.9)^2 )u"Msun"
+                   ( 0.35*((1.25 - mass)/0.9)^2 )
                  end
         
         τ = age/tMS
@@ -380,10 +472,20 @@ function convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
     end
 end 
 
-function main_sequence_lifetime(M, Z)
+
+main_sequence_lifetime(M::Unitful.Quantity, Z=0.02) = main_sequence_lifetime(ustrip(u"Msun", M), Z)
+main_sequence_lifetime(M::DynamicQuantities.Quantity, Z=0.02) = main_sequence_lifetime(M / DynamicQuantities.Constants.M_sun |> dustrip, Z)
+
+"""
+
+main_sequence_lifetime(M::Real, Z)
+
+Return the main sequence lifetime of a star with mass M [M⊙] in Myr.
+Reference Hurley et al. 2000 - https://ui.adsabs.harvard.edu/abs/1981A&A....99..126H
+"""
+function main_sequence_lifetime(M::Real, Z=0.02)
     # 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 
-    M = u"Msun"(M).val
     ζ = log10(Z/0.02) # Hurley et al 2000 page 5
 
     aₙ(α, β, γ, η, μ) = α + β*ζ + γ*ζ^2 + η*ζ^3 + μ*ζ^4
@@ -403,7 +505,7 @@ function main_sequence_lifetime(M, Z)
     μ = max(0.5, 1.0 - 0.01*max(a₆/M^a₇, a₈ + a₉/M^a₁₀))
     x = max(0.95, min(0.95 - 0.03*(ζ + 0.30103), 0.99))
 
-    tBGB = ((a₁ + a₂*M^4 + a₃*M^5.5 + M^7)/(a₄*M^2 + a₅*M^7))u"Myr"
+    tBGB = ((a₁ + a₂*M^4 + a₃*M^5.5 + M^7)/(a₄*M^2 + a₅*M^7))
     t_hook = μ*tBGB
 
     tMS = max(t_hook, x*tBGB)

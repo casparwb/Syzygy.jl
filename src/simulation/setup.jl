@@ -1,4 +1,6 @@
 using Printf, LabelledArrays, Unitful, UnitfulAstro
+import DynamicQuantities
+const dustrip = DynamicQuantities.ustrip
 
 
 function bodies(nbody::T where T <: FewBodyInitialConditions, frame="com")
@@ -191,12 +193,12 @@ end
 
 
 function setup_params(binaries, particles, extras)
-    semi_major_axes = typeof(upreferred(1.0u"m"))[]
-    masses = typeof(upreferred(1.0u"Msun"))[]
-    luminosities = typeof(upreferred(1.0u"Lsun"))[]
-    radii = typeof(upreferred(1.0u"Rsun"))[]
-    spins = typeof(upreferred(1.0u"1/yr"))[]
-    types = typeof(1.0u"stp")[]
+    semi_major_axes = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"m")))[]
+    masses = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"Msun")))[]
+    luminosities = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"Lsun")))[]
+    radii = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"Rsun")))[]
+    spins = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"1/yr")))[]
+    types = typeof(convert(DynamicQuantities.Quantity, 1.0u"stp"))[]
 
     particle_keys = keys(particles) |> collect |> sort
     for i in particle_keys
@@ -211,13 +213,13 @@ function setup_params(binaries, particles, extras)
         luminosity = p.structure.L |> upreferred
         radius = p.structure.R |> upreferred 
         spin = p.structure.S |> upreferred 
-        stellar_type = p.structure.type.index
+        stellar_type = p.structure.type.index * u"stp"
 
-        push!(masses, mass)
-        push!(luminosities, luminosity)
-        push!(radii, radius)
-        push!(spins, spin)
-        push!(types, stellar_type)
+        push!(masses, convert(DynamicQuantities.Quantity, mass))
+        push!(luminosities, convert(DynamicQuantities.Quantity, luminosity))
+        push!(radii, convert(DynamicQuantities.Quantity, radius))
+        push!(spins, convert(DynamicQuantities.Quantity, spin))
+        push!(types, convert(DynamicQuantities.Quantity, stellar_type))
     end
 
     semi_major_axes = SA[semi_major_axes...]
@@ -233,15 +235,15 @@ function setup_params(binaries, particles, extras)
                       :stellar_type => types)
     merge!(all_params, extras)
 
-    tpes = [typeof(arr) for arr in values(all_params)] |> unique
-    nmes = tuple(collect(keys(all_params))...)
-    ode_params = @LVector Union{tpes...} nmes
+    # tpes = [typeof(arr) for arr in values(all_params)] |> unique
+    # nmes = tuple(collect(keys(all_params))...)
+    # ode_params = @LVector Union{tpes...} nmes
     
-    for (k, v) in all_params
-        setproperty!(ode_params, k, v)
-    end
+    # for (k, v) in all_params
+    #     setproperty!(ode_params, k, v)
+    # end
 
-    # ode_params = LVector(NamedTuple(all_params))
+    ode_params = LVector(NamedTuple(all_params))
 
     return ode_params
 end
