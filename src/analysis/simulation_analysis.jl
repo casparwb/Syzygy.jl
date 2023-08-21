@@ -21,15 +21,15 @@ function Base.show(io::IO, sol::FewBodySolution)
 
 end
 
-function setup_simulation_solution(n_steps, n_bodies, n_binaries, masses)
+function setup_simulation_solution(n_steps, n_bodies, n_binaries)
 
     elements = OrbitalElements[]
 
-    radius_matrix = Matrix{typeof((1.0u"m"))}(undef, n_bodies, n_steps)
-    mass_matrix = Matrix{typeof(1.0u"kg")}(undef, n_bodies, n_steps)
-    type_matrix = Matrix{Int8}(undef, n_bodies, n_steps)
-    lum_matrix = Matrix{typeof(1.0u"Lsun")}(undef, n_bodies, n_steps)
-    spin_matrix = Matrix{typeof(1.0u"1/s")}(undef, n_bodies, n_steps)
+    radius_matrix = Matrix{typeof((1.0u"m"))}(undef, n_bodies, 2)
+    mass_matrix = Matrix{typeof(1.0u"kg")}(undef, n_bodies, 2)
+    type_matrix = Matrix{Int8}(undef, n_bodies, 2)
+    lum_matrix = Matrix{typeof(1.0u"Lsun")}(undef, n_bodies, 2)
+    spin_matrix = Matrix{typeof(1.0u"1/s")}(undef, n_bodies, 2)
 
     structure = StellarStructure(type_matrix, mass_matrix, 
                                  radius_matrix, spin_matrix, lum_matrix,
@@ -105,74 +105,37 @@ function analyse_simulation(result::SimulationResult)
     time = result.solution.t .* u"s"
     n_steps = length(time)
 
-    masses = result.ode_params.M 
-    radii = result.ode_params.R 
-    spins = result.ode_params.S 
-    luminosities = result.ode_params.L 
-    stellar_types = result.ode_params.stellar_type
-
-    if masses[1] isa Number
-        mass_vec = Matrix{typeof(upreferred(1.0u"kg"))}(undef, n_bodies, n_steps)
-        mass_vec[:,1] .= [system.particles[i].structure.m for i = 1:n_bodies]
-        @inbounds for i = 1:n_bodies
-            mass_vec[i,2:end] .= masses[i]
+    initial_stellar_parameters = begin
+        tmp = Dict()
+        for param in propertynames(system.particles[1].structure)
+            tmp[param] = [getproperty(system.particles[i].structure, param) for i = 1:n_bodies]
         end
-        masses = mass_vec
+
+        tmp[:type] = [t.index for t in tmp[:type]] 
+        tmp
     end
 
-    if radii[1] isa Number
-        rad_vec = Matrix{typeof(upreferred(1.0u"m"))}(undef, n_bodies, n_steps)
-        rad_vec[:,1] .= [system.particles[i].structure.R for i = 1:n_bodies]
-
-        @inbounds for i = 1:n_bodies
-            rad_vec[i,2:end] .= radii[i]
+    final_stellar_parameters = begin
+        tmp = Dict()
+        for param in propertynames(result.ode_params)
+            tmp[param] = convert.(Unitful.Quantity, getproperty(result.ode_params, param))
         end
-        radii = rad_vec
+
+        tmp[:type] = pop!(tmp, :stellar_type)
+        tmp[:m] = pop!(tmp, :M)
+        tmp
     end
 
-    if spins[1] isa Number
-        spin_vec = Matrix{typeof(upreferred(1.0u"1/s"))}(undef, n_bodies, n_steps)
-        spin_vec[:,1] .= [system.particles[i].structure.S for i = 1:n_bodies]
+    elements, structure, quantities = setup_simulation_solution(n_steps, n_bodies, n_binaries)
 
-        @inbounds for i = 1:n_bodies
-            spin_vec[i,2:end] .= spins[i]
+    for param in keys(initial_stellar_parameters)
+        if !(param ∈ keys(final_stellar_parameters))
+            setindex!(getproperty(structure, param), initial_stellar_parameters[param], 1:n_bodies, 1)
+            setindex!(getproperty(structure, param), initial_stellar_parameters[param], 1:n_bodies, 2)
+        else
+            setindex!(getproperty(structure, param), initial_stellar_parameters[param], 1:n_bodies, 1)
+            setindex!(getproperty(structure, param), final_stellar_parameters[param], 1:n_bodies, 2)
         end
-        spins = spin_vec
-    end
-
-    if luminosities[1] isa Number
-        lum_vec = Matrix{typeof(upreferred(1.0u"Lsun"))}(undef, n_bodies, n_steps)
-        lum_vec[:,1] .= [system.particles[i].structure.L for i = 1:n_bodies]
-
-        @inbounds for i = 1:n_bodies
-            lum_vec[i,2:end] .= luminosities[i]
-        end
-        luminosities = lum_vec
-    end
-
-    if stellar_types[1] isa Number
-        st_ty_vec = Matrix{typeof(upreferred(1.0u"1"))}(undef, n_bodies, n_steps)
-        st_ty_vec[:,1] .= [system.particles[i].structure.type.index for i = 1:n_bodies]
-
-        @inbounds for i = 1:n_bodies
-            st_ty_vec[i,2:end] .= stellar_types[i]
-        end
-        stellar_types = st_ty_vec
-    end
-
-    elements, structure, quantities = setup_simulation_solution(n_steps, n_bodies, n_binaries, masses)
-    @inbounds for i in eachindex(time)
-        structure.m[:,i] .= mass_vec[:,i]
-        structure.R[:,i] .= rad_vec[:,i]
-        structure.L[:,i] .= lum_vec[:,i]
-        structure.S[:,i] .= spin_vec[:,i]
-        structure.type[:,i] .= st_ty_vec[:,i]
-
-        structure.R_core[:,i] = [system.particles[i].structure.R_core for i in 1:n_bodies]
-        structure.m_core[:,i] = [system.particles[i].structure.m_core for i in 1:n_bodies]
-        structure.R_env[:,i] = [system.particles[i].structure.R_env for i in 1:n_bodies]
-        structure.m_env[:,i] = [system.particles[i].structure.m_env for i in 1:n_bodies]
-
     end
 
     r = Array{typeof(upreferred(1.0u"m")), 3}(undef, 3, n_bodies, n_steps)
@@ -181,6 +144,8 @@ function analyse_simulation(result::SimulationResult)
     r = AxisArray(r; dim=1:3, particle=1:n_bodies, time=time)
     v = AxisArray(v; dim=1:3, particle=1:n_bodies, time=time)
     for idx in eachindex(time)
+
+        str_idx = ifelse(idx == 1, 1, 2)
 
         pos = result.solution.u[idx].x[2] .* upreferred(1.0u"m")
         vel = result.solution.u[idx].x[1] .* upreferred(1.0u"m/s")
@@ -199,7 +164,7 @@ function analyse_simulation(result::SimulationResult)
                 r_rel = pos[:,particles[2]] .- pos[:,particles[1]]# |> vec
                 v_rel = vel[:,particles[2]] .- vel[:,particles[1]]# |> vec
                 h = angular_momentum(r_rel, v_rel)
-                mass = structure.m[particles[1], idx] + structure.m[particles[2], idx]
+                mass = structure.m[particles[1], str_idx] + structure.m[particles[2], str_idx]
                 
                 new_elements = binary_orbital_elements(r_rel, v_rel, mass)
                 add_orbital_elements!(elements, new_elements, i, idx)
@@ -213,7 +178,7 @@ function analyse_simulation(result::SimulationResult)
                 p_idx = particle.key.i
 
                 sibling_keys = sort(binary.nested_children)
-                m = structure.m[sibling_keys,idx]
+                m = structure.m[sibling_keys,str_idx]
 
 
 
@@ -224,7 +189,7 @@ function analyse_simulation(result::SimulationResult)
                 v_rel = vel[:, p_idx] .- binary_com_vel
                 h = angular_momentum(r_rel, v_rel)
 
-                mass = sum(m) + structure.m[p_idx, idx]
+                mass = sum(m) + structure.m[p_idx, str_idx]
 
                 new_elements = binary_orbital_elements(r_rel, v_rel, mass)
                 add_orbital_elements!(elements, new_elements, i, idx)
@@ -235,28 +200,28 @@ function analyse_simulation(result::SimulationResult)
                 # binary_1_particles = get_particles_recursive(children[1])
                 binary_1_keys = binary_1.nested_children#[p.key.i for p in binary_1_particles]
 
-                binary_1_com = centre_of_mass(view(pos, :, binary_1_keys), structure.m[binary_1_keys,idx]) 
-                binary_1_com_vel = centre_of_mass_velocity(view(vel, :, binary_1_keys), structure.m[binary_1_keys,idx]) 
+                binary_1_com = centre_of_mass(view(pos, :, binary_1_keys), structure.m[binary_1_keys,str_idx]) 
+                binary_1_com_vel = centre_of_mass_velocity(view(vel, :, binary_1_keys), structure.m[binary_1_keys,str_idx]) 
 
                 # binary_2_particles = get_particles_recursive(children[1])
                 binary_2_keys = binary_2.nested_children#[p.key.i for p in binary_2_particles]
 
-                binary_2_com = centre_of_mass(view(pos, :, binary_2_keys), structure.m[binary_2_keys,idx]) 
-                binary_2_com_vel = centre_of_mass_velocity(view(vel, :, binary_2_keys), structure.m[binary_2_keys,idx]) 
+                binary_2_com = centre_of_mass(view(pos, :, binary_2_keys), structure.m[binary_2_keys,str_idx]) 
+                binary_2_com_vel = centre_of_mass_velocity(view(vel, :, binary_2_keys), structure.m[binary_2_keys,str_idx]) 
 
                 r_rel = binary_2_com .- binary_1_com 
                 v_rel = binary_2_com_vel .- binary_1_com_vel
                 h = angular_momentum(r_rel, v_rel)
 
                 # mass = sum(children[1].masses) + sum(children[2].masses)
-                mass = sim(structure.m[binary_1_keys,idx]) + sim(structure.m[binary_2_keys,idx])
+                mass = sim(structure.m[binary_1_keys,str_idx]) + sim(structure.m[binary_2_keys,str_idx])
                 new_elements = binary_orbital_elements(r_rel, v_rel, mass)
 
                 add_orbital_elements!(elements, new_elements, i, idx)
             end
         end
 
-        add_orbital_quantities!(quantities, n_bodies, pos, vel, structure.m[:,idx], idx)
+        add_orbital_quantities!(quantities, n_bodies, pos, vel, structure.m[:,str_idx], idx)
 
     end
 
