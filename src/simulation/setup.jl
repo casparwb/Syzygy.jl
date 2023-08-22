@@ -157,7 +157,8 @@ function simulation(system::MultiBodySystem; kwargs...)
     end
 
     # Setup parameters for the system
-    if args[:potential] isa Vector && any(x -> x isa EquilibriumTidalPotential, args[:potential])
+    if args[:potential] isa Vector && (any(x -> x isa EquilibriumTidalPotential, args[:potential]) ||
+                                       any(x -> x isa StaticEquilibriumTidalPotential, args[:potential]))
 
         core_masses = typeof(upreferred(1.0u"Msun"))[]
         core_radii = typeof(upreferred(1.0u"Rsun"))[]
@@ -177,9 +178,9 @@ function simulation(system::MultiBodySystem; kwargs...)
         core_radii = SA[core_radii...]
         ages = SA[ages...]
 
-        args[:ode_params][:core_masses] = core_masses
-        args[:ode_params][:core_radii] = core_radii
-        args[:ode_params][:ages] = ages
+        args[:ode_params][:core_masses] = convert.(DynamicQuantities.Quantity, core_masses)
+        args[:ode_params][:core_radii] = convert.(DynamicQuantities.Quantity, core_radii)
+        args[:ode_params][:ages] = convert.(DynamicQuantities.Quantity, ages)
     end
 
     ode_params = setup_params(system.binaries, particles, args[:ode_params])

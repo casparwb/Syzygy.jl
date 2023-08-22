@@ -1,4 +1,5 @@
 using DiffEqBase, StaticArrays
+using FunctionWrappers, Unrolled
 
 abstract type FewBodyInitialConditions end
 abstract type AbstractBinary end
@@ -149,6 +150,24 @@ function get_accelerating_function(parameters::EquilibriumTidalPotential, n)
     (dv, u, v, p, t, i) -> equilibrium_tidal_drag_force!(dv, u, v, p, i, n, parameters)
 end
 
+function get_accelerating_function(parameters::StaticEquilibriumTidalPotential, n)
+    # n = simulation.ic.n
+    (dv, u, v, p, t, i) -> equilibrium_tidal_drag_force!(dv, u, v, p, i, n, parameters)
+end
+
+# struct AccelerationFunction
+#     fun::FunctionWrappers.FunctionWrapper{MVector, Tuple{MVector, MMatrix, MMatrix, LArray, Float64, Int}}
+# end
+
+# struct AccelerationFunction4
+#     fun::FunctionWrappers.FunctionWrapper{MVector, Tuple{MVector{3, Float64}, 
+#                                                          uType <: MMatrix, 
+#                                                          vType <: MMatrix, 
+#                                                          LArray, 
+#                                                          Float64, 
+#                                                          Int}}
+# end
+
 
 function gather_accelerations_for_potentials(simulation::FewBodySimulation)
     acceleration_functions = []
@@ -159,6 +178,8 @@ function gather_accelerations_for_potentials(simulation::FewBodySimulation)
     end
 
     tuple(acceleration_functions...)
+    # SA[acceleration_functions...]
+    # acceleration_functions
 end
 
 function get_initial_conditions(simulation::FewBodySimulation)
@@ -178,30 +199,40 @@ function get_initial_conditions(simulation::FewBodySimulation)
     u0, v0, n
 end
 
-function DiffEqBase.SecondOrderODEProblem(simulation::FewBodySimulation)
+function DiffEqBase.SecondOrderODEProblem(simulation::FewBodySimulation, acc_funcs::Tuple)
 
     u0, v0, n = get_initial_conditions(simulation)
 
-    acceleration_functions = gather_accelerations_for_potentials(simulation)
+    # acceleration_functions = gather_accelerations_for_potentials(simulation)
     a = MVector{3, Float64}(0.0, 0.0, 0.0)
     # dv = MMatrix{3, n, Float64}(undef)
+    ids = 1:length(acc_funcs)
     function soode_system!(dv, v, u, p, t)
-        # fill!(dv, 0.0)
+    # fill!(dv, 0.0)
         @inbounds for i = 1:n
             fill!(a, 0.0)
 
-            for acceleration! in acceleration_functions
-                acceleration!(a, u, v, p, t, i);
-            end
+            # for acceleration! in acceleration_functions
+            #     acceleration!(a, u, v, p, t, i);
+            # end
+
+            apply_acc_funcs((a, u, v, p, t, i), acc_funcs)
             
             dv[:, i] = a
         end
-
         # SMatrix(dv)
     end
 
     SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
 end
+
+@unroll function apply_acc_funcs(state::Tuple, acc_funcs::Tuple)
+    @unroll for i in 1:length(acc_funcs)
+        acc_funcs[i](state...)
+    end
+end
+
+
 
 
 function get_initial_conditions_static(simulation::FewBodySimulation)
@@ -227,26 +258,29 @@ function get_initial_conditions_static(simulation::FewBodySimulation)
 end
 
 function sodeprob_static(simulation::FewBodySimulation)
-
     (u0, v0, n) = get_initial_conditions_static(simulation)
 
     acceleration_functions = gather_accelerations_for_potentials(simulation)
 
     a = MVector{3, Float64}(0.0, 0.0, 0.0)
     dv = MMatrix{3, n, Float64}(undef)
-    function soode_system(v, u, p, t)
-        fill!(dv, 0.0)
-        @inbounds for i = 1:n
-            fill!(a, 0.0)
+    soode_system = let acceleration_functions = tuple(acceleration_functions...) 
+        function soode_system(v, u, p, t)
+            fill!(dv, 0.0)
+            @inbounds for i = 1:n
+                fill!(a, 0.0)
 
-            for acceleration! in acceleration_functions
-                acceleration!(a, u, v, p, t, i);
+                for acceleration! in acceleration_functions
+                    acceleration!(a, u, v, p, t, i);
+                end
+                # acceleration_functions[1](a, u, v, p, t, i)
+                # acceleration_functions[2](a, u, v, p, t, i)                                       
+                
+                dv[:, i] = a
             end
-            
-            dv[:, i] = a
-        end
 
-        SMatrix(dv)
+            SMatrix(dv)
+        end
     end
 
     SecondOrderODEProblem(soode_system, v0, u0, simulation.tspan, simulation.params)

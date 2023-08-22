@@ -281,7 +281,7 @@ end
 
 
 
-function envelope_structure(mass, radius, core_mass, core_radius, stellar_type, age, Z=0.02)
+function envelope_structure(mass::Real, radius, core_mass, core_radius, stellar_type, age, Z=0.02)
     tMS, tBGB = main_sequence_lifetime(mass, Z)
     envelope_radius = convective_envelope_radius(mass, radius, core_radius, stellar_type, age, tMS, tBGB)
     envelope_mass = convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
@@ -289,9 +289,27 @@ function envelope_structure(mass, radius, core_mass, core_radius, stellar_type, 
     return envelope_radius, envelope_mass
 end
 
+function envelope_structure(mass::Unitful.Mass, radius, core_mass, core_radius, stellar_type, age, Z=0.02)
+    
+    mass = ustrip(u"Msun", mass)
+    radius = ustrip(u"Rsun", radius)
+    core_mass = ustrip(u"Msun", core_mass)
+    core_radius = ustrip(u"Rsun", core_radius)
+    stellar_type = ustrip(u"stp", stellar_type)
+    age = ustrip(u"Myr", age)
 
-zero_age_main_sequence_radius(M::Unitful.Quantity) = zero_age_main_sequence_radius(ustrip(u"Msun", M))
-zero_age_main_sequence_radius(M::DynamicQuantities.Quantity) = zero_age_main_sequence_radius(M / DynamicQuantities.Constants.M_sun |> dustrip)
+    return envelope_structure(mass, radius, core_mass, core_radius, stellar_type, age, Z)
+end
+
+
+function envelope_structure(star::Particle, age, Z=0.02)
+    @assert star.structure.type isa Star "Envelope structure only relevant for stars."
+
+    envelope_structure(star.structure.m, star.structure.R, 
+                       star.structure.m_core, star.structure.R_core, 
+                       star.structure.type.index, age)
+end
+
 
 """
 Radius of a zero-age main-sequence star. From Tout et al 1996.
@@ -310,6 +328,13 @@ function zero_age_main_sequence_radius(M::Real)
 
     (θ*M^2.5 + ι*M^6.5 + κ*M^11 + λ*M^19 + μ*M^19.5)/(ν + ξ*M^2 + o*M^8.5 + M^18.5 + Π*M^19.5)
 end
+
+function zero_age_main_sequence_radius(mass::Unitful.Mass)
+    zero_age_main_sequence_radius(ustrip(u"Msun", mass))
+end
+
+zero_age_main_sequence_radius(M::DynamicQuantities.Quantity) = zero_age_main_sequence_radius(M / DynamicQuantities.Constants.M_sun |> dustrip)
+
 
 # const main_sequence_radius_035_msun_factors = begin
 #     M = 0.35
@@ -423,6 +448,7 @@ function convective_envelope_radius(mass, radius, core_radius, stellar_type, age
         return radius - core_radius
     elseif any(stellar_type .== (1, 7))   # main sequence stars
         τ = age/tMS
+        
         R_env₀ = if mass > 1.25
                     0.0
                 elseif mass < 0.35
@@ -472,10 +498,6 @@ function convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
     end
 end 
 
-
-main_sequence_lifetime(M::Unitful.Quantity, Z=0.02) = main_sequence_lifetime(ustrip(u"Msun", M), Z)
-main_sequence_lifetime(M::DynamicQuantities.Quantity, Z=0.02) = main_sequence_lifetime(M / DynamicQuantities.Constants.M_sun |> dustrip, Z)
-
 """
 
 main_sequence_lifetime(M::Real, Z)
@@ -484,7 +506,6 @@ Return the main sequence lifetime of a star with mass M [M⊙] in Myr.
 Reference Hurley et al. 2000 - https://ui.adsabs.harvard.edu/abs/1981A&A....99..126H
 """
 function main_sequence_lifetime(M::Real, Z=0.02)
-    # 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 
     ζ = log10(Z/0.02) # Hurley et al 2000 page 5
 
@@ -501,17 +522,20 @@ function main_sequence_lifetime(M::Real, Z=0.02)
     a₉ = aₙ(1.312179, -3.294936, 9.231860, 2.610989, 0.0)
     a₁₀ = aₙ(8.073972, 0.0, 0.0, 0.0, 0.0)
 
-
     μ = max(0.5, 1.0 - 0.01*max(a₆/M^a₇, a₈ + a₉/M^a₁₀))
     x = max(0.95, min(0.95 - 0.03*(ζ + 0.30103), 0.99))
 
-    tBGB = ((a₁ + a₂*M^4 + a₃*M^5.5 + M^7)/(a₄*M^2 + a₅*M^7))
+    tBGB = (a₁ + a₂*M^4 + a₃*M^5.5 + M^7)/(a₄*M^2 + a₅*M^7)
     t_hook = μ*tBGB
 
     tMS = max(t_hook, x*tBGB)
 
     return tMS, tBGB
 end
+
+main_sequence_lifetime(M::Unitful.Quantity, Z=0.02) = main_sequence_lifetime(ustrip(u"Msun", M), Z)
+main_sequence_lifetime(M::DynamicQuantities.Quantity, Z=0.02) = main_sequence_lifetime(M / DynamicQuantities.Constants.M_sun |> dustrip, Z)
+
 
 function mass_luminosity_relation(M)
 

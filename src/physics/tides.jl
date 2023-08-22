@@ -74,22 +74,100 @@ Hurley et al. 2002 will be used (Eq. 42). Otherwise, the the prescription from P
 function apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
                                                       stellar_type, luminosity, 
                                                       mass_perturber,
-                                                      semi_major_axis)
+                                                      semi_major_axis)::Float64
     return k_over_T(mass, radius, core_mass, age,
                     core_radius, stellar_type,
                     luminosity,
                     mass_perturber, semi_major_axis)
 end
 
+function apsidal_motion_constant_over_tidal_timescale(mass::DynamicQuantities.Quantity, radius,
+                                                      envelope_mass, envelope_radius,
+                                                      stellar_type, luminosity, 
+                                                      mass_perturber,
+                                                      semi_major_axis)::Float64
+
+    if !(stellar_types[stellar_type] isa Star)
+        return 0.0
+    end
+
+    mass = mass / DynamicQuantities.Constants.M_sun |> dustrip
+    radius = radius / DynamicQuantities.Constants.R_sun |> dustrip
+    envelope_mass = envelope_mass / DynamicQuantities.Constants.M_sun |> dustrip
+    envelope_radius = envelope_radius / DynamicQuantities.Constants.R_sun |> dustrip
+    luminosity = luminosity / DynamicQuantities.Constants.L_sun |> dustrip
+
+    mass_perturber = mass_perturber / DynamicQuantities.Constants.M_sun |> dustrip
+    semi_major_axis = semi_major_axis / DynamicQuantities.Constants.R_sun |> dustrip
+
+    apsidal_motion_constant_over_tidal_timescale(mass, radius,
+                                                 envelope_mass, envelope_radius,
+                                                 stellar_type, luminosity, 
+                                                 mass_perturber,
+                                                 semi_major_axis)
+end
+
 
 """
+apsidal_motion_constant_over_tidal_timescale(mass, radius, core_mass, core_radius, 
+                                                    stellar_type, spin, luminosity, 
+                                                    mass_perturber,
+                                                    orbital_period, semi_major_axis)
 
-1/yr
 """
-function k_over_T(mass, radius, core_mass, age,
+function apsidal_motion_constant_over_tidal_timescale(mass::Real, radius,
+                                                      envelope_mass, envelope_radius,
+                                                      stellar_type, luminosity, 
+                                                      mass_perturber,
+                                                      semi_major_axis, Z=0.02)::Float64
+
+    if !(stellar_types[stellar_type] isa Star)
+        return 0.0
+    end
+
+    if mass < 1.25
+        return k_over_T_convective(mass, radius, envelope_mass, envelope_radius, luminosity, Z) |> ustrip
+    else
+        return k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis) |> ustrip
+    end
+end
+
+
+function k_over_T(mass::Unitful.Mass, radius, core_mass, age,
                   core_radius, stellar_type,
                   luminosity,
                   mass_perturber, semi_major_axis, Z=0.02)
+
+    if !(stellar_types[stellar_type] isa Star)
+        return 0.0
+    end
+
+    mass = ustrip(u"Msun", mass) 
+    radius = ustrip(u"Rsun", radius) 
+    core_mass = ustrip(u"Msun", core_mass) 
+    core_radius = ustrip(u"Rsun", core_radius) 
+    luminosity = ustrip(u"Lsun", luminosity) 
+    age = ustrip(u"Myr", age)
+
+    mass_perturber = ustrip(u"Msun", mass_perturber)
+    semi_major_axis = ustrip(u"Rsun", semi_major_axis)
+
+
+    k_over_T(mass, radius, core_mass, age,
+            core_radius, stellar_type,
+            luminosity,
+            mass_perturber, semi_major_axis, Z)
+end
+
+
+function k_over_T(mass::DynamicQuantities.Quantity, radius, core_mass, age,
+                  core_radius, stellar_type,
+                  luminosity,
+                  mass_perturber, semi_major_axis, Z=0.02)
+
+    if !(stellar_types[stellar_type] isa Star)
+        return 0.0
+    end
 
     mass = mass / DynamicQuantities.Constants.M_sun |> dustrip
     radius = radius / DynamicQuantities.Constants.R_sun |> dustrip
@@ -100,6 +178,22 @@ function k_over_T(mass, radius, core_mass, age,
 
     mass_perturber = mass_perturber / DynamicQuantities.Constants.M_sun |> dustrip
     semi_major_axis = semi_major_axis / DynamicQuantities.Constants.R_sun |> dustrip
+
+
+    k_over_T(mass, radius, core_mass, age,
+            core_radius, stellar_type,
+            luminosity,
+            mass_perturber, semi_major_axis, Z)
+end
+
+"""
+
+1/yr
+"""
+function k_over_T(mass::Real, radius, core_mass, age,
+                  core_radius, stellar_type,
+                  luminosity,
+                  mass_perturber, semi_major_axis, Z=0.02)
 
     if !(stellar_types[stellar_type] isa Star)
         return 0.0
