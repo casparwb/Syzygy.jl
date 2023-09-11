@@ -164,27 +164,28 @@ function get_state_vectors(positions, velocities, masses, binary::Binary, siblin
            #m
 end
 
-@inline function get_positions(positions, masses, sibling::T where T <: ParticleIndex, sibling_ids::SVector{N, Int}) where N
+@inline function get_positions(positions, masses, total_mass, sibling::T where T <: ParticleIndex, sibling_ids::SVector{N, Int}) where N
     return SA[positions[1,sibling.i], positions[2,sibling.i], positions[3,sibling.i]]
 end
 
-@inline function get_positions(positions, masses, sibling::T where T <: BinaryIndex, sibling_ids::SVector{N, Int}) where N
-    M = total_mass(masses, sibling_ids) |> dustrip
-
+@inline function get_positions(positions, masses, total_mass, sibling::T where T <: BinaryIndex, sibling_ids::SVector{N, Int}) where N
     mapreduce(+, sibling_ids) do k
         r = SA[positions[1,k], positions[2,k], positions[3,k]]
-        r * masses[k] / M
+        r * masses[k] / total_mass
     end
 end
 
-function get_velocities(velocities, masses, sibling::Particle, sibling_ids::SVector{N, Int} where N)
+@inline function get_velocities(velocities, masses, sibling::Particle, sibling_ids::SVector{N, Int} where N)
     return SA[velocities[1,sibling.key.i], velocities[2,sibling.key.i], velocities[3,sibling.key.i]]
 end
 
-function get_velocities(velocities, masses, sibling::Binary, sibling_ids::SVector{N, Int} where N)
-    m = get_masses(masses, sibling_ids)
-    return centre_of_mass_velocity(view(velocities, :, sibling_ids), m)
+@inline function get_velocities(velocities, masses, total_mass, sibling::T where T <: BinaryIndex, sibling_ids::SVector{N, Int}) where N
+    mapreduce(+, sibling_ids) do k
+        v = SA[velocities[1,k], velocities[2,k], velocities[3,k]]
+        v * masses[k] / total_mass
+    end
 end
+
 
 
 """
@@ -274,10 +275,10 @@ function rlof_callback_hierarchical!(integrator, retcode, particles, binaries, n
         end 
 
         M₁ = dustrip(integrator.p.M[i])
-        M₂ = total_mass(integrator.p.M, sibling_ids) |> dustrip
+        M₂ = total_mass(integrator.p.M, sibling_ids) .|> dustrip
 
-        com = get_positions(u.x[2], dustrip(integrator.p.M), sibling, sibling_ids)
-
+        com = get_positions(u.x[2], dustrip.(integrator.p.M), M₂, sibling, sibling_ids)
+       
         r_rel = position - com
 
         d = norm(r_rel)
