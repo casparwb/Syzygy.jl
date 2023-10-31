@@ -1,5 +1,5 @@
 using DiffEqBase, StaticArrays
-using FunctionWrappers, Unrolled
+using Unrolled
 
 abstract type FewBodyInitialConditions end
 abstract type AbstractBinary end
@@ -136,37 +136,20 @@ end
 
 ################################ Framework for the different potentials ################################
 function get_accelerating_function(parameters::PureGravitationalPotential, n)
-    # n = simulation.ic.n
     (dv, u, v, p, t, i) -> pure_gravitational_acceleration!(dv, u, p, i, n, parameters)
 end
 
 function get_accelerating_function(parameters::DynamicalTidalPotential, n)
-    # n = simulation.ic.n
     (dv, u, v, p, t, i) -> dynamical_tidal_drag_force!(dv, u, v, p, i, n, parameters)
 end
 
 function get_accelerating_function(parameters::EquilibriumTidalPotential, n)
-    # n = simulation.ic.n
     (dv, u, v, p, t, i) -> equilibrium_tidal_drag_force!(dv, u, v, p, i, n, parameters)
 end
 
 function get_accelerating_function(parameters::StaticEquilibriumTidalPotential, n)
-    # n = simulation.ic.n
     (dv, u, v, p, t, i) -> equilibrium_tidal_drag_force!(dv, u, v, p, i, n, parameters)
 end
-
-# struct AccelerationFunction
-#     fun::FunctionWrappers.FunctionWrapper{MVector, Tuple{MVector, MMatrix, MMatrix, LArray, Float64, Int}}
-# end
-
-# struct AccelerationFunction4
-#     fun::FunctionWrappers.FunctionWrapper{MVector, Tuple{MVector{3, Float64}, 
-#                                                          uType <: MMatrix, 
-#                                                          vType <: MMatrix, 
-#                                                          LArray, 
-#                                                          Float64, 
-#                                                          Int}}
-# end
 
 
 function gather_accelerations_for_potentials(simulation::FewBodySimulation)
@@ -203,24 +186,16 @@ function DiffEqBase.SecondOrderODEProblem(simulation::FewBodySimulation, acc_fun
 
     u0, v0, n = get_initial_conditions(simulation)
 
-    # acceleration_functions = gather_accelerations_for_potentials(simulation)
     a = MVector{3, Float64}(0.0, 0.0, 0.0)
-    # dv = MMatrix{3, n, Float64}(undef)
     ids = 1:length(acc_funcs)
     function soode_system!(dv, v, u, p, t)
-    # fill!(dv, 0.0)
         @inbounds for i = 1:n
             fill!(a, 0.0)
-
-            # for acceleration! in acceleration_functions
-            #     acceleration!(a, u, v, p, t, i);
-            # end
 
             apply_acc_funcs((a, u, v, p, t, i), acc_funcs)
             
             dv[:, i] = a
         end
-        # SMatrix(dv)
     end
 
     SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
@@ -231,8 +206,6 @@ end
         acc_funcs[i](state...)
     end
 end
-
-
 
 
 function get_initial_conditions_static(simulation::FewBodySimulation)
@@ -273,9 +246,7 @@ function sodeprob_static(simulation::FewBodySimulation)
                 for acceleration! in acceleration_functions
                     acceleration!(a, u, v, p, t, i);
                 end
-                # acceleration_functions[1](a, u, v, p, t, i)
-                # acceleration_functions[2](a, u, v, p, t, i)                                       
-                
+
                 dv[:, i] = a
             end
 
@@ -288,21 +259,36 @@ end
 #################################################################################################
 
 
-################################ Potential setup functions ################################
+################################### Potential setup functions ###################################
 
 
-# function EquilibriumTidalPotential(system::MultiBodySystem, τ, G=𝒢.val)
 
-#     m = [u"Msun"(p.mass) for p in values(system.particles)] |> ustrip
+#################################################################################################
 
-#     if τ[1] isa Quantity
-#         τ = upreferred.(τ) |> ustrip
-#     else
-#         τ = τ .* minimum(upreferred(bin.elements.P) |> ustrip for bin in values(system.binaries))
-#     end
 
-#     return EquilibriumTidalPotential(m, G=G, τ=τ)
-# end
 
-###########################################################################################
+######################################## Helper functions #######################################
 
+function Base.getproperty(particles::Dict{Int, Syzygy.Particle}, sym::Symbol)
+    if sym in fieldnames(Particle)
+        return [getfield(particles[i], sym) for i = 1:length(particles)]
+    elseif sym in fieldnames(StellarStructure)
+        return [getfield(particles[i].structure, sym) for i = 1:length(particles)]
+    else
+        getfield(particles, sym)
+    end
+
+end
+
+function Base.getproperty(binaries::Dict{Int, Syzygy.Binary}, sym::Symbol)
+    if sym in fieldnames(Binary)
+        return [getfield(binaries[i], sym) for i = 1:length(binaries)]
+    elseif sym in fieldnames(OrbitalElements)
+        return [getfield(binaries[i].elements, sym) for i = 1:length(binaries)]
+    else
+        getfield(binaries, sym)
+    end
+
+end
+
+#################################################################################################

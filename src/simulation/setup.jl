@@ -3,7 +3,7 @@ import DynamicQuantities
 const dustrip = DynamicQuantities.ustrip
 
 
-function bodies(nbody::T where T <: FewBodyInitialConditions, frame="com")
+function bodies(nbody::T where T <: FewBodyInitialConditions)
 
     positions = [zeros(3) for i = 1:nbody.n]
     velocities = [zeros(3) for i = 1:nbody.n]
@@ -14,20 +14,18 @@ function bodies(nbody::T where T <: FewBodyInitialConditions, frame="com")
         velocities[key] .= upreferred.(particle.velocity) |> ustrip
         masses[key] = upreferred(particle.mass) |> ustrip
     end
-    # @show norm.(positions)
+
     SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(positions, velocities, masses)]...]
 end
 
 
-function FewBodySystem(bodies, params, potential::FewBodyPotential)#::T) where T <: FewBodyPotential
-    # pot = potential(params...)
+function FewBodySystem(bodies, params, potential::FewBodyPotential)
     pot_dict = Dict{Symbol, FewBodyPotential}(nameof(typeof(potential)) => potential)
     system = FewBodySystem(bodies, pot_dict)
     return system
 end
 
-function FewBodySystem(bodies, params, potential::Vector)#::T) where T <: FewBodyPotential
-    # pot = potential(params...)
+function FewBodySystem(bodies, params, potential::Vector)
     pot_dict = Dict{Symbol, FewBodyPotential}()
     for pot in potential
         pot_dict[nameof(typeof(pot))] = pot
@@ -60,7 +58,7 @@ function parse_arguments!(kwargs::Dict)
                         :maxiters => Inf,
                         :abstol => 1.0e-10, :reltol => 1.0e-10,
                         :potential => PureGravitationalPotential(), :potential_params => [𝒢.val],
-                        :callbacks => ["collision", "escape"], :showprogress => false,
+                        :callbacks => ["collision"], :showprogress => false,
                         :verbose => false, :ode_params => Dict(), :max_cpu_time => Inf
                         )
 
@@ -84,7 +82,7 @@ Setup a simulation with a given system and simulation arguments. Returns a
 
 ...
 # Arguments
-- `alg = DPRKN6()`: ODE solver to use for simulation. See [DiffEq website](https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/) for list of all solvers.
+- `alg = DPRKN8()`: ODE solver to use for simulation. See [DiffEq website](https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/) for list of all solvers.
 - `t_sim = 1.0`: simulation time. Can either be a ``Quantity`` of time, or a ``Number``, in which
            case ``t_sim`` is a multiple of the outermost binary in the system.
 - `npoints = 0`: number of datapoints to save. The temporal locations of the snapshots
@@ -95,10 +93,11 @@ Setup a simulation with a given system and simulation arguments. Returns a
                                              of abstract type ``FewBodyPotential``, or a ``Vector{FewBodyPotential}``, in which case
                                              the total acceleration will be the sum of all acceleration functions for each potential. For 
                                              all potentials see [`potentials.jl`](@ref).
-- `callbacks::Vector = ["collision", "escape"]`: callbacks to use in the integration. Can be used to define stopping conditions or other checks.
+- `callbacks::Vector = ["collision"]`: callbacks to use in the integration. Can be used to define stopping conditions or other checks.
                                         Value should be an array containing a mix of strings, referencing a pre-defined callback,
                                          or a custom callback from the `DifferentialEquations.jl` ecosystem. See [`Event Handling and Callback Functions`](https://docs.sciml.ai/DiffEqDocs/stable/features/callback_functions/) for more.
-- `showprogress = true`: whether to display the progress of the simulation.
+- `showprogress = false`: whether to display the progress of the simulation.
+- `max_cpu_time = Inf`: maximum time (in seconds) allowed for the simulation to run. Will terminate if it runs for longer than `max_cpu_time`.  
 ...
 
 The function also accepts all keyword arguments supported by the `CommonSolve.solve` interface from
@@ -108,98 +107,138 @@ The function also accepts all keyword arguments supported by the `CommonSolve.so
 # Example
 ```jldoctest
 julia> triple = multibodysystem([1.0, 1.0, 1.0]u"Msun")
-julia> sim = simulation(t_sim=10) # simulate for 10 outer orbits
-julia> sim = simulation(t_sim=500u"kyr") # simulate for 500 kyr
-julia> sim = simulation(t_sim=1, npoints=1000) # save 1000 datapoints
+julia> sim = simulation(triple, t_sim=10) # simulate for 10 outer orbits
+julia> sim = simulation(triple, t_sim=500u"kyr") # simulate for 500 kyr
+julia> sim = simulation(triple, t_sim=1, npoints=1000) # save 1000 datapoints
+julia> sim = simulation(triple, t_sim=1, alg=Syzygy.McAte5(), dt=1.0) # use the McAte5 symplectic integrator with a timestep of 1*innermost period.
 ```
 """
 function simulation(system::MultiBodySystem; kwargs...)
 
 
     kwargs = Dict{Symbol, Any}(kwargs)
-
     args = parse_arguments!(kwargs)
 
     particles = system.particles
 
     # Setup time step (only used if using symplectic integrator)
     periods = [bin.elements.P |> upreferred for bin in values(system.binaries)]
-    Pᵢ, Pₒ = extrema(periods)
-
-    args[:dt] *= Pᵢ.val # time step is multiple of inner period
+    P_in, P_out = extrema(periods)
+    args[:dt] *= P_in.val # time step is multiple of inner period
 
     # Setup time span
     t0 = args[:t0]
-    t0 = isnothing(t0) ? u"s"(system.time).val : u"s"(t0).val
+    t0 = isnothing(t0) ? ustrip(upreferred(u"s"), system.time) : ustrip(upreferred(u"s"), t0)
     args[:t0] = t0
     t_sim = args[:t_sim]
-    if t_sim isa Quantity
-        t_sim *= 1.0
-        t_sim = u"s"(t_sim).val + t0
-        tspan = (t0, t_sim)
-    else
-        tspan = (t0, t0 + t_sim*Pₒ.val)
-        t_sim = t_sim*Pₒ.val
-    end
-    
+    tspan = setup_timespan(t0, t_sim, P_out)
     args[:tspan] = tspan
 
+    # Setup optional saving points
     if !iszero(args[:npoints])
         args[:saveat] = range(tspan..., length=args[:npoints])
     end
 
-    if any(x -> x == 14, [p.structure.type for p in values(system.particles)])
-        if ! ("tidal_disruption" in args[:callbacks])
-            if args[:verbose]
-                @warn "Tidal disruption callback not included even though system contains black hole."
-            end
-        end
-    end
-
-    # Setup parameters for the system
-    if args[:potential] isa Vector && (any(x -> x isa EquilibriumTidalPotential, args[:potential]) ||
-                                       any(x -> x isa StaticEquilibriumTidalPotential, args[:potential]))
-
-        core_masses = typeof(upreferred(1.0u"Msun"))[]
-        core_radii = typeof(upreferred(1.0u"Rsun"))[]
-        ages = typeof(upreferred(1.0u"yr"))[]
-        for particle_index in 1:system.n
-            p = system.particles[particle_index]
-
-            core_mass = p.structure.m_core |> upreferred
-            core_radius = p.structure.R_core |> upreferred
-
-            push!(core_masses, core_mass)
-            push!(core_radii, core_radius)
-            push!(ages, upreferred(system.time))
-        end
-
-        core_masses = SA[core_masses...]
-        core_radii = SA[core_radii...]
-        ages = SA[ages...]
-
-        args[:ode_params][:core_masses] = convert.(DynamicQuantities.Quantity, core_masses)
-        args[:ode_params][:core_radii] = convert.(DynamicQuantities.Quantity, core_radii)
-        args[:ode_params][:ages] = convert.(DynamicQuantities.Quantity, ages)
-    end
-
-    ode_params = setup_params(system.binaries, particles, args[:ode_params])
+    # Setup parameters
+    ode_params = setup_params(system.time, system.binaries, particles, args[:ode_params])
    
     simulation = FewBodySimulation(system, args[:tspan], 
                                           args[:potential_params], 
                                           args[:potential], ode_params,
                                           args, kwargs)
 
+    return simulation
 end
 
 
-function setup_params(binaries, particles, extras)
+"""
+    simulation(masses, positions, velocities; multiple_system_args=(;), kwargs...)
+
+Setup a simulation with just `masses`, `positions`, and `velocities`, and optionally any other argument
+accepted by [`multibodysystem`](@ref). The state vectors should be arrays of length `n`, where `n` is the number
+of bodie in the system, in which each element is the state of each component.
+
+See [`simulation`](@ref) for a complete overview of simulation-specific arguments.
+
+# Example
+```jldoctest
+julia> positions = [[1.5, 0.09, 0.0], [1.5, -0.09, 0.0], [-1.5, 0.00, 0.0]]u"AU"
+julia> velocities = [[-22.2, 17.2, 0.0], [22.2, 17.2, 0.0], [0.0, -17.2, 0.0]]u"km/s"
+julia> masses = [1.0, 1.0, 2.0]u"Msun"
+julia> sim = simulation(masses, positions, velocities, t_sim=500u"kyr") # simulate for 500 kyr
+julia> sim = simulation(masses, positions, velocities, multibodysystem_args = (;R = [1.0, 1.0, 5.0]u"Rsun")) # include stellar structure arguments
+
+```
+"""
+function simulation(masses, positions, velocities; multibodysystem_args=(;), kwargs...)
+
+    kwargs = Dict{Symbol, Any}(kwargs)
+    args = parse_arguments!(kwargs)
+
+    n = length(masses)
+    multiple_system = multibodysystem(masses; multibodysystem_args...)
+
+    pos_body = [zeros(3) for i ∈ 1:n]
+    vel_body = [zeros(3) for i ∈ 1:n]
+    mass_body = ustrip(upreferred.(masses))
+
+    for i ∈ 1:n
+        pos_body[i] .= upreferred.(positions[i]) |> ustrip
+        vel_body[i] .= upreferred.(velocities[i]) |> ustrip
+    end
+
+    periods = [bin.elements.P |> upreferred for bin in values(multiple_system.binaries)]
+    P_in, P_out = extrema(periods)
+
+    if !(args[:dt] isa Quantity)
+        args[:dt] *= P_in.val
+    else
+        args[:dt] = upreferred(args[:dt])
+    end
+
+    # Setup time span
+    t0 = args[:t0]
+    t0 = isnothing(t0) ? ustrip(upreferred(u"s"), multiple_system.time) : ustrip(upreferred(u"s"), t0)
+    args[:t0] = t0
+    t_sim = args[:t_sim]
+
+    tspan = setup_timespan(t0, t_sim, P_out)
+    args[:tspan] = tspan
+
+    bodies  = SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(pos_body, vel_body, mass_body)]...]
+    
+    ode_params = setup_params(multiple_system.time, multiple_system.binaries, 
+                              multiple_system.particles, args[:ode_params])
+
+    system = FewBodySystem(bodies, args[:potential_params], args[:potential])
+    sim = FewBodySimulation(multiple_system, system, args[:tspan], ode_params, args, kwargs)
+
+end
+
+function setup_timespan(t0, t_sim, P_out)
+    if t_sim isa Quantity
+        t_sim *= 1.0
+        t_sim = ustrip(upreferred(u"s"), t_sim) + t0
+        tspan = (t0, t_sim)
+    else
+        tspan = (t0, t0 + t_sim*P_out.val)
+        t_sim = t_sim*P_out.val
+    end
+
+    return tspan
+end
+
+
+function setup_params(time, binaries, particles, extras)
     semi_major_axes = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"m")))[]
     masses = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"Msun")))[]
     luminosities = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"Lsun")))[]
     radii = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"Rsun")))[]
     spins = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"1/yr")))[]
     types = typeof(convert(DynamicQuantities.Quantity, 1.0u"stp"))[]
+    core_masses = typeof(upreferred(1.0u"Msun"))[]
+    core_radii = typeof(upreferred(1.0u"Rsun"))[]
+    ages = typeof(upreferred(1.0u"yr"))[]
 
     particle_keys = keys(particles) |> collect |> sort
     for i in particle_keys
@@ -215,7 +254,12 @@ function setup_params(binaries, particles, extras)
         radius = p.structure.R |> upreferred 
         spin = p.structure.S |> upreferred 
         stellar_type = p.structure.type.index * u"stp"
+        core_mass = p.structure.m_core |> upreferred
+        core_radius = p.structure.R_core |> upreferred
 
+        push!(core_masses, core_mass)
+        push!(core_radii, core_radius)
+        push!(ages, upreferred(time))
         push!(masses, convert(DynamicQuantities.Quantity, mass))
         push!(luminosities, convert(DynamicQuantities.Quantity, luminosity))
         push!(radii, convert(DynamicQuantities.Quantity, radius))
@@ -229,26 +273,23 @@ function setup_params(binaries, particles, extras)
     radii = SA[radii...]
     spins = SA[spins...]
     types = SA[types...]
+    core_masses = SA[core_masses...]
+    core_radii = SA[core_radii...]
+    ages = SA[ages...]
 
     all_params = Dict(:a => semi_major_axes, :R => radii, 
                       :M => masses, :S => spins,
                       :L => luminosities,
-                      :stellar_type => types)
+                      :stellar_type => types,
+                      :core_masses => core_masses,
+                      :core_radii => core_radii,
+                      :ages => ages)
     merge!(all_params, extras)
-
-    # tpes = [typeof(arr) for arr in values(all_params)] |> unique
-    # nmes = tuple(collect(keys(all_params))...)
-    # ode_params = @LVector Union{tpes...} nmes
-    
-    # for (k, v) in all_params
-    #     setproperty!(ode_params, k, v)
-    # end
 
     ode_params = LVector(NamedTuple(all_params))
 
     return ode_params
 end
-
 
 function Base.show(io::IO, sim::FewBodySimulation)
 

@@ -183,6 +183,10 @@ respectively, or as numbers, in which case the same value will be used for each 
 - `S = 0.0u"1/yr"`: spin magnitude of each particle. If given as a negative number, the spin will be calculated using [`stellar_spin`](@ref).
 - `L = 1.0u"Lsun"`: luminosity of each particle.
 - `types = 1`: type of each particle. See [`FewBodySimulator.stellar_type_index`](@ref).
+- `R_core = 0.0u"Rsun"`: stellar core radius. Only used if tidal potential is included.
+- `m_core = 0.0u"Msun"`: stellar core mass. Only used if tidal potential is included.
+- `R_env = 0.0u"Rsun"`: stellar envelope radius. Only used if tidal potential is included.
+- `m_env = 0.0u"Msun"`: stellar envelope mass. Only used if tidal potential is included.
 
 # Binary elements arguments
 - `a = 1.0u"AU"`: semi-major axis.
@@ -546,18 +550,8 @@ function get_binaries(binary::Binary)
 end
 
 function get_binaries(system::MultiBodySystem)
-    # root = system.root
-    # binaries = Binary[root]
-    # append!(binaries, get_binaries(root))
-
-    # # levels = [bin.level for bin in binaries]
-    # keys = [bin.key.i for bin in binaries]
-    # binaries = binaries[sortperm(keys)]
-    # return binaries
     collect(sort(system.binaries))
 end
-
-# match_key(x) = x.ke
 
 function get_binary(system::MultiBodySystem, key::Int)
     system.binares[key]
@@ -663,6 +657,11 @@ function multibodysystem(masses, positions, velocities; kwargs...)
 
     # new_kwargs = Dict(kwargs)
     # unchanched_kwargs = [kw for kw in possible_kwargs if (!in(kw, keys(new_kwargs)))]
+
+    # MultiBodySystem(masses::Vector, hierarchy::Vector, 
+    #                      elements::AbstractVector{T} where T <: OrbitalElements,
+    #                      structures::AbstractVector{T} where T <: StellarStructure,
+    #                      t = 0.0u"yr"; verbose=false)
 
     n_bodies = length(masses)
     com = centre_of_mass(positions, masses)
