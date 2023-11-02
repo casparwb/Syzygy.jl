@@ -1,4 +1,4 @@
-# __precompile__()
+__precompile__()
 
 module Syzygy
     using PrecompileTools
@@ -37,6 +37,12 @@ module Syzygy
     @compile_workload begin
         triple = multibodysystem([1.0, 1.0, 1.0]u"Msun", a=[0.1, 1.0]u"AU", e=[0.4, 0.2])
         res = simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
+                       callbacks=[])
+        res = simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
+                       callbacks=["collision"])
+        res = simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
+                       callbacks=["collision", "escape"])
+        res = simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
                        callbacks=["collision", "escape", "rlof", "tidal_disruption"])
         res = simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
                        callbacks=["collision", "escape", "rlof", "tidal_disruption"],
@@ -44,7 +50,7 @@ module Syzygy
         res = simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
                        callbacks=["collision", "escape", "rlof", "tidal_disruption"],
                        potential=[PureGravitationalPotential(), EquilibriumTidalPotential(𝒢.val)])
-                       sol = analyse_simulation(res)
+        sol = analyse_simulation(res)
     end
 
 end
