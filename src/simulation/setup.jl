@@ -59,7 +59,7 @@ function parse_arguments!(kwargs::Dict)
                         :abstol => 1.0e-10, :reltol => 1.0e-10,
                         :potential => PureGravitationalPotential(), :potential_params => [𝒢.val],
                         :callbacks => ["collision"], :showprogress => false,
-                        :verbose => false, :ode_params => Dict(), :max_cpu_time => Inf
+                        :verbose => false, :max_cpu_time => Inf
                         )
 
     args = copy(default_args)
@@ -140,7 +140,7 @@ function simulation(system::MultiBodySystem; kwargs...)
     end
 
     # Setup parameters
-    ode_params = setup_params(system.time, system.binaries, particles, args[:ode_params])
+    ode_params = setup_params(system.time, system.binaries, particles)
    
     simulation = FewBodySimulation(system, args[:tspan], 
                                           args[:potential_params], 
@@ -208,7 +208,7 @@ function simulation(masses, positions, velocities; multibodysystem_args=(;), kwa
     bodies  = SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(pos_body, vel_body, mass_body)]...]
     
     ode_params = setup_params(multiple_system.time, multiple_system.binaries, 
-                              multiple_system.particles, args[:ode_params])
+                              multiple_system.particles)
 
     system = FewBodySystem(bodies, args[:potential_params], args[:potential])
     sim = FewBodySimulation(multiple_system, system, args[:tspan], ode_params, args, kwargs)
@@ -229,7 +229,7 @@ function setup_timespan(t0, t_sim, P_out)
 end
 
 
-function setup_params(time, binaries, particles, extras)
+function setup_params(time, binaries, particles)
     semi_major_axes = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"m")))[]
     masses = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"Msun")))[]
     luminosities = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"Lsun")))[]
@@ -284,9 +284,12 @@ function setup_params(time, binaries, particles, extras)
                       :core_masses => core_masses,
                       :core_radii => core_radii,
                       :ages => ages)
-    merge!(all_params, extras)
 
-    ode_params = LVector(NamedTuple(all_params))
+    ode_params = DefaultSimulationParams(all_params[:a], all_params[:R], 
+                                         all_params[:M], all_params[:L], 
+                                         all_params[:S], all_params[:stellar_type],
+                                         all_params[:core_masses], all_params[:core_radii], 
+                                         all_params[:ages])
 
     return ode_params
 end

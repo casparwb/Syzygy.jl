@@ -4,6 +4,19 @@ using StaticArrays, JLD2, LabelledArrays, FastChebInterp
 include("../physics/tides.jl")
 
 abstract type FewBodyPotential end
+abstract type SimulationParams end
+
+struct DefaultSimulationParams{aType, RType, MType, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
+    a::aType
+    R::RType
+    M::MType
+    L::LType
+    S::SType
+    stellar_types::stpType
+    M_cores::cMType
+    R_cores::cRType
+    ages::ageType
+end
 
 struct PureGravitationalPotential{gType <: Real} <: FewBodyPotential
     G::gType
@@ -106,27 +119,30 @@ function StaticEquilibriumTidalPotential(system, G=ustrip(upreferred(𝒢)); Z=0
     StaticEquilibriumTidalPotential(G, m_envs, R_envs)
 end
 
+
 """
-    pure_gravitational_acceleration!(dv,, rs,, params::T where T <: LArray,, i::Integer,, n::Integer,, potential::PureGravitationalPotential)
+    pure_gravitational_acceleration!(dv,, rs,, params::SimulationParams,, i::Integer,, n::Integer,, potential::PureGravitationalPotential)
 
 Acceleration function from gravitational acceleration.
 """
 function pure_gravitational_acceleration!(dv,
                                           rs,
-                                          params::T where T <: LArray,
+                                          params::SimulationParams,
                                           i::Int,
                                           n::Int,
                                           potential::PureGravitationalPotential)
 
-    ms = params.M
+    # ms::SVector{3, DynamicQuantities.Quantity} = params.M
+    # ms::SVector{3, Float64} = map(dustrip, params.M)
     accel = @SVector [0.0, 0.0, 0.0];
     ri = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     @inbounds for j = 1:n
         if j != i
-            m_num = dustrip(ms[j])
+            m_num::Float64 = dustrip(params.M[j])
             rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
             rij = ri - rj
             accel -= potential.G * m_num * rij / (norm(rij)^3)
+            # accel -= potential.G * ms[j] * rij / (norm(rij)^3)
         end
     end
     @. dv += accel
@@ -136,8 +152,9 @@ function pure_gravitational_acceleration!(dv,
 end
 
 
+
 """
-    dynamical_tidal_drag_force!(dv, rs, vs, params::T where T <: LArray, i::Int, n::Int, potential::DynamicalTidalPotential)
+    dynamical_tidal_drag_force!(dv, rs, vs, params::SimulationParams, i::Int, n::Int, potential::DynamicalTidalPotential)
 
 Acceleration function from dynamical tides. This model is adapted from 
 [Implementing Tidal and Gravitational Wave Energy Losses in Few-body Codes: A Fast and Easy Drag Force Model](https://arxiv.org/abs/1803.08215)
@@ -145,7 +162,7 @@ Acceleration function from dynamical tides. This model is adapted from
 function dynamical_tidal_drag_force!(dv,
                            rs,
                            vs,
-                           params::T where T <: LArray,
+                           params::SimulationParams,
                            i::Int,
                            n::Int,
                            potential::DynamicalTidalPotential)
@@ -196,19 +213,19 @@ end
 
 
 # """
-# equilibrium_tidal_drag_force!(dv, rs, vs, params::T where T <: LArray, i::Integer, n::Integer, potential::EquilibriumTidalPotential)
+# equilibrium_tidal_drag_force!(dv, rs, vs, params::SimulationParams, i::Integer, n::Integer, potential::EquilibriumTidalPotential)
 
 # Acceleration function from equilibrium tides using the Hut 1981 prescription.
 # """
 # function equilibrium_tidal_drag_force!(dv,
 #                                rs,
 #                                vs,
-#                                params::T where T <: LArray,
+#                                params::SimulationParams,
 #                                i::Int,
 #                                n::Int,
 #                                potential::EquilibriumTidalPotential) 
 
-#     stellar_type = dustrip(params.stellar_type[i]) |> Int
+#     stellar_type = dustrip(params.stellar_types[i]) |> Int
 #     accel = @SVector [0.0, 0.0, 0.0]
 
 #     if !(stellar_types[stellar_type] isa Star)
@@ -231,8 +248,8 @@ end
 #     logm::Float64 = log10(Float64(ustrip(u"Msun", M)))
 #     k = asidal_motion_constant_interpolated(logm, logg)
 
-#     core_mass::typeof(upreferred(1.0u"Msun")) = params.core_masses[i]
-#     core_radius::typeof(upreferred(1.0u"Rsun")) = params.core_radii[i]
+#     core_mass::typeof(upreferred(1.0u"Msun")) = params.M_cores[i]
+#     core_radius::typeof(upreferred(1.0u"Rsun")) = params.R_cores[i]
 #     luminosity::typeof(upreferred(1.0u"Lsun")) = params.L[i]
 #     age::typeof(upreferred(1.0u"s")) = params.ages[i]
     
@@ -276,19 +293,19 @@ end
 
 
 """
-equilibrium_tidal_drag_force!(dv, rs, vs, params::T where T <: LArray, i::Integer, n::Integer, potential::EquilibriumTidalPotential)
+equilibrium_tidal_drag_force!(dv, rs, vs, params::SimulationParams, i::Integer, n::Integer, potential::EquilibriumTidalPotential)
 
 Acceleration function from equilibrium tides using the Hut 1981 prescription.
 """
 function equilibrium_tidal_drag_force!(dv,
                                rs,
                                vs,
-                               params::T where T <: LArray,
+                               params::SimulationParams,
                                i::Int,
                                n::Int,
                                potential::EquilibriumTidalPotential) 
 
-    stellar_type = dustrip(params.stellar_type[i]) |> Int
+    stellar_type = dustrip(params.stellar_types[i]) |> Int
     accel = @SVector [0.0, 0.0, 0.0]
 
     if !(stellar_types[stellar_type] isa Star)
@@ -311,8 +328,8 @@ function equilibrium_tidal_drag_force!(dv,
     logm = log10(M/DynamicQuantities.Constants.M_sun |> dustrip)
     k = asidal_motion_constant_interpolated(logm, logg)
 
-    core_mass = params.core_masses[i]
-    core_radius = params.core_radii[i]
+    core_mass = params.M_cores[i]
+    core_radius = params.R_cores[i]
     luminosity = params.L[i]
     age = params.ages[i]
     
@@ -357,12 +374,12 @@ end
 function equilibrium_tidal_drag_force!(dv,
                                rs,
                                vs,
-                               params::T where T <: LArray,
+                               params::SimulationParams,
                                i::Int,
                                n::Int,
                                potential::StaticEquilibriumTidalPotential) 
 
-    stellar_type = dustrip(params.stellar_type[i]) |> Int
+    stellar_type = dustrip(params.stellar_types[i]) |> Int
     accel = @SVector [0.0, 0.0, 0.0]
 
     if !(stellar_types[stellar_type] isa Star)

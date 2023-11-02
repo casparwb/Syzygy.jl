@@ -259,7 +259,7 @@ function rlof_callback_hierarchical!(integrator, retcode, particles, binaries, n
         rcode = rlof_rcodes[i]
         haskey(retcode, rcode) && continue
         
-        if !(stellar_types[round(Int, dustrip(integrator.p.stellar_type[i]))] isa Star)
+        if !(stellar_types[round(Int, dustrip(integrator.p.stellar_types[i]))] isa Star)
             continue
         end
         
@@ -300,7 +300,7 @@ function rlof_callback_democratic!(integrator, retcode, n, rlof_rcodes)
         rcode = rlof_rcodes[i]
         haskey(retcode, rcode) && continue
 
-        if !(stellar_types[round(Int, dustrip(integrator.p.stellar_type[i]))] isa Star)
+        if !(stellar_types[round(Int, dustrip(integrator.p.stellar_types[i]))] isa Star)
             continue
         end
 
@@ -353,7 +353,7 @@ end
 function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
 
     @inbounds for i ∈ 1:system.n
-        stellar_type = round(Int, dustrip(integrator.p.stellar_type[i]))
+        stellar_type = round(Int, dustrip(integrator.p.stellar_types[i]))
 
         # check if particle is a black hole, supernova, or unknown type
         if stellar_type == 14 || stellar_type == 15 || stellar_type == 16
@@ -361,7 +361,7 @@ function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(�
         end
         ri = @SVector [integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
         for j ∈ i:system.n
-            stellar_type_j = round(Int, dustrip(integrator.p.stellar_type[j]))
+            stellar_type_j = round(Int, dustrip(integrator.p.stellar_types[j]))
             if stellar_type_j == 14 && i != j
                 rj = @SVector [integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
                 d = norm(ri - rj)
