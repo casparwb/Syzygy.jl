@@ -335,46 +335,12 @@ end
 
 zero_age_main_sequence_radius(M::DynamicQuantities.Quantity) = zero_age_main_sequence_radius(M / DynamicQuantities.Constants.M_sun |> dustrip)
 
+# function main_sequence_radius_035_msun(τ::DynamicQuantities.Quantity, Z=0.02)
+#     main_sequence_radius_035_msun(τ / ustrip(u"s", 1u"Myr") |> dustrip, Z)
+# end
 
-# const main_sequence_radius_035_msun_factors = begin
-#     M = 0.35
-#     Z = 0.02
-#     ζ = log10(Z/0.02)
-#     aₙ(α, β, γ, η, μ) = α + β*ζ + γ*ζ^2 + η*ζ^3 + μ*ζ^4
-
-#     a₁₈′ = aₙ(2.187715, -2.154437, -3.768678, -1.975518, -3.021475)
-#     a₁₉′ = aₙ(1.466440, 1.839725, 6.442199, 4.023635, 6.957529)
-#     a₂₀ = aₙ(2.652091, 8.178458, 1.156058, 7.633811, 1.950698)
-
-#     a₁₈ = a₁₈′*a₂₀
-#     a₁₉ = a₁₉′*a₂₀
-#     a₂₁ = aₙ(1.472103, -2.947609, -3.312828, -9.945065, 0)
-#     a₂₂ = aₙ(3.071048, -5.679941, -9.745523, -3.594543, 0)
-
-#     R_zams = zero_age_main_sequence_radius(M)
-#     R_tms = (a₁₈ + a₁₉*M^a₂₁)/(a₂₀ + M^a₂₂) # Hurley et al 2000 eq. 9
-
-#     Mhook = 1.0185 + 0.16015ζ + 0.0892ζ^2
-#     @assert Mhook >= M "Only valid for M <= Mhook right now."
-
-
-#     a₆₂ = aₙ(8.4300, -4.7500, -3.5200, 0, 0)
-#     a₇₆ = aₙ(1.192334, 1.083057, 1.230969, 1.551656, 0)
-#     a₇₇ = aₙ(-1.668868, 5.818123, -1.105027, -1.668070, 0)
-#     a₇₈ = aₙ(7.615495, 1.068243, -2.011333, -9.371415, 0)
-#     a₇₉ = aₙ(9.409838, 1.522928, 0, 0, 0)
-
-#     a₇₆ = max(a₇₆, -0.1015564 - 0.2161264ζ - 0.05182516*ζ^2) 
-#     a₇₇ = max(-0.3868776 - 0.5457078*ζ - 0.1463472ζ^2, min(0.0, a₇₇))
-#     a₇₈ = max(0.0, min(a₇₈, 7.454 + 9.046*ζ)) 
-#     a₇₉ = min(a₇₉, max(2.0, -13.3 - 18.6*ζ)) 
-
-#     αR = a₆₂
-#     βR = 1.06
-
-#     γ = a₇₆ + a₇₇*(M - a₇₈)^a₇₉
-#     Dict{String, Float64}("αR" => αR, "βR" => βR, "γ" => γ, "R_tms" => R_tms,
-#                           "R_zams" => R_zams)
+# function main_sequence_radius_035_msun(τ::Quantity, Z=0.02)
+#     main_sequence_radius_035_msun(ustrip(u"Myr", τ), Z)
 # end
 
 """
@@ -382,9 +348,8 @@ zero_age_main_sequence_radius(M::DynamicQuantities.Quantity) = zero_age_main_seq
 
 Radius of a 0.35 M⊙ main-sequence star at a time τ = t/tMS.  
 """
-function main_sequence_radius_035_msun(τ, Z=0.02)
+function main_sequence_radius_035_msun(τ::Real, Z=0.02)
     M = 0.35
-
     ζ = log10(Z/0.02)
     ζ² = ζ^2    
     aₙ(α, β=0.0, γ=0.0, η=0.0, μ=0.0) = α + β*ζ + γ*ζ² + η*ζ^3 + μ*ζ²^2
@@ -440,7 +405,8 @@ function convective_envelope_radius(mass, radius, core_radius, stellar_type, age
     if any(stellar_type .== (3, 5, 6, 8, 9)) # giant-like stars
         return radius - core_radius
     elseif any(stellar_type .== (1, 7))   # main sequence stars
-        τ = age/tMS
+        τ = age/tMS 
+        τ = DynamicQuantities.convert(Float64, τ)
         
         R_env₀ = if mass > 1.25
                     0.0
@@ -524,7 +490,7 @@ function main_sequence_lifetime(M::Real, Z=0.02)
 
     tMS = max(t_hook, x*tBGB)
 
-    return tMS, tBGB
+    return tMS*u"Myr", tBGB*u"Myr"
 end
 
 main_sequence_lifetime(M::Unitful.Quantity, Z=0.02) = main_sequence_lifetime(ustrip(u"Msun", M), Z)
