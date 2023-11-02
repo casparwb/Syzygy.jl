@@ -121,7 +121,7 @@ function analyse_simulation(result::SimulationResult)
             tmp[param] = convert.(Unitful.Quantity, getproperty(result.ode_params, param))
         end
 
-        tmp[:type] = pop!(tmp, :stellar_type)
+        tmp[:type] = pop!(tmp, :stellar_types)
         tmp[:m] = pop!(tmp, :M)
         tmp
     end
@@ -145,7 +145,7 @@ function analyse_simulation(result::SimulationResult)
     v = AxisArray(v; dim=1:3, particle=1:n_bodies, time=time)
     for idx in eachindex(time)
 
-        str_idx = ifelse(idx == 1, 1, 2)
+        str_idx = min(idx, 2)
 
         pos = result.solution.u[idx].x[2] .* upreferred(1.0u"m")
         vel = result.solution.u[idx].x[1] .* upreferred(1.0u"m/s")
@@ -180,8 +180,6 @@ function analyse_simulation(result::SimulationResult)
                 sibling_keys = sort(binary.nested_children)
                 m = structure.m[sibling_keys,str_idx]
 
-
-
                 binary_com = centre_of_mass(pos[:, sibling_keys], m) 
                 binary_com_vel = centre_of_mass_velocity(vel[:, sibling_keys], m) 
                 
@@ -214,7 +212,7 @@ function analyse_simulation(result::SimulationResult)
                 h = angular_momentum(r_rel, v_rel)
 
                 # mass = sum(children[1].masses) + sum(children[2].masses)
-                mass = sim(structure.m[binary_1_keys,str_idx]) + sim(structure.m[binary_2_keys,str_idx])
+                mass = sum(structure.m[binary_1_keys,str_idx]) + sum(structure.m[binary_2_keys,str_idx])
                 new_elements = binary_orbital_elements(r_rel, v_rel, mass)
 
                 add_orbital_elements!(elements, new_elements, i, idx)
@@ -285,6 +283,9 @@ function multibodysystem(sol::FewBodySolution, time)
     masses = sol.structure.m[:,time_index]
 
     n_bodies = length(masses)
+    # structure_args = Dict(prop => getproperty(sol.structure, prop)[:,time_index] for prop in fieldnames(StellarStructure))
+    # structure_args[:types] = Int.(structure_args[:types])
+    # orbital_args = Dict(prop => getindex.(getproperty(sol.elements, prop), time_index) for prop in fieldnames(OrbitalElements))
     multibodysystem(masses, R = sol.structure.R[:,time_index], 
                             L = sol.structure.L[:,time_index],
                             S = sol.structure.S[:,time_index],
