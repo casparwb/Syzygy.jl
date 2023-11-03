@@ -132,8 +132,6 @@ function pure_gravitational_acceleration!(dv,
                                           n::Int,
                                           potential::PureGravitationalPotential)
 
-    # ms::SVector{3, DynamicQuantities.Quantity} = params.M
-    # ms::SVector{3, Float64} = map(dustrip, params.M)
     accel = @SVector [0.0, 0.0, 0.0];
     ri = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     @inbounds for j = 1:n
@@ -142,13 +140,10 @@ function pure_gravitational_acceleration!(dv,
             rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
             rij = ri - rj
             accel -= potential.G * m_num * rij / (norm(rij)^3)
-            # accel -= potential.G * ms[j] * rij / (norm(rij)^3)
         end
     end
     @. dv += accel
 
-    # nothing
-    # accel
 end
 
 
@@ -211,85 +206,6 @@ function dynamical_tidal_drag_force!(dv,
     @. dv += accel
 end
 
-
-# """
-# equilibrium_tidal_drag_force!(dv, rs, vs, params::SimulationParams, i::Integer, n::Integer, potential::EquilibriumTidalPotential)
-
-# Acceleration function from equilibrium tides using the Hut 1981 prescription.
-# """
-# function equilibrium_tidal_drag_force!(dv,
-#                                rs,
-#                                vs,
-#                                params::SimulationParams,
-#                                i::Int,
-#                                n::Int,
-#                                potential::EquilibriumTidalPotential) 
-
-#     stellar_type = dustrip(params.stellar_types[i]) |> Int
-#     accel = @SVector [0.0, 0.0, 0.0]
-
-#     if !(stellar_types[stellar_type] isa Star)
-#         return
-#     end
-
-#     ri = @SVector [rs[1, i], rs[2, i], rs[3, i]]
-#     vi = @SVector [vs[1, i], vs[2, i], vs[3, i]]
-
-#     Rs = params.R
-#     ms = params.M
-#     S = params.S
-    
-#     M::typeof(upreferred(1.0u"Msun")) = ms[i]
-#     M_num = dustrip(M)
-#     R::typeof(upreferred(1.0u"Rsun")) = Rs[i]
-#     R_num = dustrip(R)
-#     Ω::Float64 = dustrip(S[i])
-#     logg::Float64 = log10(ustrip(u"cm/s^2", (potential.G*M_num/dustrip(R)^2 * upreferred(u"cm/s^2"))))
-#     logm::Float64 = log10(Float64(ustrip(u"Msun", M)))
-#     k = asidal_motion_constant_interpolated(logm, logg)
-
-#     core_mass::typeof(upreferred(1.0u"Msun")) = params.M_cores[i]
-#     core_radius::typeof(upreferred(1.0u"Rsun")) = params.R_cores[i]
-#     luminosity::typeof(upreferred(1.0u"Lsun")) = params.L[i]
-#     age::typeof(upreferred(1.0u"s")) = params.ages[i]
-    
-
-#     # tidal force on i by j
-#     @inbounds for j = 1:n
-#         if j != i
-#             rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
-#             vj = @SVector [vs[1, j], vs[2, j], vs[3, j]]
-
-#             rij = ri - rj
-#             vij = vi - vj
-
-#             r = norm(rij)
-#             r² = r^2
-#             r_hat = rij/r
-
-#             θ_dot = (rij × vij)/r²# × rij
-#             θ_dot_norm = norm(θ_dot)
-#             θ_hat = θ_dot/θ_dot_norm
-
-#             m::typeof(upreferred(1.0u"Msun")) = ms[j]
-#             m_num = dustrip(m)
-
-#             μ = potential.G*m_num/r²
-
-#             a = semi_major_axis(r, norm(vij)^2, m_num+M_num, potential.G)
-#             a_quant = a*upreferred(u"m")
-#             k_T = apsidal_motion_constant_over_tidal_timescale(M, R, age, core_mass, core_radius, 
-#                                                                stellar_type, luminosity, 
-#                                                                m, a_quant)
-#             # k_T::Float64 = ustrip(k_T)
-#             k_T_num = k_T.val
-#             kτ = R_num^3/(potential.G*M_num)*k_T_num
-
-#             accel += @. -μ*3m_num/M_num*(R_num/r)^5*((k + 33vij/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
-#         end
-#     end
-#     @. dv += accel
-# end
 
 
 """
