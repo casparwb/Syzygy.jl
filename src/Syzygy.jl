@@ -28,7 +28,7 @@ module Syzygy
     include("analysis/visualization.jl")
 
 
-    export multibodysystem#, getparticle, getbinary, getparent, getbinaries
+    export multibodysystem
     export PureGravitationalPotential, DynamicalTidalPotential, EquilibriumTidalPotential
     export simulation, simulate
     export analyse_simulation
