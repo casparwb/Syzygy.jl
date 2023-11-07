@@ -333,15 +333,7 @@ function zero_age_main_sequence_radius(mass::Unitful.Mass)
     zero_age_main_sequence_radius(ustrip(u"Msun", mass))
 end
 
-zero_age_main_sequence_radius(M::DynamicQuantities.Quantity) = zero_age_main_sequence_radius(M / DynamicQuantities.Constants.M_sun |> dustrip)
 
-# function main_sequence_radius_035_msun(τ::DynamicQuantities.Quantity, Z=0.02)
-#     main_sequence_radius_035_msun(τ / ustrip(u"s", 1u"Myr") |> dustrip, Z)
-# end
-
-# function main_sequence_radius_035_msun(τ::Quantity, Z=0.02)
-#     main_sequence_radius_035_msun(ustrip(u"Myr", τ), Z)
-# end
 
 """
     main_sequence_radius_035_msun(τ, Z=0.02)
@@ -393,6 +385,7 @@ function main_sequence_radius_035_msun(τ::Real, Z=0.02)
     10^logRMS_over_RZAMS*R_zams
 end
 
+
 """
     envelope_radius(mass, radius, core_radius, stellar_type)
 
@@ -406,7 +399,6 @@ function convective_envelope_radius(mass, radius, core_radius, stellar_type, age
         return radius - core_radius
     elseif any(stellar_type .== (1, 7))   # main sequence stars
         τ = age/tMS 
-        τ = DynamicQuantities.convert(Float64, τ)
         
         R_env₀ = if mass > 1.25
                     0.0
@@ -490,11 +482,10 @@ function main_sequence_lifetime(M::Real, Z=0.02)
 
     tMS = max(t_hook, x*tBGB)
 
-    return tMS*u"Myr", tBGB*u"Myr"
+    return tMS, tBGB
 end
 
 main_sequence_lifetime(M::Unitful.Quantity, Z=0.02) = main_sequence_lifetime(ustrip(u"Msun", M), Z)
-main_sequence_lifetime(M::DynamicQuantities.Quantity, Z=0.02) = main_sequence_lifetime(M / DynamicQuantities.Constants.M_sun |> dustrip, Z)
 
 
 function mass_luminosity_relation(M)

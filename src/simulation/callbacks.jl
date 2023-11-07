@@ -128,7 +128,7 @@ function collision_callback!(integrator, n, retcode)
                 rj = SA[integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
                 d = norm(ri - rj)
 
-                if isless(d - dustrip(integrator.p.R[j]), dustrip(integrator.p.R[i]))
+                if isless(d - ustrip(integrator.p.R[j]), ustrip(integrator.p.R[i]))
                     t = integrator.t * upreferred(1.0u"s")
                     retcode[:Collision] = (SA[i, j], t)
                     terminate!(integrator)
@@ -212,7 +212,7 @@ function unbound_callback!(integrator, retcode; max_a=100, G=upreferred(𝒢).va
         v_rel_bin = v_comp1 - v_comp2
 
         # binary properties of remaining components
-        M_bin = SA[dustrip(integrator.p.M[binary_ids[1]]), dustrip(integrator.p.M[binary_ids[2]])]
+        M_bin = SA[ustrip(integrator.p.M[binary_ids[1]]), ustrip(integrator.p.M[binary_ids[2]])]
         a_bin = semi_major_axis(norm(r_rel_bin), norm(v_rel_bin)^2, M_bin[1] + M_bin[2], G)
         a_bin < zero(a_bin) && continue
 
@@ -230,7 +230,7 @@ function unbound_callback!(integrator, retcode; max_a=100, G=upreferred(𝒢).va
         escape = criteria_1 && criteria_2
         if escape
             escapee = particle
-            M = dustrip(integrator.p.M[particle])
+            M = ustrip(integrator.p.M[particle])
             T = kinetic_energy(v_part, M) 
             
             U = -(G*M)*(M_bin[1]/norm(r_part - r_comp1) + M_bin[2]/norm(r_part - r_comp2))
@@ -259,7 +259,7 @@ function rlof_callback_hierarchical!(integrator, retcode, particles, binaries, n
         rcode = rlof_rcodes[i]
         haskey(retcode, rcode) && continue
         
-        if !(stellar_types[round(Int, dustrip(integrator.p.stellar_types[i]))] isa Star)
+        if !(stellar_types[round(Int, ustrip(integrator.p.stellar_types[i]))] isa Star)
             continue
         end
         
@@ -274,17 +274,17 @@ function rlof_callback_hierarchical!(integrator, retcode, particles, binaries, n
             binaries[sibling.i].nested_children
         end 
 
-        M₁ = dustrip(integrator.p.M[i])
-        M₂ = total_mass(integrator.p.M, sibling_ids) .|> dustrip
+        M₁ = ustrip(integrator.p.M[i])
+        M₂ = total_mass(integrator.p.M, sibling_ids) .|> ustrip
 
-        com = get_positions(u.x[2], dustrip.(integrator.p.M), M₂, sibling, sibling_ids)
+        com = get_positions(u.x[2], ustrip.(integrator.p.M), M₂, sibling, sibling_ids)
        
         r_rel = position - com
 
         d = norm(r_rel)
 
         R_roche = roche_radius(d, M₁/M₂)
-        rlof = isless(R_roche, dustrip(integrator.p.R[i]))
+        rlof = isless(R_roche, ustrip(integrator.p.R[i]))
         if rlof
             retcode[rcode] = upreferred(1.0u"s")*integrator.t
         end
@@ -300,7 +300,7 @@ function rlof_callback_democratic!(integrator, retcode, n, rlof_rcodes)
         rcode = rlof_rcodes[i]
         haskey(retcode, rcode) && continue
 
-        if !(stellar_types[round(Int, dustrip(integrator.p.stellar_types[i]))] isa Star)
+        if !(stellar_types[round(Int, ustrip(integrator.p.stellar_types[i]))] isa Star)
             continue
         end
 
@@ -327,8 +327,8 @@ function rlof_callback_democratic!(integrator, retcode, n, rlof_rcodes)
         r = SA[u.x[2][1,sibling], u.x[2][2,sibling], u.x[2][3,sibling]]
         v = SA[u.x[1][1,sibling], u.x[1][2,sibling], u.x[1][3,sibling]]
         
-        M₁ = dustrip(integrator.p.M[i])
-        M₂ = dustrip(integrator.p.M[sibling])
+        M₁ = ustrip(integrator.p.M[i])
+        M₂ = ustrip(integrator.p.M[sibling])
 
         r_rel = position - r
         v_rel = velocity - v
@@ -341,7 +341,7 @@ function rlof_callback_democratic!(integrator, retcode, n, rlof_rcodes)
 
         R_roche = roche_radius(d, M₁/M₂)#*(1 - e)
 
-        rlof = R_roche <= dustrip(integrator.p.R[i])
+        rlof = R_roche <= ustrip(integrator.p.R[i])
         if rlof
             retcode[rcode] = integrator.t * upreferred(1.0u"s")
         end
@@ -353,7 +353,7 @@ end
 function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
 
     @inbounds for i ∈ 1:system.n
-        stellar_type = round(Int, dustrip(integrator.p.stellar_types[i]))
+        stellar_type = round(Int, ustrip(integrator.p.stellar_types[i]))
 
         # check if particle is a black hole, supernova, or unknown type
         if stellar_type == 14 || stellar_type == 15 || stellar_type == 16
@@ -361,13 +361,13 @@ function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(�
         end
         ri = @SVector [integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
         for j ∈ i:system.n
-            stellar_type_j = round(Int, dustrip(integrator.p.stellar_types[j]))
+            stellar_type_j = round(Int, ustrip(integrator.p.stellar_types[j]))
             if stellar_type_j == 14 && i != j
                 rj = @SVector [integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
                 d = norm(ri - rj)
 
-                tidal_disruption_radius = integrator.p.R[i]*cbrt(integrator.p.M[j]/integrator.p.M[i]) |> dustrip
-                if (d - dustrip(integrator.p.R[i])) < tidal_disruption_radius
+                tidal_disruption_radius = integrator.p.R[i]*cbrt(integrator.p.M[j]/integrator.p.M[i]) |> ustrip
+                if (d - ustrip(integrator.p.R[i])) < tidal_disruption_radius
                     t = integrator.t * upreferred(1.0u"s")
                     retcode[:TidalDisruption] = (SA[i, j], t)
                     terminate!(integrator)
@@ -379,8 +379,8 @@ end
 
 function move_to_com_callback!(integrator)
 
-    com = centre_of_mass(integrator.u.x[2], dustrip(integrator.p.M))
-    com_vel = centre_of_mass_velocity(integrator.u.x[1], dustrip(integrator.p.M))
+    com = centre_of_mass(integrator.u.x[2], ustrip(integrator.p.M))
+    com_vel = centre_of_mass_velocity(integrator.u.x[1], ustrip(integrator.p.M))
 
     integrator.u.x[2] .-= com
     integrator.u.x[1] .-= com_vel
@@ -456,7 +456,7 @@ function democratic_check_callback2!(integrator, retcode, system)
         vi = SA[integrator.u.x[1][1, i], integrator.u.x[1][2, i], integrator.u.x[1][3, i]]
         vj = SA[integrator.u.x[1][1, j], integrator.u.x[1][2, j], integrator.u.x[1][3, j]]
 
-        Mi, Mj = dustrip(integrator.p.M[i]), dustrip(integrator.p.M[j])
+        Mi, Mj = ustrip(integrator.p.M[i]), ustrip(integrator.p.M[j])
         M = Mi + Mj
 
         r_rel = rj - ri
@@ -505,7 +505,7 @@ function democratic_check_callback3!(integrator, retcode, system)
     v1 = SA[u.x[1][1,1], u.x[1][2,1], u.x[1][3,1]]
     v2 = SA[u.x[1][1,2], u.x[1][2,2], u.x[1][3,2]]
 
-    M1, M2 = dustrip(integrator.p.M[1]), dustrip(integrator.p.M[2])
+    M1, M2 = ustrip(integrator.p.M[1]), ustrip(integrator.p.M[2])
     M12 = M1 + M2
 
     r_rel = r2 - r1

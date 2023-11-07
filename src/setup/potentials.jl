@@ -136,7 +136,7 @@ function pure_gravitational_acceleration!(dv,
     ri = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     @inbounds for j = 1:n
         if j != i
-            m_num::Float64 = dustrip(params.M[j])
+            m_num::Float64 = ustrip(params.M[j])
             rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
             rij = ri - rj
             accel -= potential.G * m_num * rij / (norm(rij)^3)
@@ -169,11 +169,11 @@ function dynamical_tidal_drag_force!(dv,
     ms = params.M
     Rs = params.R
 
-    Rₜ = dustrip(Rs[i])
+    Rₜ = ustrip(Rs[i])
     # by j on i -> j is (p)erturber, i is (t)idal object
     @inbounds for j = 1:n
         if j != i
-            M = dustrip(ms[i]) + dustrip(ms[j])
+            M = ustrip(ms[i]) + ustrip(ms[j])
 
             rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
 
@@ -190,7 +190,7 @@ function dynamical_tidal_drag_force!(dv,
 
 
             J = potential.tidal_factor(e)
-            ΔE::Float64 = tidal_ΔE(dustrip(ms[i]), Rₜ, dustrip(ms[j]), rₚ, 
+            ΔE::Float64 = tidal_ΔE(ustrip(ms[i]), Rₜ, ustrip(ms[j]), rₚ, 
                                    potential.γ[i], potential.G)
 
             ΔE = ifelse(isinf(ΔE), 0.0, ΔE)
@@ -198,7 +198,7 @@ function dynamical_tidal_drag_force!(dv,
 
 
             Fij = @. (-ε*(v/d^potential.nₜ)*vij/v)
-            tidal_acc = Fij / dustrip(ms[i])
+            tidal_acc = Fij / ustrip(ms[i])
             accel += tidal_acc
         end
     end
@@ -221,7 +221,7 @@ function equilibrium_tidal_drag_force!(dv,
                                n::Int,
                                potential::EquilibriumTidalPotential) 
 
-    stellar_type = dustrip(params.stellar_types[i]) |> Int
+    stellar_type = ustrip(params.stellar_types[i]) |> Int
     accel = @SVector [0.0, 0.0, 0.0]
 
     if !(stellar_types[stellar_type] isa Star)
@@ -236,12 +236,13 @@ function equilibrium_tidal_drag_force!(dv,
     S = params.S
     
     M = ms[i]
-    M_num = dustrip(M)
+    M_num = ustrip(M)
     R = Rs[i]
-    R_num = dustrip(R)
-    Ω = dustrip(S[i])
-    logg = log10(ustrip(u"cm/s^2", (potential.G*M_num/R_num^2 * upreferred(u"cm/s^2"))))
-    logm = log10(M/DynamicQuantities.Constants.M_sun |> dustrip)
+    R_num = ustrip(R)
+    Ω = ustrip(S[i])
+    G = unit(upreferred(𝒢))*potential.G
+    logg = log10(ustrip(u"cm/s^2", G*M/R^2))
+    logm = log10(ustrip(u"Msun", M))
     k = asidal_motion_constant_interpolated(logm, logg)
 
     core_mass = params.M_cores[i]
@@ -268,7 +269,7 @@ function equilibrium_tidal_drag_force!(dv,
             θ_hat = θ_dot/θ_dot_norm
 
             m = ms[j]
-            m_num = dustrip(m)
+            m_num = ustrip(m)
 
             μ = potential.G*m_num/r²
 
@@ -276,7 +277,7 @@ function equilibrium_tidal_drag_force!(dv,
             a_quant = a*upreferred(u"m")
             k_T = apsidal_motion_constant_over_tidal_timescale(M, R, age, core_mass, core_radius, 
                                                                stellar_type, luminosity, 
-                                                               m, a_quant) * upreferred(1.0u"yr^-1").val
+                                                               m, a_quant)# * upreferred(1.0u"yr^-1").val
 
             kτ = R_num^3/(potential.G*M_num)*k_T
 
@@ -295,7 +296,7 @@ function equilibrium_tidal_drag_force!(dv,
                                n::Int,
                                potential::StaticEquilibriumTidalPotential) 
 
-    stellar_type = dustrip(params.stellar_types[i]) |> Int
+    stellar_type = ustrip(params.stellar_types[i]) |> Int
     accel = @SVector [0.0, 0.0, 0.0]
 
     if !(stellar_types[stellar_type] isa Star)
@@ -310,12 +311,12 @@ function equilibrium_tidal_drag_force!(dv,
     S = params.S
     
     M = ms[i]
-    M_num = dustrip(M)
+    M_num = ustrip(M)
     R = Rs[i]
-    R_num = dustrip(R)
-    Ω = dustrip(S[i])
+    R_num = ustrip(R)
+    Ω = ustrip(S[i])
     logg = log10(ustrip(u"cm/s^2", (potential.G*M_num/R_num^2 * upreferred(u"cm/s^2"))))
-    logm = log10(M/DynamicQuantities.Constants.M_sun |> dustrip)
+    logm = log10(M/DynamicQuantities.Constants.M_sun |> ustrip)
     k = asidal_motion_constant_interpolated(logm, logg)
 
     envelope_mass = potential.M_env[i]
@@ -340,7 +341,7 @@ function equilibrium_tidal_drag_force!(dv,
             θ_hat = θ_dot/θ_dot_norm
 
             m = ms[j]
-            m_num = dustrip(m)
+            m_num = ustrip(m)
 
             μ = potential.G*m_num/r²
 

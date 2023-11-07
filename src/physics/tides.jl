@@ -91,14 +91,14 @@ function apsidal_motion_constant_over_tidal_timescale(mass::DynamicQuantities.Qu
         return 0.0
     end
 
-    mass = mass / DynamicQuantities.Constants.M_sun |> dustrip
-    radius = radius / DynamicQuantities.Constants.R_sun |> dustrip
-    envelope_mass = envelope_mass / DynamicQuantities.Constants.M_sun |> dustrip
-    envelope_radius = envelope_radius / DynamicQuantities.Constants.R_sun |> dustrip
-    luminosity = luminosity / DynamicQuantities.Constants.L_sun |> dustrip
+    mass = ustrip(u"Msun", mass)
+    radius = ustrip(u"Rsun", radius)
+    envelope_mass = ustrip(u"Msun", envelope_mass)
+    envelope_radius = ustrip(u"Rsun", envelope_radius)
+    luminosity = ustrip(u"Lsun", luminosity)
 
-    mass_perturber = mass_perturber / DynamicQuantities.Constants.M_sun |> dustrip
-    semi_major_axis = semi_major_axis / DynamicQuantities.Constants.R_sun |> dustrip
+    mass_perturber = ustrip(u"Msun", mass_perturber)
+    semi_major_axis = ustrip(u"Rsun", semi_major_axis)
 
     apsidal_motion_constant_over_tidal_timescale(mass, radius,
                                                  envelope_mass, envelope_radius,

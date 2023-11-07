@@ -1,6 +1,4 @@
-using Printf, LabelledArrays, Unitful, UnitfulAstro
-import DynamicQuantities
-const dustrip = DynamicQuantities.ustrip
+using Printf, Unitful, UnitfulAstro
 
 
 function bodies(nbody::T where T <: FewBodyInitialConditions)
@@ -230,12 +228,12 @@ end
 
 
 function setup_params(time, binaries, particles)
-    semi_major_axes = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"m")))[]
-    masses = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"Msun")))[]
-    luminosities = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"Lsun")))[]
-    radii = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"Rsun")))[]
-    spins = typeof(convert(DynamicQuantities.Quantity, upreferred(1.0u"1/yr")))[]
-    types = typeof(convert(DynamicQuantities.Quantity, 1.0u"stp"))[]
+    semi_major_axes = typeof(upreferred(1.0u"m"))[]
+    masses = typeof(upreferred(1.0u"Msun"))[]
+    luminosities = typeof(upreferred(1.0u"Lsun"))[]
+    radii = typeof(upreferred(1.0u"Rsun"))[]
+    spins = typeof(upreferred(1.0u"1/yr"))[]
+    types = typeof(1.0u"stp")[]
     core_masses = typeof(upreferred(1.0u"Msun"))[]
     core_radii = typeof(upreferred(1.0u"Rsun"))[]
     ages = typeof(upreferred(1.0u"yr"))[]
@@ -260,11 +258,11 @@ function setup_params(time, binaries, particles)
         push!(core_masses, core_mass)
         push!(core_radii, core_radius)
         push!(ages, upreferred(time))
-        push!(masses, convert(DynamicQuantities.Quantity, mass))
-        push!(luminosities, convert(DynamicQuantities.Quantity, luminosity))
-        push!(radii, convert(DynamicQuantities.Quantity, radius))
-        push!(spins, convert(DynamicQuantities.Quantity, spin))
-        push!(types, convert(DynamicQuantities.Quantity, stellar_type))
+        push!(masses, mass)
+        push!(luminosities, luminosity)
+        push!(radii, radius)
+        push!(spins, spin)
+        push!(types, stellar_type)
     end
 
     semi_major_axes = SA[semi_major_axes...]
