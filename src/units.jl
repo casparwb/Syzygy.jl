@@ -1,5 +1,4 @@
 using Unitful, UnitfulAstro
-import DynamicQuantities
 
 CGS_units() = Unitful.preferunits(u"cm, g, s")
 

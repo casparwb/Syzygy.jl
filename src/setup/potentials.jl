@@ -1,5 +1,5 @@
 # abstract type Body end
-using StaticArrays, JLD2, LabelledArrays, FastChebInterp
+using StaticArrays, JLD2, FastChebInterp
 
 include("../physics/tides.jl")
 
@@ -98,8 +98,8 @@ function StaticEquilibriumTidalPotential(system, G=ustrip(upreferred(𝒢)); Z=0
 
     age = system.time
     n_bodies = system.n
-    R_envs = Float64[]
-    m_envs = Float64[]
+    R_envs = typeof(1.0u"Rsun")[]
+    m_envs = typeof(1.0u"Msun")[]
 
     for i = 1:n_bodies
         
@@ -107,7 +107,7 @@ function StaticEquilibriumTidalPotential(system, G=ustrip(upreferred(𝒢)); Z=0
         envelope_radius, envelope_mass = if particle.structure.type isa Star && particle.structure.m < 1.25u"Msun"
                                              envelope_structure(system.particles[i], age, Z)
                                          else
-                                            0.0, 0.0
+                                            0.0u"Rsun", 0.0u"Msun"
                                          end
         push!(R_envs, envelope_radius)
         push!(m_envs, envelope_mass)
@@ -315,12 +315,14 @@ function equilibrium_tidal_drag_force!(dv,
     R = Rs[i]
     R_num = ustrip(R)
     Ω = ustrip(S[i])
-    logg = log10(ustrip(u"cm/s^2", (potential.G*M_num/R_num^2 * upreferred(u"cm/s^2"))))
-    logm = log10(M/DynamicQuantities.Constants.M_sun |> ustrip)
+    G = unit(upreferred(𝒢))*potential.G
+    logg = log10(ustrip(u"cm/s^2", G*M/R^2))
+    logm = log10(ustrip(u"Msun", M))
     k = asidal_motion_constant_interpolated(logm, logg)
 
     envelope_mass = potential.M_env[i]
     envelope_radius = potential.R_env[i]
+
     luminosity = params.L[i]    
 
     # tidal force on i by j

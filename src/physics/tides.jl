@@ -81,7 +81,7 @@ function apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_ma
                     mass_perturber, semi_major_axis)
 end
 
-function apsidal_motion_constant_over_tidal_timescale(mass::DynamicQuantities.Quantity, radius,
+function apsidal_motion_constant_over_tidal_timescale(mass::Unitful.Mass, radius,
                                                       envelope_mass, envelope_radius,
                                                       stellar_type, luminosity, 
                                                       mass_perturber,
@@ -151,33 +151,6 @@ function k_over_T(mass::Unitful.Mass, radius, core_mass, age,
 
     mass_perturber = ustrip(u"Msun", mass_perturber)
     semi_major_axis = ustrip(u"Rsun", semi_major_axis)
-
-
-    k_over_T(mass, radius, core_mass, age,
-            core_radius, stellar_type,
-            luminosity,
-            mass_perturber, semi_major_axis, Z)
-end
-
-
-function k_over_T(mass::DynamicQuantities.Quantity, radius, core_mass, age,
-                  core_radius, stellar_type,
-                  luminosity,
-                  mass_perturber, semi_major_axis, Z=0.02)
-
-    if !(stellar_types[stellar_type] isa Star)
-        return 0.0
-    end
-
-    mass = mass / DynamicQuantities.Constants.M_sun |> dustrip
-    radius = radius / DynamicQuantities.Constants.R_sun |> dustrip
-    core_mass = core_mass / DynamicQuantities.Constants.M_sun |> dustrip
-    core_radius = core_radius / DynamicQuantities.Constants.R_sun |> dustrip
-    luminosity = luminosity / DynamicQuantities.Constants.L_sun |> dustrip
-    age = age / DynamicQuantities.Quantity(3.15576e13, time=1) |> dustrip
-
-    mass_perturber = mass_perturber / DynamicQuantities.Constants.M_sun |> dustrip
-    semi_major_axis = semi_major_axis / DynamicQuantities.Constants.R_sun |> dustrip
 
 
     k_over_T(mass, radius, core_mass, age,
