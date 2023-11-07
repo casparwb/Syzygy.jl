@@ -1,7 +1,7 @@
 name = "Syzygy"
 uuid = "3771e0d5-fa61-4ae8-92e5-e80db42a5c95"
 authors = ["Caspar William Bruenech <c.w.bruenech@pm.me> and contributors"]
-version = "0.0.16"
+version = "0.1.0"
 
 [deps]
 AxisArrays = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
