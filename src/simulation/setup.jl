@@ -265,15 +265,15 @@ function setup_params(time, binaries, particles)
         push!(types, stellar_type)
     end
 
-    semi_major_axes = SA[semi_major_axes...]
-    masses = SA[masses...]
-    luminosities = SA[luminosities...]
-    radii = SA[radii...]
-    spins = SA[spins...]
-    types = SA[types...]
-    core_masses = SA[core_masses...]
-    core_radii = SA[core_radii...]
-    ages = SA[ages...]
+    semi_major_axes = MVector(semi_major_axes...)
+    masses = MVector(masses...)
+    luminosities = MVector(luminosities...)
+    radii = MVector(radii...)
+    spins = MVector(spins...)
+    types = MVector(types...)
+    core_masses = MVector(core_masses...)
+    core_radii = MVector(core_radii...)
+    ages = MVector(ages...)
 
     all_params = Dict(:a => semi_major_axes, :R => radii, 
                       :M => masses, :S => spins,
