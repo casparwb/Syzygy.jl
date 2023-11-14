@@ -15,7 +15,7 @@ module Syzygy
     include("setup/potentials.jl")
     include("setup/framework.jl")
     
-    include("physics/physics.jl")x
+    include("physics/physics.jl")
     include("physics/orbital_elements.jl")
     include("physics/hierarchy_setup.jl")
     include("physics/kepler.jl")
