@@ -15,7 +15,7 @@ module Syzygy
     include("setup/potentials.jl")
     include("setup/framework.jl")
     
-    include("physics/physics.jl")
+    include("physics/physics.jl")x
     include("physics/orbital_elements.jl")
     include("physics/hierarchy_setup.jl")
     include("physics/kepler.jl")
@@ -50,7 +50,7 @@ module Syzygy
         simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
                  callbacks=["collision", "escape", "rlof", "tidal_disruption"],
                  potential=[PureGravitationalPotential(), EquilibriumTidalPotential(𝒢.val)])
-        simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
+        res = simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
                  callbacks=["collision", "escape", "rlof", "tidal_disruption"],
                  potential=[PureGravitationalPotential(), StaticEquilibriumTidalPotential(triple)])
 
