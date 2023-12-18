@@ -1,8 +1,8 @@
 __precompile__()
 
 module Syzygy
-    using Reexport 
     using PrecompileTools
+    using Reexport 
 
     @reexport using Unitful, UnitfulAstro
 
