@@ -102,7 +102,14 @@ function setup_callbacks(stopping_conditions, system, p, retcode, G, args; start
                 push!(cbs, callback_democratic1)
                 push!(cbs, callback_democratic2)
                 push!(cbs, callback_democratic3)
+
+            elseif condition == "ionization"
             
+                condition_ionization(u, t, integrator) = true
+                max_distance =  100*upreferred(system.binaries[2].elements.P).val
+                affect_ionization!(integrator) = ionization_callback!(integrator, retcode, max_distance)
+                callback_ionization = Syzygy.OrdinaryDiffEq.DiscreteCallback(condition_ionization, affect_ionization!, save_positions=(false, false))
+                push!(cbs, callback_ionization)
             else
                 continue
             end
@@ -523,13 +530,59 @@ function democratic_check_callback3!(integrator, retcode, system)
 
 end
 
-
 """
-TO DO
+Check if triple system has ionised (all three stars have become unbound).
 """
-function supernova_kick_callback(u, t, integrator, t_sn)
+function ionization_callback!(integrator, retcode, max_distance, G=upreferred(𝒢).val)
 
+    u = integrator.u
 
+			
+    r1 = SA[u.x[2][1,1], u.x[2][2,1], u.x[2][3,1]]
+    r2 = SA[u.x[2][1,2], u.x[2][2,2], u.x[2][3,2]]
+    r3 = SA[u.x[2][1,3], u.x[2][2,3], u.x[2][3,3]]
+
+    v1 = SA[u.x[1][1,1], u.x[1][2,1], u.x[1][3,1]]
+    v2 = SA[u.x[1][1,2], u.x[1][2,2], u.x[1][3,2]]
+    v3 = SA[u.x[1][1,3], u.x[1][2,3], u.x[1][3,3]]
+
+    m = SA[ustrip(integrator.p.M[1]), ustrip(integrator.p.M[2]), ustrip(integrator.p.M[3])]
+
+    r12 = r2 .- r1
+    r23 = r3 .- r2
+    r13 = r3 .- r1
+    
+    com = Syzygy.centre_of_mass(SA[r1, r2, r3], m)
+
+    d1 = norm(r1 .- com)
+    d2 = norm(r2 .- com)
+    d3 = norm(r3 .- com)
+
+    distances_from_COM = SA[d1, d2, d3]
+    distances_now = SA[norm(r12), norm(23), norm(13)]
+
+    K = 0.5*m .* SA[norm(v1)^2, norm(v2)^2, norm(v3)^2]
+    U = -G*m .* SA[m[2]/norm(r12) + m[3]/norm(r13),
+                        m[1]/norm(r12) + m[3]/norm(r23),
+                        m[1]/norm(r13) + m[2]/norm(r23)]
+
+    r1 = r1 + v1 .* integrator.dt
+    r2 = r2 + v2 .* integrator.dt
+    r3 = r3 + v3 .* integrator.dt
+
+    r12 = r2 .- r1
+    r23 = r3 .- r2
+    r13 = r3 .- r1
+    
+    distances_next = SA[norm(r13), norm(r23), norm(r13)]
+
+    criteria_1 = all(distances_next .> distances_now)
+    criteria_2 = all(distances_from_COM .>= max_distance)
+    criteria_3 = all((K .+ U) .> 0)
+    if criteria_1 && criteria_2 && criteria_3
+        retcode[:Ionization] = true
+        Syzygy.OrdinaryDiffEq.terminate!(integrator)        
+    end
 end
 
 # function equilibrium_tidal_spin_evolution_callback(u, t, integrator, tidal_potential)
