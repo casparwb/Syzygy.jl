@@ -1,7 +1,10 @@
 __precompile__()
 
 module Syzygy
+    using Reexport 
     using PrecompileTools
+
+    @reexport using Unitful, UnitfulAstro
 
     function __init__()
         Unitful.register(Syzygy)
@@ -33,6 +36,7 @@ module Syzygy
     export simulation, simulate
     export analyse_simulation
     export 𝒢, pI, bI, ParticleIndex, BinaryIndex
+   
 
     @compile_workload begin
         triple = multibodysystem([1.0, 1.0, 1.0]u"Msun", a=[0.1, 1.0]u"AU", e=[0.4, 0.2])
