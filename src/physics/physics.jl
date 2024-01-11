@@ -569,8 +569,8 @@ end
 
 function quadrupole_timescale(system::MultiBodySystem)
     m = system.particles.mass .|> u"kg"
-    Pi = system.binaries[1].elements.P |> u"s"
-    Po = system.binaries[2].elements.P |> u"s"
-    eo = system.binaries[2].elements.e
-    return 16/30π*sum(m)/m[3]*Po^2/Pi*cbrt(1 - eo^2)^2
+    P_in = system.binaries[1].elements.P |> u"s"
+    P_out = system.binaries[2].elements.P |> u"s"
+    e_out = system.binaries[2].elements.e
+    return 16/30π*sum(m)/m[3]*P_out^2/P_in*cbrt(1 - e_out^2)^2
 end
