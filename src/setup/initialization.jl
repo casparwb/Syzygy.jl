@@ -178,16 +178,6 @@ Structure and element arguments can be given as vectors of length # of bodies or
 respectively, or as numbers, in which case the same value will be used for each body and/or binary.
 
 ...
-# Particle structure arguments
-- `R = 1.0u"Rsun"`: radius of each particle.
-- `S = 0.0u"1/yr"`: spin magnitude of each particle. If given as a negative number, the spin will be calculated using [`stellar_spin`](@ref).
-- `L = 1.0u"Lsun"`: luminosity of each particle.
-- `types = 1`: type of each particle. See [`FewBodySimulator.stellar_type_index`](@ref).
-- `R_core = 0.0u"Rsun"`: stellar core radius. Only used if tidal potential is included.
-- `m_core = 0.0u"Msun"`: stellar core mass. Only used if tidal potential is included.
-- `R_env = 0.0u"Rsun"`: stellar envelope radius. Only used if tidal potential is included.
-- `m_env = 0.0u"Msun"`: stellar envelope mass. Only used if tidal potential is included.
-
 # Binary elements arguments
 - `a = 1.0u"AU"`: semi-major axis.
 - `e = 0.1`: eccentricity.
@@ -195,6 +185,16 @@ respectively, or as numbers, in which case the same value will be used for each 
 - `i = 0.0u"rad"`: (mutual) inclination. The inclination of the first binary is with respect to the xy-plane.
 - `Ω = 0.0u"rad"`: longitude of the ascending node.
 - `ν = (π)u"rad"`: true anomaly, with `ν = 0u"rad"` corresponding to periapsis.
+
+# Particle structure arguments
+- `R = 1.0u"Rsun"`: radius of each particle.
+- `S = 0.0u"1/yr"`: spin magnitude of each particle. If given as a negative number, the spin will be calculated using [`stellar_spin`](@ref).
+- `L = 1.0u"Lsun"`: luminosity of each particle.
+- `types = 1`: type of each particle. See [`Syzygy.stellar_type_index`](@ref).
+- `R_core = 0.0u"Rsun"`: stellar core radius. Only used if tidal potential is included.
+- `m_core = 0.0u"Msun"`: stellar core mass. Only used if tidal potential is included.
+- `R_env = 0.0u"Rsun"`: stellar envelope radius. Only used if tidal potential is included.
+- `m_env = 0.0u"Msun"`: stellar envelope mass. Only used if tidal potential is included.
 
 # Other arguments
 - `hierarchy`: specification of the hierarchy structure. First element is total number of bodies, followed 
