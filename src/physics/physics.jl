@@ -567,10 +567,10 @@ function octupole_parameter(triple::MultiBodySystem)
     (m₁ - m₂)/(m₁ + m₂)*aᵢₙ/aₒᵤₜ*eₒᵤₜ/(1 - eₒᵤₜ^2)
 end
 
-function quadrupole_timescale(nbody::MultiBodySystem)
-    m = nbody.m .|> u"kg"
-    Pi = nbody.elements[1].P |> u"s"
-    Po = nbody.elements[2].P |> u"s"
-    eo = nbody.elements[2].e
+function quadrupole_timescale(system::MultiBodySystem)
+    m = system.particles.mass .|> u"kg"
+    Pi = system.binaries[1].elements.P |> u"s"
+    Po = system.binaries[2].elements.P |> u"s"
+    eo = system.binaries[2].elements.e
     return 16/30π*sum(m)/m[3]*Po^2/Pi*cbrt(1 - eo^2)^2
 end
