@@ -503,7 +503,7 @@ end
 
 
     # # Mutual inclination plot
-    # for bin in 1:n_binaries
+    for bin in 1:n_binaries
 
         @series begin
             seriestype --> :line
@@ -515,9 +515,9 @@ end
             # xticks --> nothing
             title --> "Inclination"
 
-            t, sol.elements[1].i .- sol.elements[2].i# ./ first(sol.elements[bin].i)
+            t, sol.elements[bin].i
 
-        # end
+        end
     end
 
     # link := :x
