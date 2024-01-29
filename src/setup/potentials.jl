@@ -1,5 +1,5 @@
 # abstract type Body end
-using StaticArrays, JLD2, FastChebInterp
+using StaticArrays, JLD2, FastChebInterp, Printf
 
 include("../physics/tides.jl")
 
@@ -16,6 +16,20 @@ struct DefaultSimulationParams{aType, RType, MType, LType, SType, stpType, cMTyp
     M_cores::cMType
     R_cores::cRType
     ages::ageType
+end
+
+function Base.show(io::IO, params::DefaultSimulationParams)
+    print(nameof(typeof(params)))
+    print(":")
+    println()
+    for prop in propertynames(params)
+        val = getproperty(params, prop) 
+        un = unit(val[1])
+        val = ustrip(val)
+
+        @printf(io, "   %-16s %s %s", "$prop", "$val", "$un")
+        println(io)
+    end
 end
 
 struct PureGravitationalPotential{gType <: Real} <: FewBodyPotential
