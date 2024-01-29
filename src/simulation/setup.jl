@@ -233,7 +233,7 @@ function setup_params(time, binaries, particles)
     luminosities = typeof(upreferred(1.0u"Lsun"))[]
     radii = typeof(upreferred(1.0u"Rsun"))[]
     spins = typeof(upreferred(1.0u"1/yr"))[]
-    types = typeof(1.0u"stp")[]
+    types = Int[]
     core_masses = typeof(upreferred(1.0u"Msun"))[]
     core_radii = typeof(upreferred(1.0u"Rsun"))[]
     ages = typeof(upreferred(1.0u"yr"))[]
@@ -251,7 +251,7 @@ function setup_params(time, binaries, particles)
         luminosity = p.structure.L |> upreferred
         radius = p.structure.R |> upreferred 
         spin = p.structure.S |> upreferred 
-        stellar_type = p.structure.type.index * u"stp"
+        stellar_type = p.structure.type.index 
         core_mass = p.structure.m_core |> upreferred
         core_radius = p.structure.R_core |> upreferred
 
