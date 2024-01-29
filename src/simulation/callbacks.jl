@@ -6,7 +6,6 @@
 
 using DiffEqCallbacks: ManifoldProjection
 
-
 function setup_callbacks(stopping_conditions, system, p, retcode, G, args; start_time=0)
     isnothing(stopping_conditions) && return stopping_conditions
     isempty(stopping_conditions) && return nothing
@@ -15,8 +14,13 @@ function setup_callbacks(stopping_conditions, system, p, retcode, G, args; start
     n = system.n
     for condition in stopping_conditions
         if condition isa String
-            if condition == "collision"
-                
+            if condition == "collision_old"
+                condition_collision_old(u, t, integrator) = true
+                affect_collision_old!(integrator) = collision_callback_old!(integrator, n, retcode)
+                callback_collision = DiscreteCallback(condition_collision_old, affect_collision_old!, save_positions=(false, false))
+                push!(cbs, callback_collision)
+
+            elseif condition == "collision"
                 condition_collision(u, t, integrator) = true
                 affect_collision!(integrator) = collision_callback!(integrator, n, retcode)
                 callback_collision = DiscreteCallback(condition_collision, affect_collision!, save_positions=(false, false))
@@ -125,8 +129,11 @@ end
 """
 
 Returns a callback for checking if collision has occured in system.
+If the two objects are stars, the callback checks for overlapping radii,
+if one of the objects is a compact object and the other is a star, the tidal
+radius of the CO is used, and finally if both objects are COs, we use 100 × gravitational radius.
 """
-function collision_callback!(integrator, n, retcode)
+function collision_callback_old!(integrator, n, retcode)
     # k = 1
     @inbounds for i ∈ 1:n
         ri = SA[integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
@@ -145,6 +152,112 @@ function collision_callback!(integrator, n, retcode)
         end
     end
 end
+
+"""
+
+Returns a callback for checking if collision has occured in system.
+If the two objects are stars, the callback checks for overlapping radii,
+if one of the objects is a compact object and the other is a star, the tidal
+radius of the CO is used, and finally if both objects are COs, we use 100 × gravitational radius.
+"""
+function collision_callback!(integrator, n, retcode)
+    # k = 1
+    @inbounds for i ∈ 1:n
+        ri = SA[integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
+        Ri = integrator.p.R[i]
+        Mi = integrator.p.M[i]
+
+        stellar_type_i = integrator.p.stellar_types[i]
+        for j ∈ i:n
+            if i != j
+                rj = SA[integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
+                d = norm(ri - rj)
+                
+                Rj = integrator.p.R[j]
+                Mj = integrator.p.M[j]
+
+                stellar_type_j = integrator.p.stellar_types[j]
+
+                collision::Bool = collision_check(d, Ri, Rj, Mi, Mj, stellar_type_i, stellar_type_j)::Bool
+                if collision
+                    t = integrator.t * upreferred(1.0u"s")
+                    retcode[:Collision] = (SA[i, j], t)
+                    terminate!(integrator)
+                end
+                # k += 1
+            end
+        end
+    end
+end
+
+function collision_check(d, R1, R2, M1, M2, stellar_type1::Int, stellar_type2::Int)
+    
+    if (0 <= stellar_type1 <= 9) && (0 <= stellar_type2 <= 9) # two stars
+        return collision_check_stars(d, R1, R2)
+    elseif  (0 <= stellar_type1 <= 9) && (10 <= stellar_type2 <= 14) # one star, one CO
+        return collision_check_star_co(d, R1, M2, M1)
+    elseif (10 <= stellar_type1 <= 14) && (0 <= stellar_type2 <= 9) # one star, one CO
+        collision_check_star_co(d, R2, M1, M2)
+    elseif (10 <= stellar_type1 <= 14) && (10 <= stellar_type2 <= 14) # two COs
+        return collision_check_cos(d, M1, M2)
+    end
+end
+
+function collision_check_stars(d, R1, R2)
+    if isless(d, ustrip(R1 + R2))
+        return true
+    else
+        return false
+    end
+end
+
+function collision_check_star_co(d, R2, M1, M2)
+    tidal_disruption_radius = R2*cbrt(M1/M2) |> ustrip
+    if d < (tidal_disruption_radius + ustrip(R2))
+        return true
+    else
+        return false
+    end
+end
+
+function collision_check_cos(d, M1, M2) 
+    rg = 𝒢*(M1 + M2)/c² # mutual gravitational radius
+    if d <= 1000*upreferred(rg).val
+        return true
+    else
+        return false
+    end
+end
+
+# function collision_check(d, R1, R2, M1, M2, stellar_type1::T, stellar_type2::T) where {T}
+#     if isless(d, ustrip(R1 + R2))
+#         return true
+#     else
+#         return false
+#     end
+# end
+
+# function collision_check(d, R1, R2, M1, M2, stellar_type1::TCO, stellar_type2::TS) where {TCO <: CompactObject, TS <: Star}
+#     tidal_disruption_radius = R2*cbrt(M1/M2) |> ustrip
+#     if d < (tidal_disruption_radius + ustrip(R2))
+#         return true
+#     else
+#         return false
+#     end
+# end
+
+# function collision_check(d, R1, R2, M1, M2, stellar_type1::T1, stellar_type2::T2) where {T1 <: CompactObject, T2 <: CompactObject}
+#     rg = 𝒢*(M1 + M2)/c² # mutual gravitational radius
+#     if d <= 100*upreferred(rg).val
+#         return true
+#     else
+#         return false
+#     end
+# end
+
+# function collision_check(d, R1, R2, M1, M2, stellar_type1::TS, stellar_type2::TCO)  where {TS <: Star, TCO <: CompactObject}
+#     return collision_check(d, R2, R1, M2, M1, stellar_type2, stellar_type1)  
+# end
 
 @inline function get_masses(masses, sibling_ids::SVector{N, Int}) where N
     masses[sibling_ids]
