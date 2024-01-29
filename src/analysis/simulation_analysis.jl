@@ -118,7 +118,8 @@ function analyse_simulation(result::SimulationResult)
     final_stellar_parameters = begin
         tmp = Dict()
         for param in propertynames(result.ode_params)
-            tmp[param] = convert.(Unitful.Quantity, getproperty(result.ode_params, param))
+            # tmp[param] = convert.(Unitful.Quantity, getproperty(result.ode_params, param))
+            tmp[param] =  getproperty(result.ode_params, param)
         end
 
         tmp[:type] = pop!(tmp, :stellar_types)
@@ -182,14 +183,24 @@ function analyse_simulation(result::SimulationResult)
 
                 binary_com = centre_of_mass(pos[:, sibling_keys], m) 
                 binary_com_vel = centre_of_mass_velocity(vel[:, sibling_keys], m) 
-                
+
+                r_in = pos[:,sibling_keys[1]] .- pos[:,sibling_keys[2]]
+                v_in = vel[:,sibling_keys[1]] .- vel[:,sibling_keys[2]]
+
                 r_rel = pos[:, p_idx] .- binary_com
                 v_rel = vel[:, p_idx] .- binary_com_vel
-                h = angular_momentum(r_rel, v_rel)
+                # h = angular_momentum(r_rel, v_rel)
+                h_rel = angular_momentum(r_rel, v_rel)
+                h_in = angular_momentum(r_in, v_in)
 
+                i_mut = mutual_inclination(h_in, h_rel)
+                
                 mass = sum(m) + structure.m[p_idx, str_idx]
 
                 new_elements = binary_orbital_elements(r_rel, v_rel, mass)
+                a, P, e, inc, Ω, ω, ν = new_elements
+                new_elements = a, P, e, i_mut, Ω, ω, ν
+
                 add_orbital_elements!(elements, new_elements, i, idx)
             else # Two binaries
                 binary_1 = children[1]
