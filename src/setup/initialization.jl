@@ -217,10 +217,10 @@ julia> quadruple = multibodysystem([1.0, 1.0, 1.0, 1.0]u"Msun", hierarchy=[4, 2,
 function multibodysystem(masses::Vector{<:Quantity}; R      = 1.0u"Rsun", 
                                                      S      = 0.0u"1/yr", 
                                                      L      = 1.0u"Lsun", 
-                                                     R_core = 0.0u"Rsun",
-                                                     m_core = 0.0u"Msun",
-                                                     R_env  = 0.0u"Rsun",
-                                                     m_env  = 0.0u"Msun",
+                                                     R_core = unit(R[1])*(0.0),
+                                                     m_core = unit(masses[1])*(0.0),
+                                                     R_env  = unit(R[1])*(0.0),
+                                                     m_env  = unit(masses[1])*(0.0),
                                                      types  = 1, 
                                                      a      = 1.0u"AU", 
                                                      e      = 0.1, 
@@ -284,6 +284,8 @@ function multibodysystem(masses::Vector{<:Quantity},
     for idx = 1:n_bins
         push!(elements, OrbitalElements(a[idx], 0.0u"d", e[idx], ω[idx], i[idx], Ω[idx], ν[idx]))
     end
+
+    # if unit(masses)[1] != unit()
 
     structures = StellarStructure[]
     for idx = 1:n_particles
