@@ -23,15 +23,15 @@ The code for setting up the hierarchy (converting the orbital elements into stat
 ```julia
 
 binary = multibodysystem([1.0, 1.0]u"Msun", a=1.0u"AU", e=0.4) # set up a binary system with two 1 solar-mass stars, in an orbit with 1 semi-major axis of 1 AU and an eccentricity of 0.4
-triple = multibodysystem([2.0, 1.0, 3.0]u"Msun", a=[0.1, 0.5]u"Rsun", e=[0.1, 0.4], i=[90.0, 0.0]u"degree") # hierarchical triple
+triple = multibodysystem([2.0, 1.0, 3.0]u"Msun", a=[0.1, 0.5]u"Rsun", e=[0.1, 0.4], i=[π/2, 0.0]u"rad") # hierarchical triple
 quadruple = multibodysystem([1.0, 1.0, 1.0, 1.0]u"Msun", a=[0.1, 0.5, 10.0]u"Rsun", e=[0.1, 0.4, 0.2], i=[90.0, 45.0, 0.0]u"degree", hierarchy=[4, 2, 1]) # 2+2 quadruple
 
 # set up a binary black hole system
 bh1_mass = 9.62u"Msun"
 bh2_mass = 8.4u"Msun"
 
-bh1_radius = 2\scrG*bh1_mass/c\^2
-bh2_radius = 2\scrG*bh2_mass/c\^2
+bh1_radius = 2*𝒢*bh1_mass/c² # the gravitational constant G can be accessed using \scrG in the REPL. 
+bh2_radius = 2*𝒢*bh2_mass/c²
 
 binary_blackholes = multibodysystem([bh1_mass, bh2_mass], a=15.3u"Rsun", R=[bh1_radius, bh2_radius], type=[14, 14]) 
 ```
