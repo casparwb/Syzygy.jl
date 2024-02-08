@@ -15,7 +15,7 @@ A simulation in `Syzygy.jl` begins by setting up the system you want to simulate
 
 <img src="https://github.com/casparwb/Syzygy.jl/assets/42641901/971bfd0d-d206-4912-963c-5edd2eeee186" width="500" />
 
-The code for setting up the hierarchy (converting the orbital elements into state vectors) is either heavily inspired by, or directly taken from [NbodyGradient.jl](https://github.com/ericagol/NbodyGradient.jl). All credits go to the authors.
+> The code for setting up the hierarchy (converting the orbital elements into state vectors) is either heavily inspired by, or directly taken from [NbodyGradient.jl](https://github.com/ericagol/NbodyGradient.jl). All credits go to the authors.
 
 ### Examples
 
@@ -70,7 +70,7 @@ To get the full list of callbacks, you can call `Syzygy.callbacks()`.
 
 ## Potentials
 
-`Syzygy.jl` has support for including/varying the potentials and corresponding acceleration functions in a simulation. The numerical implementation in this package is again heavily inspired by or completely taken from [NbodySimulator.jl](https://github.com/SciML/NBodySimulator.jl), so all credit go the authors. In this package, you can specify the acceleration functions to include by setting the `potentials` keyword argument when calling `simulate` or `simulation`. This argument accepts a `Vector{FewBodyPotential}` where `FewBodyPotential` is a supertype of all the potentials defined in the package, and for each of which there exists a unique acceleration function. The total acceleration of a particle at each time step is thus a sum of all the acceleration functions defined by the `potential` vector. Internally, this looks something like
+`Syzygy.jl` has support for including/varying the potentials and corresponding acceleration functions in a simulation.  In this package, you can specify the acceleration functions to include by setting the `potentials` keyword argument when calling `simulate` or `simulation`. This argument accepts a `Vector{FewBodyPotential}` where `FewBodyPotential` is a supertype of all the potentials defined in the package, and for each of which there exists a unique acceleration function. The total acceleration of a particle at each time step is thus a sum of all the acceleration functions defined by the `potential` vector. Internally, this looks something like
 
 ```julia
 function acceleration_function(potential::PureGravitationalPotential)
@@ -91,6 +91,7 @@ Currently, there are 4 possible potentials, with post-newtonian acceleration bei
 
 Each of these accepts a specific set of arguments related to the acceleration functions. To get an overview of these, enter the `help`-mode in the REPL with `?` and type any of the above names. 
 
+> The numerical implementation of potentials and acceleration functions in this package is again heavily inspired by or completely taken from [NbodySimulator.jl](https://github.com/SciML/NBodySimulator.jl), so all credit go the authors.
 ### Example
 
 ```julia
