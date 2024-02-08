@@ -70,7 +70,26 @@ To get the full list of callbacks, you can call `Syzygy.callbacks()`.
 
 ## Potentials
 
+`Syzygy.jl` has support for including/varying the potentials and corresponding acceleration functions in a simulation. The numerical implementation in this package is again heavily inspired by or completely taken from [NbodySimulator.jl](https://github.com/SciML/NBodySimulator.jl), so all credit go the authors. In this package, you can specify the acceleration functions to include by setting the `potentials` keyword argument when calling `simulate` or `simulation`. This argument accepts a `Vector{FewBodyPotential}` where `FewBodyPotential` is a supertype of all the potentials defined in the package, and for each of which there exists a unique acceleration function. Internally, this looks something like
 
+```julia
+function acceleration_function(potential::PureGravitationalPotential)
+    return (u, p, t) -> newtonian_gravity(u, p, t, potential)
+end
+
+function acceleration_function(potential::PostNewtonianPotential)
+    return (u, p, t) -> post_newtonian_acceleration(u, p, t, potential)
+end
+```
+
+Currently, there are 4 possible potentials, with post-newtonian acceleration being being implemented. These are
+
+- `PureGravitationalAcceleration`: Newtonian gravitational acceleration
+- `DynamicalTidalAcceleration`: energy dissipation from dynamical tidal, following the prescription of [Samsing et al. 2018](http://arxiv.org/abs/1803.08215).
+- `EquilbriumTidalAcceleration`: tidal drag force from equilibrium tides, as described by [Hurley at al. 2002](http://arxiv.org/abs/astro-ph/0201220)
+- `StaticEquilibriumTidalAcceleration`: same as above, but with the assumption that masses, radii, and other structural parameters of the particles do not change during the simulation. This is more efficient as it only calculated certain quantities once, and re-uses them throughout the simulation.
+
+Each of these accepts a specific set of arguments related to the acceleration functions. To get an overview of these, enter the `help`-mode in the REPL with `?` and type any of the above names. 
 
 ## Running a simulation
 
@@ -110,3 +129,5 @@ orbitplot(sol, bodies=[1, 2], dims=[1, 2]) # plot only particles 1 and 2 in the 
 # Advanced Usage
 
 `Syzygy.jl` is designed to be highly composable and flexible, and allows not only includes additional acceleration functions for including other forces, but also allows the users to define their own potentials and callbacks.
+
+
