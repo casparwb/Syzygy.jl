@@ -24,6 +24,15 @@ The code for setting up the hierarchy (converting the orbital elements into stat
 binary = multibodysystem([1.0, 1.0]u"Msun", a=1.0u"AU", e=0.4) # set up a binary system with two 1 solar-mass stars, in an orbit with 1 semi-major axis of 1 AU and an eccentricity of 0.4
 triple = multibodysystem([2.0, 1.0, 3.0]u"Msun", a=[0.1, 0.5]u"Rsun", e=[0.1, 0.4], i=[90.0, 0.0]u"degree") # hierarchical triple
 quadruple = multibodysystem([1.0, 1.0, 1.0, 1.0]u"Msun", a=[0.1, 0.5, 10.0]u"Rsun", e=[0.1, 0.4, 0.2], i=[90.0, 45.0, 0.0]u"degree", hierarchy=[4, 2, 1]) # 2+2 quadruple
+
+# set up a binary black hole system
+bh1_mass = 9.62u"Msun"
+bh2_mass = 8.4u"Msun"
+
+bh1_radius = 2\scrG*bh1_mass/c\^2
+bh2_radius = 2\scrG*bh2_mass/c\^2
+
+binary_blackholes = multibodysystem([bh1_mass, bh2_mass], a=15.3u"Rsun", R=[bh1_radius, bh2_radius], type=[14, 14]) 
 ```
 
 The components of the system can be accessed via `system.binaries[index]`, with `index` being an integer from 1 to number of binaries, and `system.particles[index]`, for the individual particles. A binary or particle are instances of the `Binary` or `Particle` type, both of which have a number of fields containing information about their constituents. For a `Particle`, you can access 
@@ -39,13 +48,23 @@ Once the system has been initialized, you can set up the parameters of the n-bod
 - `dt`: time step. Only used if the solver is not adaptive, such as `VerletLeapfrog`, `McAte5`, `Yoshida6`, etc.. Can either be a `Number` or a `Quantity`, where a `Number` would specify a timestep equal to `dt` multiplied by the innermost orbital period.
 - `showprogress`: whether to display a progress tracker, showing the current absolute system time and its percentage of `t_sim`. Will slow down the simulation.
 - `verbose`: whether to output information about the setup and the final outcome, including total runtime and energy loss.
+- `callbacks`: see section below.
 
 ### Examples
-julia```
+```julia
 sim = simulation(triple, t_sim=10, npoints=10_000) # simulate for 10 outer orbits, and save 10 000 snapshots
 sim = simulation(triple, t_sim=10u"kyr", save_everystep=false) # simulate for 10 000 years, and only save the initial and final state of the system
 sim = simulation(triple, t_sim=1, alg=Syzygy.McAte5(), dt=1e-5) # use a timestep of 1e-5 * P_in
 ```
+
+## Callbacks
+
+The package contains several pre-defined callbacks that can be specified when setting up the simulation. They are mostly stopping conditions, but can also be flags or other code injections. They can be specified using the `callbacks` argument, and should be given either as a `String`, which specifies the pre-defined callbacks, or it can be a callback type as described in [Event Handling and Callback Functions](https://docs.sciml.ai/DiffEqDocs/stable/features/callback_functions/#The-Callback-Types) if the user creates their own (see Advanced usage for more details). The most important pre-defined callbacks are
+
+- `collision`: a stopping condition that is invoked when two particles have overlapping radii. If the systems contains compact objects, the [tidal disruption radius](https://en.wikipedia.org/wiki/Tidal_disruption_event#Tidal-disruption_radius) or the [gravitational radius](https://en.wikipedia.org/wiki/Schwarzschild_radius) is used to check for collisions between a CO and a Star, or two COs.
+- `escape`: a stopping condition for checking whether an object has been ejected from the system. The callback has three checks that need to be passed in order for the condition to be invoked. See Standish & Myles 1971 for more details. Currently this callback is only possible to use for a triple system.
+
+To get the full list of callbacks, you can call `Syzygy.callbacks()`.
 
 ## Running a simulation
 
@@ -54,6 +73,7 @@ Once the simulation has been instantiated, it can be run using `simulate(sim)`. 
 ```julia
 res = simulate(triple, t_sim=10, npoints=1000)
 ```
+
 
 ## Analysis and visualization
 
@@ -70,5 +90,17 @@ r1 == sol.r[:,1,:]
 inner_sma = sol.elements[1].a
 ```
 
+`Syzygy.jl` contains a few plot recipes for [Plots.jl](https://docs.juliaplots.org/latest/tutorial/), which can be used to create quick and simple visualizations of the orbits. To use this, simply import `Plots.jl`, and use the function `orbitplot`, which takes in a `FewBodySolution` as its first argument, followed by keyword arguments:
 
-`Syzygy.jl` contains a few plot recipes for [Plots.jl](https://docs.juliaplots.org/latest/tutorial/), which can be used to create quick and simple visualizations of the orbits. To use this, simply import `Plots.jl`, and use the function `orbitplot
+- `dims`: which dimensions to plot. Should be a `Vector{Int}`, with any combination of `(1, 2, 3)` (x, y, z).
+- `bodies`: which bodies (particles) to plot. Should be a `Vector{Int}`, with any combination of `1:N_particles`.
+- `tspan`: the temporal selection to plot. Should be a `Tuple{Quantity, Quantity}`, with the start- and end-points.
+
+```julia
+using Plots
+orbitplot(sol, bodies=[1, 2], dims=[1, 2]) # plot only particles 1 and 2 in the x-y plane
+```
+
+# Advanced Usage
+
+`Syzygy.jl` is designed to be highly composable and flexible, and allows not only includes additional acceleration functions for including other forces, but also allows the users to define their own potentials and callbacks.
