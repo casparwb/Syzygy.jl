@@ -70,7 +70,7 @@ To get the full list of callbacks, you can call `Syzygy.callbacks()`.
 
 ## Potentials
 
-`Syzygy.jl` has support for including/varying the potentials and corresponding acceleration functions in a simulation. The numerical implementation in this package is again heavily inspired by or completely taken from [NbodySimulator.jl](https://github.com/SciML/NBodySimulator.jl), so all credit go the authors. In this package, you can specify the acceleration functions to include by setting the `potentials` keyword argument when calling `simulate` or `simulation`. This argument accepts a `Vector{FewBodyPotential}` where `FewBodyPotential` is a supertype of all the potentials defined in the package, and for each of which there exists a unique acceleration function. Internally, this looks something like
+`Syzygy.jl` has support for including/varying the potentials and corresponding acceleration functions in a simulation. The numerical implementation in this package is again heavily inspired by or completely taken from [NbodySimulator.jl](https://github.com/SciML/NBodySimulator.jl), so all credit go the authors. In this package, you can specify the acceleration functions to include by setting the `potentials` keyword argument when calling `simulate` or `simulation`. This argument accepts a `Vector{FewBodyPotential}` where `FewBodyPotential` is a supertype of all the potentials defined in the package, and for each of which there exists a unique acceleration function. The total acceleration of a particle at each time step is thus a sum of all the acceleration functions defined by the `potential` vector. Internally, this looks something like
 
 ```julia
 function acceleration_function(potential::PureGravitationalPotential)
@@ -90,6 +90,14 @@ Currently, there are 4 possible potentials, with post-newtonian acceleration bei
 - `StaticEquilibriumTidalAcceleration`: same as above, but with the assumption that masses, radii, and other structural parameters of the particles do not change during the simulation. This is more efficient as it only calculated certain quantities once, and re-uses them throughout the simulation.
 
 Each of these accepts a specific set of arguments related to the acceleration functions. To get an overview of these, enter the `help`-mode in the REPL with `?` and type any of the above names. 
+
+### Example
+
+```julia
+grav_pot = PureGravitationalAcceleration()
+tidal_pot = DynamicalTidalAcceleration(;kwargs...)
+res = simulate(triple, potentials=[grav_pot, tidal_pot]) 
+```
 
 ## Running a simulation
 
