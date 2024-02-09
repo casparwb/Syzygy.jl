@@ -36,7 +36,22 @@ bh2_radius = 2*𝒢*bh2_mass/c²
 binary_blackholes = multibodysystem([bh1_mass, bh2_mass], a=15.3u"Rsun", R=[bh1_radius, bh2_radius], type=[14, 14]) 
 ```
 
-The components of the system can be accessed via `system.binaries[index]`, with `index` being an integer from 1 to number of binaries, and `system.particles[index]`, for the individual particles. A binary or particle are instances of the `Binary` or `Particle` type, both of which have a number of fields containing information about their constituents. For a `Particle`, you can access 
+If you wanted to set up the system in the above figure, a quintuple system, you would do
+
+```julia
+masses = ones(5)u"Msun"
+r1 = 1.0u"Rsun"
+r2 = 5.0u"Rsun"
+r3 = 1.0u"Rsun"
+r4 = 10.0u"Rsun"
+hierarchy = [5, 1, 2, 1] # 1 binary on level 2, 2 on 1, and 1 on 2
+
+quintuple = multibodysystem(masses, a=[r1, r2, r3, r4], hierarchy=hierarchy)
+```
+
+The components of the system can be accessed via `system.binaries[index]`, with `index` being an integer from 1 to number of binaries, and `system.particles[index]`, for the individual particles. A binary or particle are instances of the `Binary` or `Particle` type, both of which have a number of fields containing information about their state and internal structure.
+
+
 
 ## Simulation setup
 
@@ -137,6 +152,52 @@ orbitplot(sol, bodies=[1, 2], dims=[1, 2]) # plot only particles 1 and 2 in the 
 
 # Advanced Usage
 
-`Syzygy.jl` is designed to be highly composable and flexible, and allows not only includes additional acceleration functions for including other forces, but also allows the users to define their own potentials and callbacks.
+`Syzygy.jl` is designed to be highly composable and flexible, and not only includes additional acceleration functions for including other forces, but also allows the users to define their own potentials and callbacks. 
+
+## Defining your own callbacks
+
+To define you own callback, simply set it up following the the [DiffEq docs](https://docs.sciml.ai/DiffEqDocs/stable/features/callback_functions), and include it in the `callbacks` vector when initializing a simulation. 
+
+
+## Adding another potential
+
+To add a new potential and acceleration function, you first need to define the acceleration function itself, which should be an in-place function that calculates the force for one particle and adds it to an acceleration vector (dv). Example:
+
+```julia
+function my_acceleration_function!(dv, v, r, i, n, p)
+    accel = @SVector zeros(3) # for storing the x,y,z acceleration on particle i
+
+    for k = 1:n
+        if k != i
+            force = some_interaction(i, k)
+            accel .+= force
+        end
+    end
+    dv .+= accel
+
+end
+```
+
+You then need to define a potential type, which must be a subtype of the `Syzygy.FewBodyPotential` supertype. 
+
+```julia
+struct MyPotential{T1, T2} <: Syzygy.FewBodyPotential
+    parameter_1::T1
+    parameter_2::T2
+end
+```
+
+Finally, you add a method to the `Syzygy.get_accelerating_function` such that is returns a wrapper around your acceleration function that can be used by DiffEq:
+
+```julia
+function Syzygy.get_accelerating_function(parameters::MyPotential, n)
+    (dv, u, v, p, t, i) -> my_acceleration_function!(dv, u, parameters, i, n)
+end
+```
+
+To use this potential in a simulation, create an instance of your new `MyPotential` type, and include it in the `potentials` vector as a keyword argument when initializing the simulation. 
+
+
+
 
 
