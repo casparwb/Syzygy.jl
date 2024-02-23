@@ -1,7 +1,22 @@
 # abstract type Body end
-using StaticArrays, JLD2, FastChebInterp, Printf
+using StaticArrays, JLD2, Printf
 
 include("../physics/tides.jl")
+
+
+function Base.show(io::IO, params::DefaultSimulationParams)
+    print(nameof(typeof(params)))
+    print(":")
+    println()
+    for prop in propertynames(params)
+        val = getproperty(params, prop) 
+        un = unit(val[1])
+        val = ustrip(val)
+
+        @printf(io, "   %-16s %s %s", "$prop", "$val", "$un")
+        println(io)
+    end
+end
 
 abstract type FewBodyPotential end
 abstract type SimulationParams end
@@ -18,19 +33,6 @@ struct DefaultSimulationParams{aType, RType, MType, LType, SType, stpType, cMTyp
     ages::ageType
 end
 
-function Base.show(io::IO, params::DefaultSimulationParams)
-    print(nameof(typeof(params)))
-    print(":")
-    println()
-    for prop in propertynames(params)
-        val = getproperty(params, prop) 
-        un = unit(val[1])
-        val = ustrip(val)
-
-        @printf(io, "   %-16s %s %s", "$prop", "$val", "$un")
-        println(io)
-    end
-end
 
 struct PureGravitationalPotential{gType <: Real} <: FewBodyPotential
     G::gType
@@ -79,34 +81,6 @@ struct StaticEquilibriumTidalPotential{gType <: Real, M_env_Type, R_env_Type} <:
     R_env::R_env_Type
 end
 
-function get_k_interpolator(order=(5,5))
-    k_data_location = joinpath(@__DIR__, "..", "..", "deps", "tidal_evolution_constants", "grid.jld2")
-
-    masses = JLD2.load(k_data_location, "Mass")#[1:10:end]
-    logg = JLD2.load(k_data_location, "logg")#[1:10:end]
-    logk2 = JLD2.load(k_data_location, "logk2")#[1:10:end]
-
-    # unique_mass_ids = unique(i -> masses[i], eachindex(masses))
-
-    logm = masses .|> u"Msun" |> ustrip .|> log10
-    logg = logg .|> u"cm/s^2" |> ustrip
-    logk2 = logk2
-
-    coordinates = [SA[col...] for col in (eachcol([logm logg]'))]
-
-    lb = [minimum(logm), minimum(logg)]
-	ub = [maximum(logm), maximum(logg)]
-    interpolator = chebregression(coordinates, logk2, lb, ub, order)
-    k_itp(logm, logg) = interpolator(SA[logm, logg])
-
-    return k_itp
-end
-
-const k_interpolator = get_k_interpolator()
-
-function asidal_motion_constant_interpolated(logm::Float64, logg::Float64)
-    return k_interpolator(logm, logg)
-end
 
 function StaticEquilibriumTidalPotential(system, G=ustrip(upreferred(𝒢)); Z=0.02)
 
