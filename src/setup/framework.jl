@@ -151,6 +151,23 @@ function get_accelerating_function(parameters::StaticEquilibriumTidalPotential, 
     (dv, u, v, p, t, i) -> equilibrium_tidal_drag_force!(dv, u, v, p, i, n, parameters)
 end
 
+function get_accelerating_function(parameters::PN1Potential, n)
+    (dv, u, v, p, t, i) -> PN1_acceleration!(dv, u, v, p, i, n, parameters)
+end
+
+function get_accelerating_function(parameters::PN2Potential, n)
+    (dv, u, v, p, t, i) -> PN2_acceleration!(dv, u, v, p, i, n, parameters)
+end
+
+function get_accelerating_function(parameters::PN2_5Potential, n)
+    (dv, u, v, p, t, i) -> PN2_5_acceleration!(dv, u, v, p, i, n, parameters)
+end
+
+function get_accelerating_function(parameters::PNPotential, n)
+    (dv, u, v, p, t, i) -> PN1_to_2_5_acceleration!(dv, u, v, p, i, n, parameters)
+end
+
+
 
 function gather_accelerations_for_potentials(simulation::FewBodySimulation)
     acceleration_functions = []

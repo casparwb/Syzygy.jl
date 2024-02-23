@@ -3,6 +3,9 @@ using StaticArrays
 const 𝒢 = 6.6743015e-11u"m^3/kg/s^2"
 const c = 299_792_458u"m/s"
 const c² = c*c
+const c⁻² = 1/c²
+const c⁻⁴ = 1/c²/c²
+const c⁻⁵ = 1/c²/c
 
 const stellar_type = Dict(  "deeply or fully convective low mass MS star" => 0,
                             "Main Sequence star" => 1,
