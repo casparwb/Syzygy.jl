@@ -8,6 +8,21 @@ The package uses the [DifferentialEquations.jl](https://diffeq.sciml.ai/) ecosys
 
 # Usage
 
+## Installation
+
+`Syzygy.jl` is not a registered package, which means it can be installed using the link to this Github repo. To install it in the REPL, enter the Pkg mode with `]` and just type
+
+```julia
+add https://github.com/casparwb/Syzygy.jl
+```
+
+Alternatively, you can do
+
+```julia
+import Pkg
+Pkg.add(url="https://github.com/casparwb/Syzygy.jl")
+```
+
 ## System initialization
 
 A simulation in `Syzygy.jl` begins by setting up the system you want to simulate. This is done by the `multibodysystem` function, which takes in the structural arguments of the bodies in the system - masses, radii, stellar types, luminositites, etc... -, and the orbital parameters of the binaries - semi-major axes, eccentricities, etc.. . The masses are set as the first positional argument, while all other parameters are set using keyword arguments. `Syzygy.jl` uses units by utilizing [Unitful.jl](https://painterqubits.github.io/Unitful.jl/stable/) and [UnitfulAstro.jl](https://juliaastro.org/UnitfulAstro.jl/stable/), which of which are re-exported upon loading `Syzygy.jl`. Arguments that are not unitless need to be defined with a unit when initializing the system. The system is set up following [Hamers & Portegies Zwart 2016](https://doi.org/10.1093/mnras/stw784), with labeling being done as shown in this figure (Evans 1968):
