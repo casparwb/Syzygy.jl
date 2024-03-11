@@ -3,21 +3,6 @@ using StaticArrays, JLD2, Printf
 
 include("../physics/tides.jl")
 
-
-function Base.show(io::IO, params::DefaultSimulationParams)
-    print(nameof(typeof(params)))
-    print(":")
-    println()
-    for prop in propertynames(params)
-        val = getproperty(params, prop) 
-        un = unit(val[1])
-        val = ustrip(val)
-
-        @printf(io, "   %-16s %s %s", "$prop", "$val", "$un")
-        println(io)
-    end
-end
-
 abstract type FewBodyPotential end
 abstract type SimulationParams end
 
@@ -578,5 +563,19 @@ function PN1_to_2_5_acceleration(dv,
             accel += a₂*c⁻² + a₄*c⁻⁴ + a₅*c⁻⁵
         end
 
+    end
+end
+
+function Base.show(io::IO, params::DefaultSimulationParams)
+    print(nameof(typeof(params)))
+    print(":")
+    println()
+    for prop in propertynames(params)
+        val = getproperty(params, prop) 
+        un = unit(val[1])
+        val = ustrip(val)
+
+        @printf(io, "   %-16s %s %s", "$prop", "$val", "$un")
+        println(io)
     end
 end
