@@ -195,11 +195,11 @@ function collision_check(d, R1, R2, M1, M2, stellar_type1::Int, stellar_type2::I
     if (0 <= stellar_type1 <= 9) && (0 <= stellar_type2 <= 9) # two stars
         return collision_check_stars(d, R1, R2)
     elseif  (0 <= stellar_type1 <= 9) && (10 <= stellar_type2 <= 14) # one star, one CO
-        return collision_check_star_co(d, R1, M2, M1)
+        return collision_check_star_compact_object(d, R1, M2, M1)
     elseif (10 <= stellar_type1 <= 14) && (0 <= stellar_type2 <= 9) # one star, one CO
-        collision_check_star_co(d, R2, M1, M2)
+        collision_check_star_compact_object(d, R2, M1, M2)
     elseif (10 <= stellar_type1 <= 14) && (10 <= stellar_type2 <= 14) # two COs
-        return collision_check_cos(d, M1, M2)
+        return collision_check_compact_objects(d, M1, M2)
     end
 end
 
@@ -211,7 +211,7 @@ function collision_check_stars(d, R1, R2)
     end
 end
 
-function collision_check_star_co(d, R2, M1, M2)
+function collision_check_star_compact_object(d, R2, M1, M2)
     tidal_disruption_radius = R2*cbrt(M1/M2) |> ustrip
     if d < (tidal_disruption_radius + ustrip(R2))
         return true
@@ -220,7 +220,7 @@ function collision_check_star_co(d, R2, M1, M2)
     end
 end
 
-function collision_check_cos(d, M1, M2) 
+function collision_check_compact_objects(d, M1, M2) 
     rg = 𝒢*(M1 + M2)/c² # mutual gravitational radius
     if d <= 1000*upreferred(rg).val
         return true
