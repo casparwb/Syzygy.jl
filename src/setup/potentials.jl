@@ -530,7 +530,7 @@ function PN1_to_2_5_acceleration(dv,
             v = v₁ - v₂
             n = r/norm(r)
 
-            v₁v₂ = dot(v₁, v₂)
+            v₁v₂ = dot(v₁, v₂) 
             nv₁ = dot(n, v₁)
             nv₂ = dot(n, v₂)
 
