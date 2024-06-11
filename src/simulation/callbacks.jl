@@ -4,9 +4,29 @@
 # roche-lobe overflows checks.
 ####################################################
 
-using DiffEqCallbacks: ManifoldProjection
+abstract type AbstractSyzygyCallback end
+struct CollisionCB         <: AbstractSyzygyCallback end
 
-function setup_callbacks(stopping_conditions, system, p, retcode, G, args; start_time=0)
+struct EscapeCB{T}         <: AbstractSyzygyCallback 
+    max_a_factor::T
+    check_every::Int
+end
+
+struct RocheLobeOverflowCB <: AbstractSyzygyCallback 
+    check_every::Int
+end
+
+struct CPUTimeCB           <: AbstractSyzygyCallback end
+struct CentreOfMassCB      <: AbstractSyzygyCallback end
+struct HubbleTimeCB        <: AbstractSyzygyCallback end
+struct DemocraticCheckCB   <: AbstractSyzygyCallback end
+
+struct IonizationCB{T}     <: AbstractSyzygyCallback 
+    max_a_factor::T
+end
+
+using DiffEqCallbacks: ManifoldProjection
+function setup_callbacks2(stopping_conditions, system, p, retcode, G, args; start_time=0)
     isnothing(stopping_conditions) && return stopping_conditions
     isempty(stopping_conditions) && return nothing
     cbs = []
@@ -110,7 +130,7 @@ function setup_callbacks(stopping_conditions, system, p, retcode, G, args; start
             elseif condition == "ionization"
             
                 condition_ionization(u, t, integrator) = true
-                max_distance =  100*upreferred(system.binaries[2].elements.P).val
+                max_distance =  100*upreferred(system.binaries[2].elements.a).val
                 affect_ionization!(integrator) = ionization_callback!(integrator, retcode, max_distance)
                 callback_ionization = Syzygy.OrdinaryDiffEq.DiscreteCallback(condition_ionization, affect_ionization!, save_positions=(false, false))
                 push!(cbs, callback_ionization)
@@ -126,6 +146,111 @@ function setup_callbacks(stopping_conditions, system, p, retcode, G, args; start
 
 end
 
+function setup_callbacks(conditions, system, p, retcodes, G, args; start_time=0)
+    cbs = []
+
+    n = system.n
+    for condition in conditions
+        cb = get_callback(condition, n, system, retcodes, G, args)
+        push!(cbs, cb)
+    end
+    return cbs
+end
+
+function get_callback(cb::CollisionCB, n, system, retcodes, G, args)
+    condition_collision(u, t, integrator) = true
+    affect_collision!(integrator) = collision_callback!(integrator, n, retcodes)
+    callback_collision = DiscreteCallback(condition_collision, affect_collision!, save_positions=(false, false))
+    
+    return callback_collision
+end
+
+function get_callback(cb::EscapeCB, n, system, retcodes, G, args)
+    @assert system.n == 3 "Escape check callback is currently only available for triples."
+    
+    function condition_escape(u, t, integrator)
+        iszero(integrator.iter % cb.check_every)  # check for escape every 'check_every' iteration
+    end
+
+    affect_escape!(integrator) = unbound_callback!(integrator, retcodes, max_a_factor=cb.max_a_factor, G=G)
+    callback_escape = DiscreteCallback(condition_escape, affect_escape!, save_positions=(false, false))
+    
+    return callback_escape
+end
+
+function get_callback(cb::RocheLobeOverflowCB, n, system, retcodes, G, args)
+
+    function condition_rlof(u, t, integrator)
+        (integrator.iter % cb.check_every) == 0  # check for rlof every 'check_every' iteration
+    end
+
+    rlof_rcodes = [Symbol(:RLOF_, i) for i = 1:n]
+    rlof_rcodes = SA[rlof_rcodes...]
+    affect_rlof_hier!(integrator) =  rlof_callback_hierarchical!(integrator, retcodes, 
+                                                                system.particles, system.binaries, 
+                                                                n, rlof_rcodes)
+    affect_rlof_demo!(integrator) =  rlof_callback_democratic!(integrator, retcodes, n, rlof_rcodes)
+    callback_rlof_demo = DiscreteCallback(condition_rlof, affect_rlof_demo!, save_positions=(false, false))
+    callback_rlof_hier = DiscreteCallback(condition_rlof, affect_rlof_hier!, save_positions=(false, false))
+
+    return callback_rlof_demo, callback_rlof_hier
+end
+
+function get_callback(cb::CPUTimeCB, n, system, retcodes, G, args)
+    condition_cpu_time(u, t, integrator) = true
+    
+    affect_cpu_time!(integrator) = max_cpu_time_callback!(integrator, retcode, start_time, args[:max_cpu_time])
+    
+    callback_cpu_time = DiscreteCallback(condition_cpu_time, affect_cpu_time!, save_positions=(false, false))
+    
+    return callback_cpu_time
+end
+
+function get_callback(cb::CentreOfMassCB, n, system, retcodes, G, args)
+
+    affect_com!(integrator) = move_to_com_callback!(integrator)
+    
+    condition_com(u, t, integrator) = iszero(integrator.iter % cb.check_every)
+
+    callback_com = DiscreteCallback(condition_com, affect_com!, save_positions=(false, false))
+    return callback_com
+end
+
+function get_callback(cb::HubbleTimeCB, n, system, retcodes, G, args)
+
+    affect_hubble!(integrator) = hubble_time_callback!(integrator, retcodes)
+    
+    condition_hubble(u, t, integrator) = true
+    
+    callback_hubble = DiscreteCallback(condition_hubble, affect_hubble!, save_positions=(false, false))
+    
+    return callback_hubble
+end
+
+function get_callback(cb::DemocraticCheckCB, n, system, retcodes, G, args)
+    @assert system.n == 3 "Democratic interaction callback is currently only available for triples."
+    
+    affect_democratic1!(integrator) = democratic_check_callback1!(integrator, retcodes, system)
+    affect_democratic2!(integrator) = democratic_check_callback2!(integrator, retcodes, system)
+    affect_democratic3!(integrator) = democratic_check_callback3!(integrator, retcodes, system)
+    
+    condition_democratic(u, t, integrator) = true
+    
+    callback_democratic1 = DiscreteCallback(condition_democratic, affect_democratic1!, save_positions=(false, false))
+    callback_democratic2 = DiscreteCallback(condition_democratic, affect_democratic2!, save_positions=(false, false))
+    callback_democratic3 = DiscreteCallback(condition_democratic, affect_democratic3!, save_positions=(false, false))
+
+    return callback_democratic1, callback_democratic2, callback_democratic3
+end
+
+function get_callback(cb::IonizationCB, n, system, retcodes, G, args)
+
+    condition_ionization(u, t, integrator) = true
+    max_distance =  cb.max_a_factor*upreferred(system.binaries[2].elements.a).val
+    affect_ionization!(integrator) = ionization_callback!(integrator, retcodes, max_distance)
+    callback_ionization = Syzygy.OrdinaryDiffEq.DiscreteCallback(condition_ionization, affect_ionization!, save_positions=(false, false))
+    return callback_ionization
+end
 """
 
 Returns a callback for checking if collision has occured in system.
@@ -311,7 +436,7 @@ end
 """
 Returns a callback for checking if system has become unbound.
 """
-function unbound_callback!(integrator, retcode; max_a=100, G=upreferred(𝒢).val)
+function unbound_callback!(integrator, retcode; max_a_factor=100, G=upreferred(𝒢).val)
 
     u = integrator.u
     combinations = SA[(1, SA[2, 3]), (2, SA[1, 3]), (3, SA[1, 2])]
@@ -344,7 +469,7 @@ function unbound_callback!(integrator, retcode; max_a=100, G=upreferred(𝒢).va
 
         new_position = r_part + v_part .* integrator.dt
 
-        criteria_1 = d > (max_a * a_bin)                 # Body is a certain distance from sibling's centre of mass
+        criteria_1 = d > (max_a_factor * a_bin)                 # Body is a certain distance from sibling's centre of mass
         criteria_2 = norm(new_position - r_bin) > d      # Body is moving away from centre of mass
         
         escape = criteria_1 && criteria_2
@@ -379,7 +504,7 @@ function rlof_callback_hierarchical!(integrator, retcode, particles, binaries, n
         rcode = rlof_rcodes[i]
         haskey(retcode, rcode) && continue
         
-        if !(stellar_types[round(Int, ustrip(integrator.p.stellar_types[i]))] isa Star)
+        if !(stellar_types[integrator.p.stellar_types[i]] isa Star)
             continue
         end
         
@@ -420,7 +545,7 @@ function rlof_callback_democratic!(integrator, retcode, n, rlof_rcodes)
         rcode = rlof_rcodes[i]
         haskey(retcode, rcode) && continue
 
-        if !(stellar_types[round(Int, ustrip(integrator.p.stellar_types[i]))] isa Star)
+        if !(stellar_types[integrator.p.stellar_types[i]] isa Star)
             continue
         end
 
@@ -470,32 +595,32 @@ function rlof_callback_democratic!(integrator, retcode, n, rlof_rcodes)
 end
 
 
-function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
+# function tidal_disruption_callback!(integrator, retcode, system, G=upreferred(𝒢).val)
 
-    @inbounds for i ∈ 1:system.n
-        stellar_type = round(Int, ustrip(integrator.p.stellar_types[i]))
+#     @inbounds for i ∈ 1:system.n
+#         stellar_type = round(Int, ustrip(integrator.p.stellar_types[i]))
 
-        # check if particle is a black hole, supernova, or unknown type
-        if stellar_type == 14 || stellar_type == 15 || stellar_type == 16
-            continue
-        end
-        ri = @SVector [integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
-        for j ∈ i:system.n
-            stellar_type_j = round(Int, ustrip(integrator.p.stellar_types[j]))
-            if stellar_type_j == 14 && i != j
-                rj = @SVector [integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
-                d = norm(ri - rj)
+#         # check if particle is a black hole, supernova, or unknown type
+#         if stellar_type == 14 || stellar_type == 15 || stellar_type == 16
+#             continue
+#         end
+#         ri = @SVector [integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
+#         for j ∈ i:system.n
+#             stellar_type_j = round(Int, ustrip(integrator.p.stellar_types[j]))
+#             if stellar_type_j == 14 && i != j
+#                 rj = @SVector [integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
+#                 d = norm(ri - rj)
 
-                tidal_disruption_radius = integrator.p.R[i]*cbrt(integrator.p.M[j]/integrator.p.M[i]) |> ustrip
-                if (d - ustrip(integrator.p.R[i])) < tidal_disruption_radius
-                    t = integrator.t * upreferred(1.0u"s")
-                    retcode[:TidalDisruption] = (SA[i, j], t)
-                    terminate!(integrator)
-                end
-            end
-        end
-    end
-end
+#                 tidal_disruption_radius = integrator.p.R[i]*cbrt(integrator.p.M[j]/integrator.p.M[i]) |> ustrip
+#                 if (d - ustrip(integrator.p.R[i])) < tidal_disruption_radius
+#                     t = integrator.t * upreferred(1.0u"s")
+#                     retcode[:TidalDisruption] = (SA[i, j], t)
+#                     terminate!(integrator)
+#                 end
+#             end
+#         end
+#     end
+# end
 
 function move_to_com_callback!(integrator)
 
