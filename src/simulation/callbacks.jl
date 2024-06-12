@@ -4,29 +4,8 @@
 # roche-lobe overflows checks.
 ####################################################
 
-abstract type AbstractSyzygyCallback end
-struct CollisionCB         <: AbstractSyzygyCallback end
-
-struct EscapeCB{T}         <: AbstractSyzygyCallback 
-    max_a_factor::T
-    check_every::Int
-end
-
-struct RocheLobeOverflowCB <: AbstractSyzygyCallback 
-    check_every::Int
-end
-
-struct CPUTimeCB           <: AbstractSyzygyCallback end
-struct CentreOfMassCB      <: AbstractSyzygyCallback end
-struct HubbleTimeCB        <: AbstractSyzygyCallback end
-struct DemocraticCheckCB   <: AbstractSyzygyCallback end
-
-struct IonizationCB{T}     <: AbstractSyzygyCallback 
-    max_a_factor::T
-end
-
 using DiffEqCallbacks: ManifoldProjection
-function setup_callbacks2(stopping_conditions, system, p, retcode, G, args; start_time=0)
+function setup_callbacks_old(stopping_conditions, system, p, retcode, G, args; start_time=0)
     isnothing(stopping_conditions) && return stopping_conditions
     isempty(stopping_conditions) && return nothing
     cbs = []
@@ -152,7 +131,11 @@ function setup_callbacks(conditions, system, p, retcodes, G, args; start_time=0)
     n = system.n
     for condition in conditions
         cb = get_callback(condition, n, system, retcodes, G, args)
-        push!(cbs, cb)
+        if cb isa Tuple
+            append!(cbs, cb)
+        else
+            push!(cbs, cb)
+        end
     end
     return cbs
 end
@@ -249,6 +232,7 @@ function get_callback(cb::IonizationCB, n, system, retcodes, G, args)
     max_distance =  cb.max_a_factor*upreferred(system.binaries[2].elements.a).val
     affect_ionization!(integrator) = ionization_callback!(integrator, retcodes, max_distance)
     callback_ionization = Syzygy.OrdinaryDiffEq.DiscreteCallback(condition_ionization, affect_ionization!, save_positions=(false, false))
+
     return callback_ionization
 end
 """
