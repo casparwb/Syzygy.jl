@@ -36,6 +36,9 @@ module Syzygy
     export simulation, simulate
     export analyse_simulation
     export 𝒢, pI, bI, ParticleIndex, BinaryIndex
+    
+    export CollisionCB, EscapeCB, RocheLobeOverflowCB, CPUTimeCB, 
+           CentreOfMassCB, HubbleTimeCB, DemocraticCheckCB, IonizationCB
    
 
     @compile_workload begin
@@ -43,19 +46,19 @@ module Syzygy
         simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
                  callbacks=[])
         simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
-                 callbacks=["collision"])
+                 callbacks=[CollisionCB()])
         simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
-                 callbacks=["collision", "escape"])
+                 callbacks=[CollisionCB(), EscapeCB(100, 100)])
         simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
-                 callbacks=["collision", "escape", "rlof", "tidal_disruption"])
+                 callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)])
         simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
-                 callbacks=["collision", "escape", "rlof", "tidal_disruption"],
+                 callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)],
                  potential=[PureGravitationalPotential(), DynamicalTidalPotential(G=𝒢.val, n=4, γ=[1.5, 1.5, 1.5])])
         simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
-                 callbacks=["collision", "escape", "rlof", "tidal_disruption"],
+                 callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)],
                  potential=[PureGravitationalPotential(), EquilibriumTidalPotential(𝒢.val)])
         res = simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
-                 callbacks=["collision", "escape", "rlof", "tidal_disruption"],
+                 callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)],
                  potential=[PureGravitationalPotential(), StaticEquilibriumTidalPotential(triple)])
 
         sol = analyse_simulation(res)
