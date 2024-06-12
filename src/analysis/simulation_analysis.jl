@@ -1,7 +1,7 @@
 using LinearAlgebra, StaticArrays, AxisArrays   
 
 
-function Base.show(io::IO, sol::FewBodySolution)
+function Base.show(io::IO, sol::MultiBodySolution)
     print(io, "n datapoints = ")
     show(io, length(sol.t))
     println(io)
@@ -241,8 +241,8 @@ function analyse_simulation(result::SimulationResult)
                         :func_2_evals => result.solution.destats.nf2,
                         :runtime => result.runtime)
     attributes = merge(ode_solution, result.simulation.args, result.simulation.diffeq_args)
-    # FewBodySolution(system, time, r, v, elements, structure, quantities, system)
-    FewBodySolution(system, time, r, v, elements, structure, 
+    # MultiBodySolution(system, time, r, v, elements, structure, quantities, system)
+    MultiBodySolution(system, time, r, v, elements, structure, 
                     quantities, attributes, result.ode_params)
 end
 
@@ -286,7 +286,7 @@ function orbital_elements_from_kinematics(r, d, v, v², M, G=𝒢)
     return a, P, e, i, Ω, ω, ν
 end
 
-function multibodysystem(sol::FewBodySolution, time)
+function multibodysystem(sol::MultiBodySolution, time)
 
     time_index = argmin(abs.(time .- sol.t))
     # positions = sol.r[time=time]

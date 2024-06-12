@@ -3,7 +3,7 @@ using StaticArrays, JLD2, Printf
 
 include("../physics/tides.jl")
 
-abstract type FewBodyPotential end
+abstract type MultiBodyPotential end
 abstract type SimulationParams end
 
 struct DefaultSimulationParams{aType, RType, MType, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
@@ -19,13 +19,13 @@ struct DefaultSimulationParams{aType, RType, MType, LType, SType, stpType, cMTyp
 end
 
 
-struct PureGravitationalPotential{gType <: Real} <: FewBodyPotential
+struct PureGravitationalPotential{gType <: Real} <: MultiBodyPotential
     G::gType
 end
 
 PureGravitationalPotential() = PureGravitationalPotential(upreferred(𝒢).val)
 
-struct DynamicalTidalPotential{gType <: Real, nType, fType <: Function} <: FewBodyPotential
+struct DynamicalTidalPotential{gType <: Real, nType, fType <: Function} <: MultiBodyPotential
     G::gType # Gravitational constant
     nₜ::Int  # Tidal force power constant
     γ::nType # Polytropic index of each star
@@ -56,11 +56,11 @@ function DynamicalTidalPotential(;G, n, γ)
     DynamicalTidalPotential(G, n, γ, f)
 end
 
-struct EquilibriumTidalPotential{gType <: Real} <: FewBodyPotential
+struct EquilibriumTidalPotential{gType <: Real} <: MultiBodyPotential
     G::gType
 end
 
-struct StaticEquilibriumTidalPotential{gType <: Real, M_env_Type, R_env_Type} <: FewBodyPotential
+struct StaticEquilibriumTidalPotential{gType <: Real, M_env_Type, R_env_Type} <: MultiBodyPotential
     G::gType
     M_env::M_env_Type
     R_env::R_env_Type
@@ -97,7 +97,7 @@ end
 
 Potential for Post-Newtonian 1 (PNA1) acceleration
 """
-struct PN1Potential{gType <: Real} <: FewBodyPotential
+struct PN1Potential{gType <: Real} <: MultiBodyPotential
     G::gType
 end
 
@@ -106,7 +106,7 @@ end
 
 Potential for Post-Newtonian 2 (PNA2) acceleration
 """
-struct PN2Potential{gType <: Real} <: FewBodyPotential
+struct PN2Potential{gType <: Real} <: MultiBodyPotential
     G::gType
 end
 
@@ -115,7 +115,7 @@ end
 
 Potential for Post-Newtonian 2.5 (PNA2.5) acceleration
 """
-struct PN2_5Potential{gType <: Real} <: FewBodyPotential
+struct PN2_5Potential{gType <: Real} <: MultiBodyPotential
     G::gType
 end
 
@@ -124,7 +124,7 @@ end
 
 Potential for Post-Newtonian 1 to 2.5 (PNA1, PNA2, PNA2.5) acceleration
 """
-struct PNPotential{gType <: Real} <: FewBodyPotential
+struct PNPotential{gType <: Real} <: MultiBodyPotential
     G::gType
 end
 

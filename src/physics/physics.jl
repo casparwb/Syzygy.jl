@@ -47,7 +47,7 @@ function centre_of_mass(binary::Binary)
 end
 
 
-function centre_of_mass(sol::FewBodySolution, bodies=eachindex(sol.initial_conditions.particles); 
+function centre_of_mass(sol::MultiBodySolution, bodies=eachindex(sol.initial_conditions.particles); 
                         tspan=nothing)
     time = sol.t
     tspan = isnothing(tspan) ? extrema(time) : tspan
@@ -63,7 +63,7 @@ function centre_of_mass(sol::FewBodySolution, bodies=eachindex(sol.initial_condi
     return com
 end
 
-function centre_of_mass_velocity(sol::FewBodySolution, bodies=eachindex(sol.initial_conditions.particles); 
+function centre_of_mass_velocity(sol::MultiBodySolution, bodies=eachindex(sol.initial_conditions.particles); 
                         tspan=nothing)
     time = sol.t
     tspan = isnothing(tspan) ? extrema(time) : tspan
@@ -160,7 +160,7 @@ end
 
 potential_energy(positions, masses) = potential_energy(positions, masses, 𝒢)
 
-function potential_energy(sol::FewBodySolution)
+function potential_energy(sol::MultiBodySolution)
     masses = sol.structure.m
     
     pot_energy = zeros(typeof(1.0u"J"), length(sol.t))
@@ -203,7 +203,7 @@ function kinetic_energy(velocities::AbstractMatrix, masses::AbstractVector)
     T = 0.5*sum(masses .* norm.(eachcol(velocities)).^2)
 end
 
-function kinetic_energy(sol::FewBodySolution)
+function kinetic_energy(sol::MultiBodySolution)
 
     masses = sol.structure.m
     
@@ -224,7 +224,7 @@ function total_energy(positions, velocities, masses)
 end
 
 
-function total_energy(sol::FewBodySolution)
+function total_energy(sol::MultiBodySolution)
     return potential_energy(sol) .+ kinetic_energy(sol)
 end
 
@@ -233,7 +233,7 @@ function specific_orbital_energy(r, v², μ, G)
     return v²/2 - μ/r
 end
 
-function total_angular_momentum(sol::FewBodySolution; step=1)
+function total_angular_momentum(sol::MultiBodySolution; step=1)
     indices = 1:step:length(sol.t)
     htot = Array{typeof(u"kg"*sol.quantities.h[1,1,1]), 2}(undef, 3, length(indices))
     for (i, idx) in enumerate(indices)

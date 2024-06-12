@@ -9,11 +9,11 @@ using ProgressMeter
 
 
 """
-    simulate(simulation::FewBodySimulation)
+    simulate(simulation::MultiBodySimulation)
 
 Simulate the given simulation setup. 
 """
-function simulate(simulation::FewBodySimulation)
+function simulate(simulation::MultiBodySimulation)
 
     args        = simulation.args
     diffeq_args = simulation.diffeq_args
@@ -110,11 +110,11 @@ function simulate(simulation::FewBodySimulation)
 end
 
 """
-    simulate(system::FewBodyInitialConditions; args...)
+    simulate(system::MultiBodyInitialConditions; args...)
 
 Allows call to `simulate` directly without setting up simulation first.
 """
-function simulate(system::FewBodyInitialConditions; args...)
+function simulate(system::MultiBodyInitialConditions; args...)
     sim = simulation(system; args...)
     if get(args, :verbose, :false)
         show(sim)
@@ -123,7 +123,7 @@ function simulate(system::FewBodyInitialConditions; args...)
     simulate(simulation(system; args...))
 end
 
-function get_masses(system::FewBodySystem)
+function get_masses(system::MultiBodyODESystem)
     return [b.mass for b in system.bodies]
 end
 

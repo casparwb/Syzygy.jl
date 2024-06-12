@@ -299,7 +299,7 @@ end
                      tspan=nothing, step=1, ref_frame="com", axis_units=u"AU")
 
     sol = eO.args[1]
-    @assert sol isa FewBodySolution "First argument must be a `FewBodySolution`. Got $(typeof(sol))"
+    @assert sol isa MultiBodySolution "First argument must be a `MultiBodySolution`. Got $(typeof(sol))"
     # labels = ["Primary", "Secondary"]
     if bodies isa String 
         bodies = keys(sol.initial_conditions.particles) |> collect |> sort
@@ -442,7 +442,7 @@ end
 @recipe function f(eP::ElementPlot; loge=false, tspan=nothing, step=1, t_unit=u"kyr")
 
     sol = eP.args[1]
-    # @assert sol isa FewBodySolution
+    # @assert sol isa MultiBodySolution
     
     time = sol.t
     tspan = isnothing(tspan) ? extrema(time) : tspan
@@ -732,7 +732,7 @@ end
 # end
 
 # let sol = sol2
-#     com = FewBodySimulator.centre_of_mass(sol, [1,2], tspan=extrema(sol.t[end-3000:end]))
+#     com = MultiBodySimulator.centre_of_mass(sol, [1,2], tspan=extrema(sol.t[end-3000:end]))
 #     k = 1
 #     step = 1
 #     anim = @animate for i in eachindex(sol.t)[end-3000:step:end]
@@ -762,7 +762,7 @@ end
 
 
 # let
-#     com = FewBodySimulator.centre_of_mass(sol, [1,2], tspan=extrema(sol.t[end-1000:10:end]))
+#     com = MultiBodySimulator.centre_of_mass(sol, [1,2], tspan=extrema(sol.t[end-1000:10:end]))
 
 #     k = 1
 #     anim = @animate for i in eachindex(sol.t)[end-1000:end]

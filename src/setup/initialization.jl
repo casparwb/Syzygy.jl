@@ -190,7 +190,7 @@ respectively, or as numbers, in which case the same value will be used for each 
 - `R = 1.0u"Rsun"`: radius of each particle.
 - `S = 0.0u"1/yr"`: spin magnitude of each particle. If given as a negative number, the spin will be calculated using [`stellar_spin`](@ref).
 - `L = 1.0u"Lsun"`: luminosity of each particle.
-- `types = 1`: type of each particle. See [`Syzygy.stellar_type_index`](@ref).
+- `stellar_types = 1`: type of each particle. See [`Syzygy.stellar_type_index`](@ref).
 - `R_core = 0.0u"Rsun"`: stellar core radius. Only used if tidal potential is included.
 - `m_core = 0.0u"Msun"`: stellar core mass. Only used if tidal potential is included.
 - `R_env = 0.0u"Rsun"`: stellar envelope radius. Only used if tidal potential is included.
@@ -221,7 +221,7 @@ function multibodysystem(masses::Vector{<:Quantity}; R      = 1.0u"Rsun",
                                                      m_core = unit(masses[1])*(0.0),
                                                      R_env  = unit(R[1])*(0.0),
                                                      m_env  = unit(masses[1])*(0.0),
-                                                     types  = 1, 
+                                                     stellar_types  = 1, 
                                                      a      = 1.0u"AU", 
                                                      e      = 0.1, 
                                                      ω      = 0.0u"rad", 
@@ -255,8 +255,8 @@ function multibodysystem(masses::Vector{<:Quantity}; R      = 1.0u"Rsun",
         S[idx] .= stellar_spin.(masses[idx], R[idx])
     end
 
-    types = ifelse(types isa Number, repeat([types], n_bodies), types)
-    multibodysystem(masses, R, S, L, types, R_core, m_core, R_env, m_env, a, e, ω, i, Ω, ν, hierarchy, t0, verbose=verbose, extras=extras)
+    stellar_types = ifelse(stellar_types isa Number, repeat([stellar_types], n_bodies), stellar_types)
+    multibodysystem(masses, R, S, L, stellar_types, R_core, m_core, R_env, m_env, a, e, ω, i, Ω, ν, hierarchy, t0, verbose=verbose, extras=extras)
 end
 
 
@@ -264,7 +264,7 @@ function multibodysystem(masses::Vector{<:Quantity},
                          R::Vector{<:Quantity}, 
                          S::Vector{<:Quantity}, 
                          L::Vector{<:Quantity}, 
-                         types::Vector{Int}, 
+                         stellar_types::Vector{Int}, 
                          R_core::Vector{<:Quantity}, 
                          m_core::Vector{<:Quantity}, 
                          R_env::Vector{<:Quantity}, 
@@ -277,7 +277,7 @@ function multibodysystem(masses::Vector{<:Quantity},
     n_bins = sum(hierarchy[2:end])
     n_particles = length(masses)
     
-    @assert length(masses) == length(S) == length(L) == length(types) "Must give structural property for each particles."
+    @assert length(masses) == length(S) == length(L) == length(stellar_types) "Must give structural property for each particles."
     @assert n_bins == n_particles - 1 "Number of binary elements must equal N particles - 1."
 
     elements = OrbitalElements[]
@@ -289,7 +289,7 @@ function multibodysystem(masses::Vector{<:Quantity},
 
     structures = StellarStructure[]
     for idx = 1:n_particles
-        stellar_type = stellar_type_from_index(types[idx])
+        stellar_type = stellar_type_from_index(stellar_types[idx])
         # push!(structures, StellarStructure(stellar_type, masses[idx], R[idx], S[idx], L[idx]))
         push!(structures, StellarStructure(stellar_type, masses[idx], R[idx], S[idx], L[idx],
                                             R_core[idx], m_core[idx], R_env[idx], m_env[idx]))
@@ -612,7 +612,7 @@ Remake a given system with new parameters.
 """
 function multibodysystem(system::MultiBodySystem; new_params...)
 
-    possible_kwargs = [:R, :S, :L, :types, :a, :e, :ω, :i, :Ω, :ν, 
+    possible_kwargs = [:R, :S, :L, :stellar_types, :a, :e, :ω, :i, :Ω, :ν, 
                        :hierarchy, :t0, :verbose, :extras]
 
     new_kwargs = Dict(new_params)
@@ -654,7 +654,7 @@ Create a binary MultiBodySystem from masses, positions, and velocities.
 """
 function multibodysystem(masses, positions, velocities; kwargs...)
 
-    # possible_kwargs = [:R, :S, :L, :types, :a, :e, :ω, :i, :Ω, :ν, 
+    # possible_kwargs = [:R, :S, :L, :stellar_types, :a, :e, :ω, :i, :Ω, :ν, 
     #                    :hierarchy, :t0, :verbose, :extras]
 
     # new_kwargs = Dict(kwargs)

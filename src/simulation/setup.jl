@@ -1,7 +1,28 @@
 using Printf, Unitful, UnitfulAstro
 
 
-function bodies(nbody::T where T <: FewBodyInitialConditions)
+abstract type AbstractSyzygyCallback end
+struct CollisionCB         <: AbstractSyzygyCallback end
+
+struct EscapeCB{T}         <: AbstractSyzygyCallback 
+    max_a_factor::T
+    check_every::Int
+end
+
+struct RocheLobeOverflowCB <: AbstractSyzygyCallback 
+    check_every::Int
+end
+
+struct CPUTimeCB           <: AbstractSyzygyCallback end
+struct CentreOfMassCB      <: AbstractSyzygyCallback end
+struct HubbleTimeCB        <: AbstractSyzygyCallback end
+struct DemocraticCheckCB   <: AbstractSyzygyCallback end
+
+struct IonizationCB{T}     <: AbstractSyzygyCallback 
+    max_a_factor::T
+end
+
+function bodies(nbody::T where T <: MultiBodyInitialConditions)
 
     positions = [zeros(3) for i = 1:nbody.n]
     velocities = [zeros(3) for i = 1:nbody.n]
@@ -17,29 +38,29 @@ function bodies(nbody::T where T <: FewBodyInitialConditions)
 end
 
 
-function FewBodySystem(bodies, params, potential::FewBodyPotential)
-    pot_dict = Dict{Symbol, FewBodyPotential}(nameof(typeof(potential)) => potential)
-    system = FewBodySystem(bodies, pot_dict)
+function MultiBodyODESystem(bodies, params, potential::MultiBodyPotential)
+    pot_dict = Dict{Symbol, MultiBodyPotential}(nameof(typeof(potential)) => potential)
+    system = MultiBodyODESystem(bodies, pot_dict)
     return system
 end
 
-function FewBodySystem(bodies, params, potential::Vector)
-    pot_dict = Dict{Symbol, FewBodyPotential}()
+function MultiBodyODESystem(bodies, params, potential::Vector)
+    pot_dict = Dict{Symbol, MultiBodyPotential}()
     for pot in potential
         pot_dict[nameof(typeof(pot))] = pot
     end
-    system = FewBodySystem(bodies, pot_dict)
+    system = MultiBodyODESystem(bodies, pot_dict)
     return system
 end
 
 
-function FewBodySimulation(system::T where T <: FewBodyInitialConditions, tspan,
+function multibodysimulation(system::T where T <: MultiBodyInitialConditions, tspan,
                           potential_params,
                           potential,
                           ode_params, args, diffeq_args)
     massbodies = bodies(system)
-    ode_system = FewBodySystem(massbodies, potential_params, potential)
-    FewBodySimulation(system, ode_system, tspan, 
+    ode_system = MultiBodyODESystem(massbodies, potential_params, potential)
+    MultiBodySimulation(system, ode_system, tspan, 
                       ode_params, args, diffeq_args)
 end
 
@@ -56,7 +77,7 @@ function parse_arguments!(kwargs::Dict)
                         :maxiters => Inf,
                         :abstol => 1.0e-10, :reltol => 1.0e-10,
                         :potential => PureGravitationalPotential(), :potential_params => [𝒢.val],
-                        :callbacks => ["collision"], :showprogress => false,
+                        :callbacks => [CollisionCB()], :showprogress => false,
                         :verbose => false, :max_cpu_time => Inf
                         )
 
@@ -76,7 +97,7 @@ end
     simulation(system::MultiBodySystem; <simulation kwargs>)
 
 Setup a simulation with a given system and simulation arguments. Returns a 
-[`FewBodySimulation`](@ref) object.
+[`MultiBodySimulation`](@ref) object.
 
 ...
 # Arguments
@@ -88,7 +109,7 @@ Setup a simulation with a given system and simulation arguments. Returns a
 - `dt = 1/10`: time step for the ODE solver in multiples of the innermost binary. Only
                relevant if solver is symplectic.
 - `potential = PureGravitationalPotential()`: potential to use in simulation. Can either be a single object
-                                             of abstract type ``FewBodyPotential``, or a ``Vector{FewBodyPotential}``, in which case
+                                             of abstract type ``MultiBodyPotential``, or a ``Vector{MultiBodyPotential}``, in which case
                                              the total acceleration will be the sum of all acceleration functions for each potential. For 
                                              all potentials see [`potentials.jl`](@ref).
 - `callbacks::Vector = ["collision"]`: callbacks to use in the integration. Can be used to define stopping conditions or other checks.
@@ -140,7 +161,7 @@ function simulation(system::MultiBodySystem; kwargs...)
     # Setup parameters
     ode_params = setup_params(system.time, system.binaries, particles)
    
-    simulation = FewBodySimulation(system, args[:tspan], 
+    simulation = multibodysimulation(system, args[:tspan], 
                                           args[:potential_params], 
                                           args[:potential], ode_params,
                                           args, kwargs)
@@ -208,8 +229,8 @@ function simulation(masses, positions, velocities; multibodysystem_args=(;), kwa
     ode_params = setup_params(multiple_system.time, multiple_system.binaries, 
                               multiple_system.particles)
 
-    system = FewBodySystem(bodies, args[:potential_params], args[:potential])
-    sim = FewBodySimulation(multiple_system, system, args[:tspan], ode_params, args, kwargs)
+    system = MultiBodyODESystem(bodies, args[:potential_params], args[:potential])
+    sim = MultiBodySimulation(multiple_system, system, args[:tspan], ode_params, args, kwargs)
 
 end
 
@@ -233,7 +254,7 @@ function setup_params(time, binaries, particles)
     luminosities = typeof(upreferred(1.0u"Lsun"))[]
     radii = typeof(upreferred(1.0u"Rsun"))[]
     spins = typeof(upreferred(1.0u"1/yr"))[]
-    types = Int[]
+    stellar_types = Int[]
     core_masses = typeof(upreferred(1.0u"Msun"))[]
     core_radii = typeof(upreferred(1.0u"Rsun"))[]
     ages = typeof(upreferred(1.0u"yr"))[]
@@ -262,7 +283,7 @@ function setup_params(time, binaries, particles)
         push!(luminosities, luminosity)
         push!(radii, radius)
         push!(spins, spin)
-        push!(types, stellar_type)
+        push!(stellar_types, stellar_type)
     end
 
     semi_major_axes = MVector(semi_major_axes...)
@@ -270,7 +291,7 @@ function setup_params(time, binaries, particles)
     luminosities = MVector(luminosities...)
     radii = MVector(radii...)
     spins = MVector(spins...)
-    types = MVector(types...)
+    stellar_types = MVector(stellar_types...)
     core_masses = MVector(core_masses...)
     core_radii = MVector(core_radii...)
     ages = MVector(ages...)
@@ -278,7 +299,7 @@ function setup_params(time, binaries, particles)
     all_params = Dict(:a => semi_major_axes, :R => radii, 
                       :M => masses, :S => spins,
                       :L => luminosities,
-                      :stellar_type => types,
+                      :stellar_type => stellar_types,
                       :core_masses => core_masses,
                       :core_radii => core_radii,
                       :ages => ages)
@@ -292,7 +313,7 @@ function setup_params(time, binaries, particles)
     return ode_params
 end
 
-function Base.show(io::IO, sim::FewBodySimulation)
+function Base.show(io::IO, sim::MultiBodySimulation)
 
     println(io, "\nSimulation setup\n-------------------------------")
 

@@ -1,7 +1,7 @@
 using DiffEqBase, StaticArrays
 using Unrolled
 
-abstract type FewBodyInitialConditions end
+abstract type MultiBodyInitialConditions end
 abstract type AbstractBinary end
 abstract type AbstractParticle end
 
@@ -73,7 +73,7 @@ struct Binary{siblingType, childType, nchildType, posType, velType, massType, el
     elements::elType
 end
 
-struct MultiBodySystem{timeType, bodType, binType, hierType, quanType} <: FewBodyInitialConditions
+struct MultiBodySystem{timeType, bodType, binType, hierType, quanType} <: MultiBodyInitialConditions
     n::Int
     time::timeType
     particles::bodType
@@ -97,14 +97,14 @@ struct MassBody{posType <: Real, velType <: Real, mType <: Real} <: CelestialBod
     mass::mType
 end
 
-struct FewBodySystem{bType <: CelestialBody, pType <: FewBodyPotential}
+struct MultiBodyODESystem{bType <: CelestialBody, pType <: MultiBodyPotential}
     bodies::SVector{N, bType} where N
     potential::Dict{Symbol, pType}
 end
 
-struct FewBodySimulation{tType, pType, aType}
+struct MultiBodySimulation{tType, pType, aType}
     ic::MultiBodySystem
-    system::FewBodySystem
+    system::MultiBodyODESystem
     tspan::Tuple{tType, tType}
     params::pType 
     args::aType
@@ -113,14 +113,14 @@ end
 
 struct SimulationResult{cType, rType <: Quantity{T} where T <: Real, opType, aType}
     solution::DiffEqBase.AbstractTimeseriesSolution
-    simulation::FewBodySimulation
+    simulation::MultiBodySimulation
     retcode::cType
     runtime::rType
     ode_params::opType
     args::aType
 end
 
-struct FewBodySolution{tT, rT, vT, eT, sT, qT, oT, pT}
+struct MultiBodySolution{tT, rT, vT, eT, sT, qT, oT, pT}
     initial_conditions::MultiBodySystem
     t::tT
     r::rT
@@ -169,7 +169,7 @@ end
 
 
 
-function gather_accelerations_for_potentials(simulation::FewBodySimulation)
+function gather_accelerations_for_potentials(simulation::MultiBodySimulation)
     acceleration_functions = []
 
     n = simulation.ic.n
@@ -182,7 +182,7 @@ function gather_accelerations_for_potentials(simulation::FewBodySimulation)
     # acceleration_functions
 end
 
-function get_initial_conditions(simulation::FewBodySimulation)
+function get_initial_conditions(simulation::MultiBodySimulation)
     system = simulation.system
     bodies = system.bodies;
     n = length(bodies)
@@ -199,7 +199,7 @@ function get_initial_conditions(simulation::FewBodySimulation)
     u0, v0, n
 end
 
-function DiffEqBase.SecondOrderODEProblem(simulation::FewBodySimulation, acc_funcs::Tuple)
+function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, acc_funcs::Tuple)
 
     u0, v0, n = get_initial_conditions(simulation)
 
@@ -225,7 +225,7 @@ end
 end
 
 
-function get_initial_conditions_static(simulation::FewBodySimulation)
+function get_initial_conditions_static(simulation::MultiBodySimulation)
     system = simulation.system
     bodies = system.bodies;
     n = length(bodies)
@@ -247,7 +247,7 @@ function get_initial_conditions_static(simulation::FewBodySimulation)
     (u0, v0, n)
 end
 
-function sodeprob_static(simulation::FewBodySimulation)
+function sodeprob_static(simulation::MultiBodySimulation)
     (u0, v0, n) = get_initial_conditions_static(simulation)
 
     acceleration_functions = gather_accelerations_for_potentials(simulation)
@@ -288,9 +288,9 @@ end
 
 function Base.getproperty(particles::Dict{Int, Syzygy.Particle}, sym::Symbol)
     if sym in fieldnames(Particle)
-        return [getfield(particles[i], sym) for i = 1:length(particles)]
+        return [getfield(particles[i], sym) for i in keys(sort(particles))]
     elseif sym in fieldnames(StellarStructure)
-        return [getfield(particles[i].structure, sym) for i = 1:length(particles)]
+        return [getfield(particles[i].structure, sym) for i in keys(sort(particles))]
     else
         getfield(particles, sym)
     end
@@ -299,9 +299,9 @@ end
 
 function Base.getproperty(binaries::Dict{Int, Syzygy.Binary}, sym::Symbol)
     if sym in fieldnames(Binary)
-        return [getfield(binaries[i], sym) for i = 1:length(binaries)]
+        return [getfield(binaries[i], sym) for i in keys(sort(binaries))]
     elseif sym in fieldnames(OrbitalElements)
-        return [getfield(binaries[i].elements, sym) for i = 1:length(binaries)]
+        return [getfield(binaries[i].elements, sym) for i in keys(sort(binaries))]
     else
         getfield(binaries, sym)
     end
