@@ -148,26 +148,6 @@ function Base.show(io::IO, structure::StellarStructure)
     println(io)
 end
 
-# function Base.getproperty(system::MultiBodySystem, prop)
-
-# end
-
-function Base.getindex(system::MultiBodySystem, idx::ParticleIndex)
-    # get_particle(system, idx.i)
-    system.particles[idx.i]
-end
-
-function Base.getindex(system::MultiBodySystem, idx::BinaryIndex)
-    # get_binary(system, idx.i)
-    system.binaries[idx.i]
-end
-
-
-function elements_to_cartesian(hierarchy, elements, masses)
-    r, v = keplers_problem(hierarchy, masses, elements)
-    return r, v
-end
-
 """
     multibodysystem(masses::Vector{<:Quantity}; <kwargs>)
 
@@ -296,12 +276,12 @@ function multibodysystem(masses::Vector{<:Quantity},
     end
 
 
-    MultiBodySystem(masses, hierarchy, elements, structures, t0, verbose=verbose)
+    multibodysystem(masses, hierarchy, elements, structures, t0, verbose=verbose)
 end
 
 
 
-function MultiBodySystem(masses::Vector, hierarchy::Vector, 
+function multibodysystem(masses::Vector, hierarchy::Vector, 
                          elements::AbstractVector{T} where T <: OrbitalElements,
                          structures::AbstractVector{T} where T <: StellarStructure,
                          t = 0.0u"yr"; verbose=false)
@@ -447,7 +427,16 @@ function MultiBodySystem(masses::Vector, hierarchy::Vector,
 
     levels = SA[sort(unique(levels))...]
 
-    MultiBodySystem(n_bodies, t, bodies, binaries, levels, root_bin, hierarchy, nothing)
+    pairs = Tuple{Int, Int}[]
+    for i in 1:n_bodies
+        for j = (i+1):n_bodies
+            if i != j
+                push!(pairs, (i, j))
+            end
+        end
+    end
+
+    MultiBodySystem(n_bodies, t, bodies, pairs, binaries, levels, root_bin, hierarchy, nothing)
 end
 
 function create_binary(positions, velocities, masses, structures, elements, 
@@ -715,14 +704,14 @@ function multibodysystem(masses, positions, velocities; kwargs...)
     v = norm(v_rel)
     M = sum(masses)
 
-    a = semi_major_axis(d, v^2, M, 𝒢) |> u"Rsun"
-    e = eccentricity(r_rel, v_rel, a, M, 𝒢) 
-    P = orbital_period(a, M, 𝒢) |> u"d"
+    a = semi_major_axis(d, v^2, M, GRAVCONST) |> u"Rsun"
+    e = eccentricity(r_rel, v_rel, a, M, GRAVCONST) 
+    P = orbital_period(a, M, GRAVCONST) |> u"d"
     h = angular_momentum(r_rel, v_rel)
-    ω = argument_of_periapsis(r_rel, v_rel, h, M, 𝒢) 
+    ω = argument_of_periapsis(r_rel, v_rel, h, M, GRAVCONST) 
     i = inclination(h)
     Ω = longitude_of_ascending_node(h)
-    ν = true_anomaly(r_rel, v_rel, h, M, 𝒢)
+    ν = true_anomaly(r_rel, v_rel, h, M, GRAVCONST)
 
     els = OrbitalElements(a, P, e, ω, i, Ω, ν)
 
@@ -732,6 +721,17 @@ function multibodysystem(masses, positions, velocities; kwargs...)
 
     binaries = Dict{Int, Binary}(1 => binary)
     time = get(kwargs, :time, 0.0u"s")
-    MultiBodySystem(n_bodies, time, bodies, binaries, 
+    
+
+    pairs = Tuple{Int, Int}[]
+    for i in 1:n_bodies
+        for j = (i+1):n_bodies
+            if i != j
+                push!(pairs, (i, j))
+            end
+        end
+    end
+    println(pairs)
+    MultiBodySystem(n_bodies, time, bodies, pairs, binaries, 
                     SA[1], binary, SA[2, 1], nothing)
 end

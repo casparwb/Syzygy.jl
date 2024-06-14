@@ -49,7 +49,7 @@ using RecipesBase
 #         outfile = joinpath(@__DIR__, "..", "..", "data", outfile*".jld2")
 #         if !isfile(outfile)
 #             @info "Saving parameters to" relpath(outfile)
-#             JLD2.save(outfile, "params", sol.initial_conditions)
+#             JLD2.save(outfile, "params", sol.ic)
 #         end
 #     end
 
@@ -302,12 +302,12 @@ end
     @assert sol isa MultiBodySolution "First argument must be a `MultiBodySolution`. Got $(typeof(sol))"
     # labels = ["Primary", "Secondary"]
     if bodies isa String 
-        bodies = keys(sol.initial_conditions.particles) |> collect |> sort
+        bodies = keys(sol.ic.particles) |> collect |> sort
     end
 
-    @assert length(bodies) <= sol.initial_conditions.n "Number of bodies to plot is greater than bodies in system."
+    @assert length(bodies) <= sol.ic.n "Number of bodies to plot is greater than bodies in system."
     
-    if all(isone, sol.initial_conditions.hierarchy[2:end])
+    if all(isone, sol.ic.hierarchy[2:end])
         labels = hierarchy_labels#[bodies]
     else
         labels = ["Partcle $i" for i in bodies]
@@ -450,7 +450,7 @@ end
     indices = indices[1]:step:indices[2]
     t = t_unit.(time[indices])
 
-    system = sol.initial_conditions
+    system = sol.ic
     n_binaries = length(system.binaries)
     n_particles = length(system.particles)
 
@@ -633,7 +633,7 @@ end
     #     h3 = norm.(eachrow(h3)) ./ norm(h3[1,:])
     # end
 
-    nbodies = sol.initial_conditions.n
+    nbodies = sol.ic.n
     total_angular_momentum = zeros(typeof(1.0u"m^2/s"), 3, length(t))
     for i in eachindex(t)
         for body in 1:nbodies
@@ -799,7 +799,7 @@ end
 
 #     dims = [1,2]
 #     cs = [:blue, :red, :green, :purple, :purple]
-#     for pidx in eachindex(sol.initial_conditions.particles)
+#     for pidx in eachindex(sol.ic.particles)
 #             scatter!(p, [[sol.r[dim,pidx,i] |> u"AU"] for dim in dims]..., label=hierarchy_labels[pidx], c=cs[pidx])
 #             plot!(p, [sol.r[dim,pidx,sidx:i] .|> u"AU" for dim in dims]..., label=false, c=cs[pidx])
 

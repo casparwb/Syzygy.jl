@@ -13,9 +13,6 @@ struct BinaryIndex
     i::Int
 end
 
-pI(i) = ParticleIndex(i)
-bI(i) = BinaryIndex(i)
-
 #################################### Multibody system setup #########################################
 
 struct OrbitalElements{aT, PT, eT, ωT, iT, ΩT, νT}
@@ -73,10 +70,11 @@ struct Binary{siblingType, childType, nchildType, posType, velType, massType, el
     elements::elType
 end
 
-struct MultiBodySystem{timeType, bodType, binType, hierType, quanType} <: MultiBodyInitialConditions
+struct MultiBodySystem{timeType, bodType, pairType, binType, hierType, quanType} <: MultiBodyInitialConditions
     n::Int
     time::timeType
     particles::bodType
+    pairs::pairType
     binaries::binType
     levels::SVector{N, Int} where N
     root::Binary
@@ -120,7 +118,7 @@ struct SimulationResult{cType, rType <: Quantity{T} where T <: Real, opType, aTy
     args::aType
 end
 
-struct MultiBodySolution{tT, rT, vT, eT, sT, qT, oT, pT}
+struct MultiBodySolution_old{tT, rT, vT, eT, sT, qT, oT, pT}
     initial_conditions::MultiBodySystem
     t::tT
     r::rT
@@ -129,6 +127,16 @@ struct MultiBodySolution{tT, rT, vT, eT, sT, qT, oT, pT}
     structure::sT
     quantities::qT
     ode_system::oT
+    ode_params::pT
+end
+
+struct MultiBodySolution{tT, rT, vT, sT, oT, pT}
+    ic::MultiBodySystem # initial conditions
+    t::tT # time
+    r::rT # positions
+    v::vT # velocities
+    structure::sT
+    ode_system::oT 
     ode_params::pT
 end
 ##################################################################################################

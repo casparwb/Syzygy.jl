@@ -10,7 +10,7 @@ module Syzygy
         Unitful.register(Syzygy)
     end
 
-    include("units.jl")
+    # include("units.jl")
     include("constants.jl")
     
     include("setup/stellar_types.jl")
@@ -27,15 +27,16 @@ module Syzygy
     
     include("simulation/solver.jl")
     
-    include("analysis/simulation_analysis.jl")
+    include("analysis/postprocessing.jl")
     include("analysis/visualization.jl")
 
 
     export multibodysystem
-    export PureGravitationalPotential, DynamicalTidalPotential, EquilibriumTidalPotential, StaticEquilibriumTidalPotential
+    export PureGravitationalPotential, DynamicalTidalPotential, 
+           EquilibriumTidalPotential, StaticEquilibriumTidalPotential
     export simulation, simulate
-    export analyse_simulation
-    export 𝒢, pI, bI, ParticleIndex, BinaryIndex
+    export to_solution
+    export GRAVCONST
     
     export CollisionCB, EscapeCB, RocheLobeOverflowCB, CPUTimeCB, 
            CentreOfMassCB, HubbleTimeCB, DemocraticCheckCB, IonizationCB
@@ -53,15 +54,15 @@ module Syzygy
                  callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)])
         simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
                  callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)],
-                 potential=[PureGravitationalPotential(), DynamicalTidalPotential(G=𝒢.val, n=4, γ=[1.5, 1.5, 1.5])])
+                 potential=[PureGravitationalPotential(), DynamicalTidalPotential(G=GRAVCONST.val, n=4, γ=[1.5, 1.5, 1.5])])
         simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
                  callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)],
-                 potential=[PureGravitationalPotential(), EquilibriumTidalPotential(𝒢.val)])
+                 potential=[PureGravitationalPotential(), EquilibriumTidalPotential(GRAVCONST.val)])
         res = simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
                  callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)],
                  potential=[PureGravitationalPotential(), StaticEquilibriumTidalPotential(triple)])
 
-        sol = analyse_simulation(res)
+        sol = to_solution(res)
     end
 
 end

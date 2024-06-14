@@ -1,34 +1,56 @@
 using Printf, Unitful, UnitfulAstro
 
-
 abstract type AbstractSyzygyCallback end
-struct CollisionCB         <: AbstractSyzygyCallback end
+
+struct CollisionCB         <: AbstractSyzygyCallback 
+    check_every::Int
+    CollisionCB(check_every=1) = new(check_every)
+end
 
 struct EscapeCB{T}         <: AbstractSyzygyCallback 
     max_a_factor::T
     check_every::Int
+    EscapeCB(max_a_factor=100, check_every=100) = new{typeof(max_a_factor)}(max_a_factor, check_every)
 end
 
 struct RocheLobeOverflowCB <: AbstractSyzygyCallback 
     check_every::Int
+    RocheLobeOverflowCB(check_every=1) = new(check_every)
 end
 
-struct CPUTimeCB           <: AbstractSyzygyCallback end
-struct CentreOfMassCB      <: AbstractSyzygyCallback end
-struct HubbleTimeCB        <: AbstractSyzygyCallback end
-struct DemocraticCheckCB   <: AbstractSyzygyCallback end
+struct CPUTimeCB           <: AbstractSyzygyCallback 
+    check_every::Int
+    CPUTimeCB(check_every=1) = new(check_every)
+end
+
+struct CentreOfMassCB      <: AbstractSyzygyCallback 
+    check_every::Int
+    CentreOfMassCB(check_every=1) = new(check_every)
+end
+
+struct HubbleTimeCB        <: AbstractSyzygyCallback 
+    check_every::Int
+    HubbleTimeCB(check_every=1) = new(check_every)
+end
+
+struct DemocraticCheckCB   <: AbstractSyzygyCallback 
+    check_every::Int
+    DemocraticCheckCB(check_every=1) = new(check_every)
+end
 
 struct IonizationCB{T}     <: AbstractSyzygyCallback 
+    check_every::Int
     max_a_factor::T
+    IonizationCB(max_a_factor=100, check_every=100) = new{typeof(max_a_factor)}(max_a_factor, check_every)
 end
 
-function bodies(nbody::T where T <: MultiBodyInitialConditions)
+function bodies(system::T where T <: MultiBodyInitialConditions)
 
-    positions = [zeros(3) for i = 1:nbody.n]
-    velocities = [zeros(3) for i = 1:nbody.n]
-    masses = zeros(nbody.n)
+    positions = [zeros(3) for i = 1:system.n]
+    velocities = [zeros(3) for i = 1:system.n]
+    masses = zeros(system.n)
 
-    for (key, particle) in nbody.particles
+    for (key, particle) in system.particles
         positions[key] .= upreferred.(particle.position) |> ustrip
         velocities[key] .= upreferred.(particle.velocity) |> ustrip
         masses[key] = upreferred(particle.mass) |> ustrip
@@ -55,9 +77,9 @@ end
 
 
 function multibodysimulation(system::T where T <: MultiBodyInitialConditions, tspan,
-                          potential_params,
-                          potential,
-                          ode_params, args, diffeq_args)
+                             potential_params,
+                             potential,
+                             ode_params, args, diffeq_args)
     massbodies = bodies(system)
     ode_system = MultiBodyODESystem(massbodies, potential_params, potential)
     MultiBodySimulation(system, ode_system, tspan, 
@@ -76,7 +98,7 @@ function parse_arguments!(kwargs::Dict)
                         :alg => DPRKN8(), :saveat => [], :npoints => 0,
                         :maxiters => Inf,
                         :abstol => 1.0e-10, :reltol => 1.0e-10,
-                        :potential => PureGravitationalPotential(), :potential_params => [𝒢.val],
+                        :potential => PureGravitationalPotential(), :potential_params => [GRAVCONST.val],
                         :callbacks => [CollisionCB()], :showprogress => false,
                         :verbose => false, :max_cpu_time => Inf
                         )
@@ -230,8 +252,8 @@ function simulation(masses, positions, velocities; multibodysystem_args=(;), kwa
                               multiple_system.particles)
 
     system = MultiBodyODESystem(bodies, args[:potential_params], args[:potential])
-    sim = MultiBodySimulation(multiple_system, system, args[:tspan], ode_params, args, kwargs)
-
+    
+    return MultiBodySimulation(multiple_system, system, args[:tspan], ode_params, args, kwargs)
 end
 
 function setup_timespan(t0, t_sim, P_out)

@@ -27,11 +27,11 @@ function setup_simulation_solution(n_steps, n_bodies, n_binaries)
 
     radius_matrix = Matrix{typeof((1.0u"m"))}(undef, n_bodies, 2)
     mass_matrix = Matrix{typeof(1.0u"kg")}(undef, n_bodies, 2)
-    type_matrix = Matrix{Int8}(undef, n_bodies, 2)
+    stellar_type_matrix = Matrix{Int8}(undef, n_bodies, 2)
     lum_matrix = Matrix{typeof(1.0u"Lsun")}(undef, n_bodies, 2)
     spin_matrix = Matrix{typeof(1.0u"1/s")}(undef, n_bodies, 2)
 
-    structure = StellarStructure(type_matrix, mass_matrix, 
+    structure = StellarStructure(stellar_type_matrix, mass_matrix, 
                                  radius_matrix, spin_matrix, lum_matrix,
                                  similar(radius_matrix), similar(mass_matrix), 
                                  similar(radius_matrix), similar(mass_matrix))
@@ -92,6 +92,8 @@ function add_orbital_quantities!(quantities, n_bodies, pos, vel, mass, idx)
     # end
 
 end
+
+
 
 function analyse_simulation(result::SimulationResult)
 
@@ -284,37 +286,6 @@ function orbital_elements_from_kinematics(r, d, v, v², M, G=𝒢)
     ν = true_anomaly(r, v, h, M)
 
     return a, P, e, i, Ω, ω, ν
-end
-
-function multibodysystem(sol::MultiBodySolution, time)
-
-    time_index = argmin(abs.(time .- sol.t))
-    # positions = sol.r[time=time]
-    # velocities = sol.v[time=time]
-    quant_time_index = size(sol.structure.m, 2) == length(sol.t) ? time_index : 2
-    masses = sol.structure.m[:,quant_time_index]
-
-    n_bodies = length(masses)
-    # structure_args = Dict(prop => getproperty(sol.structure, prop)[:,time_index] for prop in fieldnames(StellarStructure))
-    # structure_args[:types] = Int.(structure_args[:types])
-    # orbital_args = Dict(prop => getindex.(getproperty(sol.elements, prop), time_index) for prop in fieldnames(OrbitalElements))
-    multibodysystem(masses, R = sol.structure.R[:,quant_time_index], 
-                            L = sol.structure.L[:,quant_time_index],
-                            S = sol.structure.S[:,quant_time_index],
-                            R_core = sol.structure.R_core[:,quant_time_index],
-                            m_core = sol.structure.m_core[:,quant_time_index],
-                            R_env = sol.structure.R_env[:,quant_time_index],
-                            m_env = sol.structure.m_env[:,quant_time_index],
-                            types = Int.(sol.structure.type[:,quant_time_index]),
-                            a = [e.a[quant_time_index] for e in sol.elements],
-                            e = [e.e[quant_time_index] for e in sol.elements], 
-                            ω = [e.ω[quant_time_index] for e in sol.elements], 
-                            i = [e.i[quant_time_index] for e in sol.elements], 
-                            Ω = [e.Ω[quant_time_index] for e in sol.elements], 
-                            ν = [e.ν[quant_time_index] for e in sol.elements], 
-                            hierarchy = sol.initial_conditions.hierarchy,
-                            t0 = time
-                            )
 end
 
 """

@@ -295,7 +295,7 @@ function envelope_structure(mass::Unitful.Mass, radius, core_mass, core_radius, 
     radius = ustrip(u"Rsun", radius)
     core_mass = ustrip(u"Msun", core_mass)
     core_radius = ustrip(u"Rsun", core_radius)
-    stellar_type = ustrip(u"stp", stellar_type)
+    # stellar_type = ustrip(u"stp", stellar_type)
     age = ustrip(u"Myr", age)
 
     R_env, M_env = envelope_structure(mass, radius, core_mass, core_radius, stellar_type, age, Z)

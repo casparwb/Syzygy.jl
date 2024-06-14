@@ -7,15 +7,15 @@ abstract type MultiBodyPotential end
 abstract type SimulationParams end
 
 struct DefaultSimulationParams{aType, RType, MType, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
-    a::aType
-    R::RType
-    M::MType
-    L::LType
-    S::SType
-    stellar_types::stpType
-    M_cores::cMType
-    R_cores::cRType
-    ages::ageType
+    a::aType # initial semi-major axes
+    R::RType # radii
+    M::MType # masses
+    L::LType # luminosities
+    S::SType # spins
+    stellar_types::stpType 
+    M_cores::cMType # core masses
+    R_cores::cRType # core radii
+    ages::ageType 
 end
 
 
@@ -23,7 +23,7 @@ struct PureGravitationalPotential{gType <: Real} <: MultiBodyPotential
     G::gType
 end
 
-PureGravitationalPotential() = PureGravitationalPotential(upreferred(𝒢).val)
+PureGravitationalPotential() = PureGravitationalPotential(upreferred(GRAVCONST).val)
 
 struct DynamicalTidalPotential{gType <: Real, nType, fType <: Function} <: MultiBodyPotential
     G::gType # Gravitational constant
@@ -67,7 +67,7 @@ struct StaticEquilibriumTidalPotential{gType <: Real, M_env_Type, R_env_Type} <:
 end
 
 
-function StaticEquilibriumTidalPotential(system, G=ustrip(upreferred(𝒢)); Z=0.02)
+function StaticEquilibriumTidalPotential(system, G=ustrip(upreferred(GRAVCONST)); Z=0.02)
 
     age = system.time
     n_bodies = system.n
@@ -249,7 +249,7 @@ function equilibrium_tidal_drag_force!(dv,
     R = Rs[i]
     R_num = ustrip(R)
     Ω = ustrip(S[i])
-    G = unit(upreferred(𝒢))*potential.G
+    G = unit(upreferred(GRAVCONST))*potential.G
     logg = log10(ustrip(u"cm/s^2", G*M/R^2))
     logm = log10(ustrip(u"Msun", M))
     k = asidal_motion_constant_interpolated(logm, logg)
@@ -324,7 +324,7 @@ function equilibrium_tidal_drag_force!(dv,
     R = Rs[i]
     R_num = ustrip(R)
     Ω = ustrip(S[i])
-    G = unit(upreferred(𝒢))*potential.G
+    G = unit(upreferred(GRAVCONST))*potential.G
     logg = log10(ustrip(u"cm/s^2", G*M/R^2))
     logm = log10(ustrip(u"Msun", M))
     k = asidal_motion_constant_interpolated(logm, logg)

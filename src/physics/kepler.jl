@@ -5,13 +5,13 @@
 ################################################################################
 
 """
-    keplerian_to_cartesian(elements::OrbitalElements, mass::Quantity; G=𝒢)
+    keplerian_to_cartesian(elements::OrbitalElements, mass::Quantity; G=GRAVCONST)
 
 Convert Keplerian orbital elements of a given binary to cartesian position and velocity following the formalism of 
 [](https://downloads.rene-schwarz.com/download/M001-Keplerian_Orbit_Elements_to_Cartesian_State_Vectors.pdf). 
 Motion is by default assumed to be in the xy-plane. 
 """
-function keplerian_to_cartesian(elements::OrbitalElements, mass; G=𝒢)
+function keplerian_to_cartesian(elements::OrbitalElements, mass; G=GRAVCONST)
 
     # semi-major axis
     # time
