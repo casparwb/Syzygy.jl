@@ -2,9 +2,10 @@ using Printf, Unitful, UnitfulAstro
 
 abstract type AbstractSyzygyCallback end
 
-struct CollisionCB         <: AbstractSyzygyCallback 
+struct CollisionCB{T}         <: AbstractSyzygyCallback 
     check_every::Int
-    CollisionCB(check_every=1) = new(check_every)
+    grav_rad_multiple::T
+    CollisionCB(check_every=1, grav_rad_multiple=1000) = new{typeof(grav_rad_multiple)}(check_every)
 end
 
 struct EscapeCB{T}         <: AbstractSyzygyCallback 
@@ -294,7 +295,7 @@ function setup_params(time, binaries, particles)
         luminosity = p.structure.L |> upreferred
         radius = p.structure.R |> upreferred 
         spin = p.structure.S |> upreferred 
-        stellar_type = p.structure.type.index 
+        stellar_type = p.structure.stellar_type.index 
         core_mass = p.structure.m_core |> upreferred
         core_radius = p.structure.R_core |> upreferred
 
@@ -334,60 +335,3 @@ function setup_params(time, binaries, particles)
 
     return ode_params
 end
-
-function Base.show(io::IO, sim::MultiBodySimulation)
-
-    println(io, "\nSimulation setup\n-------------------------------")
-
-    print(io, "\nTime span: ")
-    timespan = u"kyr".(sim.tspan .* u"s")
-    print(io, timespan)
-
-    println("\n")
-
-    println(io, "Arguments ")
-    for (arg, val) in sim.args
-        arg == :potential && continue 
-        @printf(io, "   %-16s %s", "$arg", "$val")
-        # @printf(io, "%7s ", "$val")
-        println(io)
-    end
-
-    println(io)
-
-    print(io, "DiffEq arguments: \n")
-    for (arg, val) in sim.diffeq_args
-        @printf(io, "   %-16s %s", "$arg", "$val")
-        println(io)
-    end
-
-    print(io, "\nPotential(s): \n")
-    if sim.args[:potential] isa Vector
-        for pot in sim.args[:potential]
-            pot = nameof(typeof(pot))
-            @printf(io, "   %-16s", "$pot")
-            println(io)
-        end
-    else
-        pot = nameof(typeof(sim.args[:potential]))
-        @printf(io, "   %-16s", "$pot")
-    end
-
-    println(io)
-end
-
-function Base.show(io::IO, sim::SimulationResult)
-
-    println(io, "Simulation result:\n====================================\n")
-    println(io, "Retcodes: ")
-    for (k, v) in sim.retcode
-        println(io, "   $k", " ", v)
-    end
-
-    println(io, "\nRuntime: $(sim.runtime)\n")
-
-    println(io, "Number of datapoints: $(length(sim.solution.t))\n")
-    println(io, "ODE Retcode: $(sim.solution.retcode)\n")
-    println(io, "$(sim.solution.destats)")
-end
-
