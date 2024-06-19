@@ -99,10 +99,14 @@ function argument_of_periapsis(r, v, h, m, G)
     μ = G*m
     n = SA[-h[2], h[1], zero(h[1])]
     e = (v × h)/μ .- r/norm(r)
-    ω = acos(min(1.0, dot(n, e)/(norm(n)*norm(e))))
-    isnan(ω) && return atan(e[2], e[1])
-    e[3] < zero(e[3]) && return 2π - ω
-    return ω
+
+    ω = acos(dot(e, n)/(norm(n)*norm(e)))
+    if isnan(ω) 
+        ω = atan(e[2], e[1])
+        return ifelse(h[3] < zero(h[3]), 2π - ω, ω)
+    end
+
+    return ifelse(e[3] < zero(e[3]), 2π - ω, ω)
 end
 
 argument_of_periapsis(r, v, h, M) = argument_of_periapsis(r, v, h, M, GRAVCONST)
@@ -115,12 +119,21 @@ velocity `r`, angular momentum `h` and mass `m`.
 """
 function true_anomaly(r, v, h, m, G)
     μ = G*m
-    e = (v × h)/μ .- r/norm(r)
-    arg = dot(e, r)/(norm(e)*norm(r))
-    # if dot(r, v) < 0
-    ν = acos(min(1.0, abs(arg)))
-    rdotv = dot(r, v)
-    ν = ifelse(rdotv < zero(rdotv), 2π - ν, ν)
+    r_norm = norm(r)
+    e = (v × h)/μ .- r/r_norm
+    
+    vᵣ = dot(r/r_norm, v)
+    arg = dot(e, r)/(norm(e)*r_norm)
+    ν = acos(arg)
+
+    # ν = acos(min(1.0, abs(arg)))
+    # rdotv = dot(r, v)
+    # println(ν, " ", rdotv)
+    # ν = ifelse(rdotv < zero(rdotv), 2π - ν, ν)
+    # println(2π - ν, " ", vᵣ)
+    vᵣ < zero(vᵣ) && return 2π - ν
+    return ν
+    # return ifelse(vᵣ >= zero(vᵣ), ν, 2π - ν)
 end
 
 true_anomaly(r, v, h, M) = true_anomaly(r, v, h, M, GRAVCONST)
@@ -172,6 +185,51 @@ function elements_from_cartesian(positions, velocities, masses)
     @info "Unbound bodies: " unbound_bodies
 
     # return pairs
+end
+
+"""
+    binary_elements(positions, velocities, masses)
+
+Calculate binary properties of bodies with given positions and velocities.
+Assumes the bodies are gravitationally bound.
+"""
+function binary_elements(positions, velocities, masses)
+
+    r1 = positions[1]
+    r2 = positions[2]
+
+    v1 = velocities[1]
+    v2 = velocities[2]
+
+    h1 = angular_momentum(r1, v1)
+
+    M1, M2 = masses
+
+    r_rel = r2 - r1
+    v_rel = v2 - v1
+
+    d = norm(r_rel)
+    v = norm(v_rel)
+    M = sum(masses)
+
+    a = semi_major_axis(d, v^2, M, GRAVCONST) |> u"Rsun"
+    e = eccentricity(r_rel, v_rel, a, M, GRAVCONST) 
+
+    # sqrt_1_min_e² = sqrt(1.0 - e^2)
+    # E = atan(sqrt_1_min_e²*sin(ν), e + cos(ν))
+
+    # β = e/(1 + sqrt_1_min_e²)
+    # ν = E + 2atan(β*sin(E)/(1 - β*cos(E)))
+
+    P = orbital_period(a, M, GRAVCONST) |> u"d"
+    h = angular_momentum(r_rel, v_rel)
+    ω = argument_of_periapsis(r1, v1, h1, M1, GRAVCONST) 
+    i = inclination(h)
+    Ω = longitude_of_ascending_node(h)
+    ν = true_anomaly(r_rel, v_rel, h, M, GRAVCONST)
+    # ν = true_anomaly(r1, v1, h1, M1, GRAVCONST)
+    println(ν)
+    els = OrbitalElements(a, P, e, ω, i, Ω, ν)
 end
 
 """
