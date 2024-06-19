@@ -29,7 +29,7 @@ module Syzygy
     
     include("analysis/postprocessing.jl")
     include("analysis/visualization.jl")
-
+    include("io.jl")
 
     export multibodysystem
     export PureGravitationalPotential, DynamicalTidalPotential, 
