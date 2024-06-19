@@ -2,24 +2,6 @@ using LinearAlgebra, StaticArrays, AxisArrays
 
 
 
-function Base.show(io::IO, sol::MultiBodySolution)
-    print(io, "n datapoints = ")
-    show(io, length(sol.t))
-    println(io)
-    print(io, "Time span: ")
-    timespan = u"kyr".([sol.t[1], sol.t[end]])
-    show(io, (timespan[1], timespan[2]))
-
-    if !ismissing(sol.ode_system)
-        println()
-        print(io, "ODE parameters: \n")
-        for (k, v) in sol.ode_system
-            # show(io, (k, v))
-            @printf(io, "   %-16s %s", "$k", "$v")
-            println()
-        end
-    end
-end
 
 """
     get_stellar_structure(result::SimulationResult)
@@ -37,7 +19,7 @@ function get_stellar_structure(result)
             tmp[param] = [getproperty(system.particles[i].structure, param) for i = 1:n_bodies]
         end
 
-        tmp[:type] = [t.index for t in tmp[:type]] 
+        tmp[:stellar_type] = [t.index for t in tmp[:stellar_type]] 
         tmp
     end
 
@@ -48,7 +30,7 @@ function get_stellar_structure(result)
             tmp[param] =  getproperty(result.ode_params, param)
         end
 
-        tmp[:type] = pop!(tmp, :stellar_types)
+        tmp[:stellar_type] = pop!(tmp, :stellar_types)
         tmp[:m] = pop!(tmp, :M)
         tmp
     end
@@ -110,9 +92,9 @@ function to_solution(result::SimulationResult)
 
     ode_solution = Dict(:potential => result.simulation.system.potential |> values,
                         :retcodes => result.retcode,
-                        :timesteps => result.solution.destats.naccept,
-                        :func_1_evals => result.solution.destats.nf,
-                        :func_2_evals => result.solution.destats.nf2,
+                        :timesteps => result.solution.stats.naccept,
+                        :func_1_evals => result.solution.stats.nf,
+                        :func_2_evals => result.solution.stats.nf2,
                         :runtime => result.runtime)
     attributes = merge(ode_solution, result.simulation.args, result.simulation.diffeq_args)
 
@@ -123,45 +105,45 @@ function to_solution(result::SimulationResult)
 end
 
 
-"""
-TO DO: allow elements to be supplied OR calculate orbital elements given positions
-and velocities. How to generalise to higher-order multiples?
-"""
-function multibodysystem(sol::MultiBodySolution, time; elements=nothing)
+# """
+# TO DO: allow elements to be supplied OR calculate orbital elements given positions
+# and velocities. How to generalise to higher-order multiples?
+# """
+# function multibodysystem(sol::MultiBodySolution, time)
 
-    time_index = argmin(abs.(time .- sol.t))
-    if !isnothing(structure)
-        quant_time_index = size(structure.m, 2) == length(sol.t) ? time_index : 2
-        masses = structure.m[:,quant_time_index]
+#     time_index = argmin(abs.(time .- sol.t))
+#     if !isnothing(structure)
+#         quant_time_index = size(structure.m, 2) == length(sol.t) ? time_index : 2
+#         masses = structure.m[:,quant_time_index]
 
-        R = structure.R[:,quant_time_index], 
-        L = structure.L[:,quant_time_index],
-        S = structure.S[:,quant_time_index],
-        R_core = structure.R_core[:,quant_time_index],
-        m_core = structure.m_core[:,quant_time_index],
-        R_env = structure.R_env[:,quant_time_index],
-        m_env = structure.m_env[:,quant_time_index],
-        stellar_types = structure.type[:,quant_time_index]
-    end
+#         R = structure.R[:,quant_time_index], 
+#         L = structure.L[:,quant_time_index],
+#         S = structure.S[:,quant_time_index],
+#         R_core = structure.R_core[:,quant_time_index],
+#         m_core = structure.m_core[:,quant_time_index],
+#         R_env = structure.R_env[:,quant_time_index],
+#         m_env = structure.m_env[:,quant_time_index],
+#         stellar_types = structure.type[:,quant_time_index]
+#     end
 
-    n_bodies = length(sol.ic.masses)
-    # multibodysystem(masses, R = structure.R[:,quant_time_index], 
-    #                         L = structure.L[:,quant_time_index],
-    #                         S = structure.S[:,quant_time_index],
-    #                         R_core = structure.R_core[:,quant_time_index],
-    #                         m_core = structure.m_core[:,quant_time_index],
-    #                         R_env = structure.R_env[:,quant_time_index],
-    #                         m_env = structure.m_env[:,quant_time_index],
-    #                         stellar_types = Int.(structure.type[:,quant_time_index]),
-    #                         a = [e.a[quant_time_index] for e in sol.elements],
-    #                         e = [e.e[quant_time_index] for e in sol.elements], 
-    #                         ω = [e.ω[quant_time_index] for e in sol.elements], 
-    #                         i = [e.i[quant_time_index] for e in sol.elements], 
-    #                         Ω = [e.Ω[quant_time_index] for e in sol.elements], 
-    #                         ν = [e.ν[quant_time_index] for e in sol.elements], 
-    #                         hierarchy = sol.initial_conditions.hierarchy,
-    #                         t0 = time
-    #                         )
-end
+#     n_bodies = length(sol.ic.masses)
+#     multibodysystem(masses, R = structure.R[:,quant_time_index], 
+#                             L = structure.L[:,quant_time_index],
+#                             S = structure.S[:,quant_time_index],
+#                             R_core = structure.R_core[:,quant_time_index],
+#                             m_core = structure.m_core[:,quant_time_index],
+#                             R_env = structure.R_env[:,quant_time_index],
+#                             m_env = structure.m_env[:,quant_time_index],
+#                             stellar_types = Int.(structure.type[:,quant_time_index]),
+#                             a = [e.a[quant_time_index] for e in sol.elements],
+#                             e = [e.e[quant_time_index] for e in sol.elements], 
+#                             ω = [e.ω[quant_time_index] for e in sol.elements], 
+#                             i = [e.i[quant_time_index] for e in sol.elements], 
+#                             Ω = [e.Ω[quant_time_index] for e in sol.elements], 
+#                             ν = [e.ν[quant_time_index] for e in sol.elements], 
+#                             hierarchy = sol.initial_conditions.hierarchy,
+#                             t0 = time
+#                             )
+# end
 
 
