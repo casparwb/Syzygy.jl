@@ -1,152 +1,6 @@
 using LinearAlgebra
 
 
-function Base.show(io::IO, system::T where T <: MultiBodySystem)
-    print(io, "\nN binaries: ")
-    show(io, size(system.hierarchy, 1)-1)
-    println(io)
-
-    print(io, "N levels: ")
-    show(io, length(system.levels))
-    println(io)
-
-    print(io, "N particles: ")
-    show(io, system.n)
-    println(io)
-
-    print(io, "Hierarchy: ")
-    show(io, system.hierarchy)
-    print(io, "\n\n")
-
-    show(io, system.root)
-
-end
-
-function Base.show(io::IO, binary::T where T <: Binary)
-
-    indent = get(io, :indent, 2 + binary.level*2)
-
-    # print(io, " "^indent, "Binary key: ")
-    printstyled(io, " "^indent, "Binary ", color=:blue)
-    print(io,  "key: ")
-
-    show(io, binary.key)
-    println(io)
-
-    # print(io, " "^indent, "Binary level: ")
-    printstyled(io, " "^indent, "Binary ", color=:blue)
-    print(io,  "level: ")
-
-    show(io, binary.level)
-    println(io)
-
-    # print(io, " "^indent, "Binary parent: ")
-    printstyled(io, " "^indent, "Binary ", color=:blue)
-    print(io,  "parent: ")
-
-    show(io, binary.parent)
-    println(io)
-
-    # println(io, " "^indent, "Binary elements: ")
-    printstyled(io, " "^indent, "Binary ", color=:blue)
-    printstyled(io, "elements:\n")
-    show(IOContext(io, :indent => indent+2), binary.elements)
-    println(io)
-
-
-    printstyled(io, " "^indent, "Children:\n\n", color=:green)
-    for child in binary.children
-        show(IOContext(io, :indent => indent+4), child)
-        println()
-    end
-
-end
-
-function Base.show(io::IO, particle::Particle)
-    indent = get(io, :indent, 2)
-
-
-    # print(io,  " "^indent, "Particle key: ")
-    printstyled(io,  " "^indent, "Particle ", color=:yellow)
-    print(io, "key: ")
-    print(io, particle.key)
-    println(io)
-
-    # print(io,  " "^indent, "Particle parent: ")
-    printstyled(io,  " "^indent, "Particle ", color=:yellow)
-    print(io, "parent: ")
-    print(io, particle.parent)
-    println(io)
-
-    # print(io,  " "^indent, "Particle mass: ")
-    printstyled(io,  " "^indent, "Particle ", color=:yellow)
-    print(io, "mass: ")
-    print(io, particle.mass)
-    println(io)
-
-
-    # print(io,  " "^indent, "Particle type: ")
-    printstyled(io,  " "^indent, "Particle ", color=:yellow)
-    print(io, "type: ")
-    print(io, stellar_type_index[particle.structure.type.index])
-    println(io)
-
-    # println(io,  " "^indent, "Particle structure: ")
-    printstyled(io,  " "^indent, "Particle ", color=:yellow)
-    print(io, "structure: ")
-    show(io, particle.structure)
-
-end
-
-function Base.show(io::IO, elements::OrbitalElements)#{T, T, T, T, T, T, T}) where T <: Number
-    if elements.a isa AbstractArray
-        # show(io, elements)
-        return
-    end
-    indent = get(io, :indent, 2)
-    els = propertynames(elements)
-    print(io, " "^indent, "|")
-
-    for el in els
-        print(io, " $el: ")
-        prop = getproperty(elements, el)
-        prop = prop isa Quantity ? round(prop.val, digits=2)*unit(prop) : round(prop, digits=2)
-        # prop = round(prop.val, digits=2)*unit(prop)
-        show(io, prop)
-        print(io, " | ")
-    end 
-    
-    println(io)
-end
-
-# function Base.show(io::IO, elements::OrbitalElements{T, T, T, T, T, T, T}) where T <: Number
-
-function Base.show(io::IO, structure::StellarStructure)
-    # if structure.R isa AbstractArray
-    #     # show(io, elements)
-    #     return
-    # end
-    indent = get(io, :indent, 0) + 2
-
-    str_names = propertynames(structure)
-    print(io, " "^indent, "|")
-    for str in str_names
-        # str === :type && continue
-        print(io, " $str: ")
-        prop = getproperty(structure, str)
-        if prop isa AbstractArray
-            show(io, prop)
-        elseif prop isa StellarType
-            show(io, prop.index)
-        else
-            prop = prop isa Quantity ? round(prop.val, digits=2)*unit(prop) : round(prop, digits=2)
-            show(io, prop)
-        end
-        print(io, " | ")
-        # println(io)   
-    end
-    println(io)
-end
 
 """
     multibodysystem(masses::Vector{<:Quantity}; <kwargs>)
@@ -180,7 +34,7 @@ respectively, or as numbers, in which case the same value will be used for each 
 - `hierarchy`: specification of the hierarchy structure. First element is total number of bodies, followed 
                by number of binaries on each level. If given a number, system is assumed
                to be hierarchichal. 
-- `t0 = 0.0u"s"`: time of the system.
+- `time = 0.0u"s"`: time of the system.
 - `verbose = false`
 ...
 
@@ -208,7 +62,7 @@ function multibodysystem(masses::Vector{<:Quantity}; R      = 1.0u"Rsun",
                                                      i      = 0.0u"rad", 
                                                      Ω      = 0.0u"rad", 
                                                      ν      = (π)u"rad", 
-                                                     t0::Quantity = 0.0u"s", 
+                                                     time::Quantity = 0.0u"s", 
                                                      verbose::Bool = false, 
                                                      hierarchy = [length(masses), repeat([1], length(masses)-1)...], 
                                                      extras::Dict=Dict())
@@ -236,7 +90,7 @@ function multibodysystem(masses::Vector{<:Quantity}; R      = 1.0u"Rsun",
     end
 
     stellar_types = ifelse(stellar_types isa Number, repeat([stellar_types], n_bodies), stellar_types)
-    multibodysystem(masses, R, S, L, stellar_types, R_core, m_core, R_env, m_env, a, e, ω, i, Ω, ν, hierarchy, t0, verbose=verbose, extras=extras)
+    multibodysystem(masses, R, S, L, stellar_types, R_core, m_core, R_env, m_env, a, e, ω, i, Ω, ν, hierarchy, time, verbose=verbose, extras=extras)
 end
 
 
@@ -251,7 +105,7 @@ function multibodysystem(masses::Vector{<:Quantity},
                          m_env::Vector{<:Quantity},
                          a::Vector{<:Quantity}, e::Vector{<:Real},     ω::Vector{<:Quantity}, 
                          i::Vector{<:Quantity}, Ω::Vector{<:Quantity}, ν::Vector{<:Quantity}, 
-                         hierarchy::Vector{Int}, t0::Quantity; 
+                         hierarchy::Vector{Int}, time::Quantity; 
                          verbose::Bool = false, extras::Dict = Dict())
 
     n_bins = sum(hierarchy[2:end])
@@ -276,7 +130,7 @@ function multibodysystem(masses::Vector{<:Quantity},
     end
 
 
-    multibodysystem(masses, hierarchy, elements, structures, t0, verbose=verbose)
+    multibodysystem(masses, hierarchy, elements, structures, time, verbose=verbose)
 end
 
 
@@ -514,7 +368,6 @@ function get_particles(binary::Binary, particles=Particle[])
     return particles
 end
 
-
 function get_particles(system::MultiBodySystem)
     bins = values(system.binaries)
     particles = Particle[]
@@ -525,74 +378,101 @@ function get_particles(system::MultiBodySystem)
     return particles[sortperm([p.key.i for p in particles])]
 end
 
-function get_binaries(binary::Binary)
-    children = binary.children
-    binaries = Binary[]
-    for child in children
-        if child isa Binary
-            push!(binaries, child)
-            append!(binaries, get_binaries(child))
-        else
-            continue
-        end
-    end
-
-    return binaries
-end
-
-function get_binaries(system::MultiBodySystem)
-    collect(sort(system.binaries))
-end
-
-function get_binary(system::MultiBodySystem, key::Int)
-    system.binares[key]
-end
-
-function get_binary(binary::Binary, key::Int)
-
-    @inbounds for child in binary.children
-        if child isa Binary && child.key.i == key
-            return child
-        end
-    end
-
-    @info "Binary with key $key not found."
-    return nothing
-end
-
 function get_particle(system::MultiBodySystem, key::Int)
     system.particles[key]
 end
 
 function get_particle(binary::Binary, key::Int)
-    # findfirst(x -> x.key.i == key, binary.particles)
-    # local child::Particle
+
     @inbounds for child in binary.children
         if child isa Particle && child.key.i == key
             return child
         end
     end
 
-    # @info "Particle with key $key not found."
-    # return nothing
     throw(BoundsError)
 end
 
-function getparent(system::MultiBodySystem, object::Union{Binary, Particle})
-    parent_key = object.parent
-    if parent_key == -1
-        tpe = nameof(typeof(object))
-        @info "$tpe is root."
+"""
+    multibodysystem(masses, positions, velocities; kwargs...)
+
+Create a new MultiBodySystem from masses, positions, and velocities. The resulting object
+will not have a specific hierarchy, and therefore the binary fields should not be accessed.
+
+
+# Examples
+```jldoctest
+julia> masses = rand(3)u"kg"
+julia> positions = [rand(3)u"m" for i = 1:3]
+julia> velocities = [rand(3)u"m/s" for i = 1:3]
+julia> multibodysystem(masses, positions, velocities);
+julia> multibodysystem(masses, positions, velocities, R=ones(3)u"m") # you an also supply any of the structure arguments
+```
+
+"""
+function multibodysystem(masses, positions, velocities;
+                        R      = 1.0u"Rsun", 
+                        S      = 0.0u"1/yr", 
+                        L      = 1.0u"Lsun", 
+                        R_core = zero(R[1]),
+                        m_core = zero(masses[1]),
+                        R_env  = zero(R[1]),
+                        m_env  = zero(masses[1]),
+                        stellar_types  = 1, 
+                        time::Quantity = 0.0u"s", 
+                        verbose::Bool = false)
+
+    n_bodies = length(masses)
+
+    particle_keys = 1:n_bodies
+
+    R = ifelse(R isa Number, repeat([R], n_bodies), R)
+    S = ifelse(S isa Number, repeat([S], n_bodies), S)
+    L = ifelse(L isa Number, repeat([L], n_bodies), L)
+    R_core = ifelse(R_core isa Number, repeat([R_core], n_bodies), R_core)
+    m_core = ifelse(m_core isa Number, repeat([m_core], n_bodies), m_core)
+    R_env  = ifelse(R_env  isa Number, repeat([R_env ], n_bodies), R_env )
+    m_env  = ifelse(m_env  isa Number, repeat([m_env ], n_bodies), m_env )
+    stellar_types = ifelse(stellar_types isa Number, repeat([stellar_types], n_bodies), stellar_types)
+
+    particle_structures = StellarStructure[]
+    for idx in eachindex(masses)
+        structure = StellarStructure(stellar_types[idx], masses[idx], R[idx], S[idx], L[idx],
+                                    R_core[idx], m_core[idx], R_env[idx], m_env[idx])
+        push!(particle_structures, structure)
     end
 
-    # for (level, bin) in system.binaries
-    #     # @show level, bin.key
-    #     if bin.key == parent_key
-    #         return bin
-    #     end
-    # end
-    system[parent_key]
+    particles = Particle[]
+    for idx in eachindex(masses)
+        p = Particle(ParticleIndex(particle_keys[idx]), BinaryIndex(-1), -1, 
+                     masses[idx], positions[idx], 
+                     velocities[idx], particle_structures[idx], nothing)
+        push!(particles, p)
+    end
+
+    pairs = Tuple{Int, Int}[]
+    for i in 1:n_bodies
+        for j = (i+1):n_bodies
+            if i != j
+                push!(pairs, (i, j))
+            end
+        end
+    end
+
+    binaries = nothing
+    levels = SA[1]
+    root = Binary(BinaryIndex(1), 1, BinaryIndex(-1), 1, SA[1, 2], SA[particle_keys...], 
+                  centre_of_mass(positions, masses), 
+                  centre_of_mass_velocity(velocities, masses), 
+                  masses, OrbitalElements())
+    hierarchy = [n_bodies, repeat([1], n_bodies-1)...]
+
+    bodies = Dict{Int, Particle}(i => p for (i, p) in enumerate(particles))
+    binaries = Dict(1 => root)
+
+    MultiBodySystem(n_bodies, time, bodies, pairs, binaries, levels, root, hierarchy, nothing)
 end
+
 
 """
     multibodysystem(system::MultiBodySystem; new_params...)
@@ -602,7 +482,7 @@ Remake a given system with new parameters.
 function multibodysystem(system::MultiBodySystem; new_params...)
 
     possible_kwargs = [:R, :S, :L, :stellar_types, :a, :e, :ω, :i, :Ω, :ν, 
-                       :hierarchy, :t0, :verbose, :extras]
+                       :hierarchy, :time, :verbose, :extras]
 
     new_kwargs = Dict(new_params)
     unchanched_kwargs = [kw for kw in possible_kwargs if (!in(kw, keys(new_kwargs)))]
@@ -621,7 +501,7 @@ function multibodysystem(system::MultiBodySystem; new_params...)
             all_args[arg] = element
         elseif arg === :hierarchy
             all_args[arg] = system.hierarchy
-        elseif arg === :t0
+        elseif arg === :time
             all_args[arg] = system.time
         else
             continue
@@ -636,102 +516,42 @@ function multibodysystem(system::MultiBodySystem; new_params...)
     multibodysystem(masses; args...)
 end
 
+
 """
-    multibodysystem(masses, positions, velocities)
+    multibodysystem(sol::MultiBodySolution, time)
 
-Create a binary MultiBodySystem from masses, positions, and velocities.
+Remake a system at a specific point in time from a solution object.
+
+# Examples
+```jldoctest
+julia> triple = multibodysystem([3, 2, 1]u"Msun")
+julia> result = simulate(triple, t_sim=10u"yr", save_everystep=true)
+julia> solution = to_solution(result)
+julia> triple_new = multibodystem(solution, 5.0u"yr")
+```
 """
-function multibodysystem(masses, positions, velocities; kwargs...)
+function multibodysystem(sol::MultiBodySolution, time)
 
-    # possible_kwargs = [:R, :S, :L, :stellar_types, :a, :e, :ω, :i, :Ω, :ν, 
-    #                    :hierarchy, :t0, :verbose, :extras]
+    time_index = argmin(abs.(time .- sol.t))
 
-    # new_kwargs = Dict(kwargs)
-    # unchanched_kwargs = [kw for kw in possible_kwargs if (!in(kw, keys(new_kwargs)))]
+    positions = sol.r[time=time]
+    velocities = sol.v[time=time]
 
-    # MultiBodySystem(masses::Vector, hierarchy::Vector, 
-    #                      elements::AbstractVector{T} where T <: OrbitalElements,
-    #                      structures::AbstractVector{T} where T <: StellarStructure,
-    #                      t = 0.0u"yr"; verbose=false)
+    structure = sol.structure
+    quant_time_index = size(structure.m, 2) == length(sol.t) ? time_index : 2
+    masses = structure.m[:,quant_time_index]
 
-    n_bodies = length(masses)
-    com = centre_of_mass(positions, masses)
-    v_com = centre_of_mass_velocity(velocities, masses)
+    R = structure.R[:,quant_time_index], 
+    L = structure.L[:,quant_time_index],
+    S = structure.S[:,quant_time_index],
+    R_core = structure.R_core[:,quant_time_index],
+    m_core = structure.m_core[:,quant_time_index],
+    R_env = structure.R_env[:,quant_time_index],
+    m_env = structure.m_env[:,quant_time_index],
+    stellar_types = structure.type[:,quant_time_index]
 
-    positions = reduce(hcat, positions)
-    velocities = reduce(hcat, velocities)
+    return multibodysystem(masses, positions, velocities, R=R, L=L, S=S, 
+                           R_core=R_core, m_core=m_vore, R_env=R_env, m_env=m_env, 
+                           stellar_types=stellar_types, time=time)
 
-    positions .-= com
-    velocities .-= v_com
-
-    main_binary = BinaryIndex(1)
-    parent_key = BinaryIndex(-1)
-
-    particles = Particle[]
-
-    siblings = (ParticleIndex(2), ParticleIndex(1))
-    for i = 1:2
-
-        structure = if haskey(kwargs, :structure)
-                        kwargs[:structure][i]
-                    else
-                        stellar_type = stellar_types[1]
-                        mass = masses[i]
-                        R = 1.0u"Rsun"
-                        S = 0.0u"1/yr"
-                        L = 1.0u"Lsun"
-                        R_core = 0.0u"Rsun"
-                        m_core = 0.0u"Msun"
-                        R_env = 0.0u"Rsun"
-                        m_env = 0.0u"Msun"
-                        StellarStructure(stellar_type, mass, R, S, L,
-                                            R_core, m_core, R_env, m_env)
-                    end
-
-        pos = SA[positions[:,i]...]
-        vel = SA[velocities[:,i]...]
-        particle = Particle(ParticleIndex(i), main_binary, siblings[i],
-                            masses[i], pos, vel,
-                            structure, Dict()
-                            )    
-        push!(particles, particle)
-    end
-
-    r_rel = positions[:, 2] .- positions[:, 1]
-    v_rel = velocities[:, 2] .- velocities[:, 1]
-
-    d = norm(r_rel)
-    v = norm(v_rel)
-    M = sum(masses)
-
-    a = semi_major_axis(d, v^2, M, GRAVCONST) |> u"Rsun"
-    e = eccentricity(r_rel, v_rel, a, M, GRAVCONST) 
-    P = orbital_period(a, M, GRAVCONST) |> u"d"
-    h = angular_momentum(r_rel, v_rel)
-    ω = argument_of_periapsis(r_rel, v_rel, h, M, GRAVCONST) 
-    i = inclination(h)
-    Ω = longitude_of_ascending_node(h)
-    ν = true_anomaly(r_rel, v_rel, h, M, GRAVCONST)
-
-    els = OrbitalElements(a, P, e, ω, i, Ω, ν)
-
-    bodies = Dict{Int, Particle}(i => particles[i] for i = 1:2)
-    binary = Binary(main_binary, 0, parent_key, main_binary, particles, SA[1,2],
-                    com, v_com, masses, els)
-
-    binaries = Dict{Int, Binary}(1 => binary)
-    time = get(kwargs, :time, 0.0u"s")
-    
-
-    pairs = Tuple{Int, Int}[]
-    for i in 1:n_bodies
-        for j = (i+1):n_bodies
-            if i != j
-                push!(pairs, (i, j))
-            end
-        end
-    end
-    println(pairs)
-    MultiBodySystem(n_bodies, time, bodies, pairs, binaries, 
-                    SA[1], binary, SA[2, 1], nothing)
 end
