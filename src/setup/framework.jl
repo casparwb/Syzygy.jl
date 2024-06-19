@@ -28,7 +28,7 @@ end
 OrbitalElements(;a=0.0u"AU", P=0.0u"d", e=0.0, ω=0.0u"°", i=0.0u"°", Ω=0.0u"°", ν=0.0u"°") = OrbitalElements(a, P, e, ω, i, Ω, ν)
 
 struct StellarStructure{tT, mT, RT, ST, LT}
-    type::tT   # stellar type
+    stellar_type::tT   
     m::mT      # total mass
     R::RT      # total radius
     S::ST      # total spin
@@ -87,15 +87,15 @@ end
 
 ####################################### Simulation  setup ##########################################
 
-abstract type CelestialBody end
+abstract type AbstractMassBody end
 
-struct MassBody{posType <: Real, velType <: Real, mType <: Real} <: CelestialBody
+struct MassBody{posType <: Real, velType <: Real, mType <: Real} <: AbstractMassBody
     position::SVector{3, posType}
     velocity::SVector{3, velType}
     mass::mType
 end
 
-struct MultiBodyODESystem{bType <: CelestialBody, pType <: MultiBodyPotential}
+struct MultiBodyODESystem{bType <: AbstractMassBody, pType <: MultiBodyPotential}
     bodies::SVector{N, bType} where N
     potential::Dict{Symbol, pType}
 end
@@ -212,7 +212,7 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, acc_f
     u0, v0, n = get_initial_conditions(simulation)
 
     a = MVector{3, Float64}(0.0, 0.0, 0.0)
-    ids = 1:length(acc_funcs)
+    # ids = 1:length(acc_funcs)
     function soode_system!(dv, v, u, p, t)
         @inbounds for i = 1:n
             fill!(a, 0.0)
