@@ -47,7 +47,7 @@ function centre_of_mass(binary::Binary)
 end
 
 
-function centre_of_mass(sol::MultiBodySolution, bodies=eachindex(sol.initial_conditions.particles); 
+function centre_of_mass(sol::MultiBodySolution, bodies=eachindex(sol.ic.particles); 
                         tspan=nothing)
     time = sol.t
     tspan = isnothing(tspan) ? extrema(time) : tspan
@@ -158,14 +158,14 @@ function potential_energy(positions::AbstractMatrix, masses, G)
     U*ifelse(U isa Quantity, upreferred(G), ustrip(upreferred(G)))
 end
 
-potential_energy(positions, masses) = potential_energy(positions, masses, 𝒢)
+potential_energy(positions, masses) = potential_energy(positions, masses, GRAVCONST)
 
 function potential_energy(sol::MultiBodySolution)
     masses = sol.structure.m
     
     pot_energy = zeros(typeof(1.0u"J"), length(sol.t))
     @inbounds for i ∈ eachindex(sol.t)
-        m = masses[:,i]
+        m = ifelse(i > 1, masses[:,2], masses[:,1])
         pe = potential_energy(sol.r[:,:,i], m)
         pot_energy[i] = pe
     end
@@ -209,8 +209,7 @@ function kinetic_energy(sol::MultiBodySolution)
     
     kin_energy = Vector{typeof(1.0u"J")}(undef, length(sol.t))
     @inbounds for i ∈ eachindex(sol.t)
-        # v = eachcol(sol.v[:,:,i])
-        m = masses[:,i]
+        m = ifelse(i > 1, masses[:,2], masses[:,1])
         te = kinetic_energy(sol.v[:,:,i], m)
         kin_energy[i] = te
     end
@@ -233,15 +232,18 @@ function specific_orbital_energy(r, v², μ, G)
     return v²/2 - μ/r
 end
 
-function total_angular_momentum(sol::MultiBodySolution; step=1)
-    indices = 1:step:length(sol.t)
-    htot = Array{typeof(u"kg"*sol.quantities.h[1,1,1]), 2}(undef, 3, length(indices))
-    for (i, idx) in enumerate(indices)
-        htot[:,i] .= sum(sol.structure.m[:,idx]) .* sum(sol.quantities.h[:,:,idx], dims=2)
-    end
-    htot
-end
+# function angular_momentum(sol::MultiBodySolution; step=1)
+#     indices = 1:step:length(sol.t)
+#     htot = Array{typeof(u"m^2/s"), 2}(undef, 3, length(indices))
+#     for (i, idx) in enumerate(indices)
+#         htot[:,i] .= angular_momentum(sol.r[])
+#     end
+#     htot
+# end
 
+function gravitational_radius(M; G=GRAVCONST)
+    2*G*M/c²
+end
 
 function roche_radius(a, M₁, M₂)
     return a*roche_radius_fraction(M₁, M₂)
@@ -304,11 +306,11 @@ end
 
 
 function envelope_structure(star::Particle, age, Z=0.02)
-    @assert star.structure.type isa Star "Envelope structure only relevant for stars."
+    @assert star.structure.stellar_type isa Star "Envelope structure only relevant for stars."
 
     envelope_structure(star.structure.m, star.structure.R, 
                        star.structure.m_core, star.structure.R_core, 
-                       star.structure.type.index, age)
+                       star.structure.stellar_type.index, age)
 end
 
 
@@ -573,4 +575,61 @@ function quadrupole_timescale(system::MultiBodySystem)
     P_out = system.binaries[2].elements.P |> u"s"
     e_out = system.binaries[2].elements.e
     return 16/30π*sum(m)/m[3]*P_out^2/P_in*cbrt(1 - e_out^2)^2
+end
+
+"""
+    PN1_energy(r1, r2, v1, v2, m1, m2; G=GRAVCONST)
+
+    
+Total energy of body 1 in a gravitational + PN1 potential. From Blanchet 2014.
+"""
+function PN1_energy(r1, r2, v1, v2, m1, m2; G=GRAVCONST)
+
+    r = r1 - r2
+
+    v1_norm = norm(v1)
+
+    r_norm = norm(r)
+
+    n = r/r_norm
+
+    E = G^2*m1^2*m2/(2*r_norm^2) + 3*m1*v1_norm^4/8 + G*m1*m2/r_norm*(-0.25*dot(n, v1)*dot(n, v2) + 3/2*v1_norm^2 - 7/4*dot(v1, v2))
+    Ekin = m1/2*v1_norm^2
+    Epot = -G*m1*m2/(2*r_norm)
+    return E*c⁻² + Ekin + Epot
+end
+
+function PN1_energy(sol::MultiBodySolution)
+
+    n_bodies = sol.ic.n
+
+    Etot = Vector{typeof(1.0u"J")}(undef, length(sol.t))
+
+    @inbounds for idx in eachindex(sol.t)
+        E = 0.0u"J"
+        for i = 1:n_bodies
+            # ri = sol.r[particle=i][:,idx]
+            # vi = sol.v[particle=i][:,idx]
+
+            ri = @SVector [sol.r[1, i, idx], sol.r[2, i, idx], sol.r[3, i, idx]]
+            vi = @SVector [sol.v[1, i, idx], sol.v[2, i, idx], sol.v[3, i, idx]]
+
+            mi = sol.structure.m[i,2]
+            for j = 1:n_bodies
+                if j != i
+                    # rj = sol.r[particle=j][:,idx]
+                    # vj = sol.v[particle=j][:,idx]
+
+                    rj = @SVector [sol.r[1, j, idx], sol.r[2, j, idx], sol.r[3, j, idx]]
+                    vj = @SVector [sol.v[1, j, idx], sol.v[2, j, idx], sol.v[3, j, idx]]
+
+                    mj = sol.structure.m[j,2]
+                    E += PN1_energy(ri, rj, vi, vj, mi, mj)
+                end
+            end
+        end
+        Etot[idx] = E
+    end
+
+    return Etot
 end
