@@ -23,7 +23,7 @@ end
 
 function get_callback(cb::CollisionCB, n, system, retcodes, G, args)
     condition_collision(u, t, integrator) = true
-    affect_collision!(integrator) = collision_callback!(integrator, n, retcodes)
+    affect_collision!(integrator) = collision_callback!(integrator, n, retcodes, cb.grav_rad_multiple)
     callback_collision = DiscreteCallback(condition_collision, affect_collision!, save_positions=(false, false))
     
     return callback_collision
@@ -150,7 +150,7 @@ If the two objects are stars, the callback checks for overlapping radii,
 if one of the objects is a compact object and the other is a star, the tidal
 radius of the CO is used, and finally if both objects are COs, we use 100 × gravitational radius.
 """
-function collision_callback!(integrator, n, retcode)
+function collision_callback!(integrator, n, retcode, grav_rad_multiple)
     # k = 1
     @inbounds for i ∈ 1:n
         ri = SA[integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
@@ -168,7 +168,8 @@ function collision_callback!(integrator, n, retcode)
 
                 stellar_type_j = integrator.p.stellar_types[j]
 
-                collision::Bool = collision_check(d, Ri, Rj, Mi, Mj, stellar_type_i, stellar_type_j)::Bool
+                collision::Bool = collision_check(d, Ri, Rj, Mi, Mj, stellar_type_i, stellar_type_j, 
+                                                  grav_rad_multiple)::Bool
                 if collision
                     t = integrator.t * upreferred(1.0u"s")
                     retcode[:Collision] = (SA[i, j], t)
@@ -180,7 +181,7 @@ function collision_callback!(integrator, n, retcode)
     end
 end
 
-function collision_check(d, R1, R2, M1, M2, stellar_type1::Int, stellar_type2::Int)
+function collision_check(d, R1, R2, M1, M2, stellar_type1::Int, stellar_type2::Int, grav_rad_multiple)
     
     if (0 <= stellar_type1 <= 9) && (0 <= stellar_type2 <= 9) # two stars
         return collision_check_stars(d, R1, R2)
@@ -189,7 +190,7 @@ function collision_check(d, R1, R2, M1, M2, stellar_type1::Int, stellar_type2::I
     elseif (10 <= stellar_type1 <= 14) && (0 <= stellar_type2 <= 9) # one star, one CO
         collision_check_star_compact_object(d, R2, M1, M2)
     elseif (10 <= stellar_type1 <= 14) && (10 <= stellar_type2 <= 14) # two COs
-        return collision_check_compact_objects(d, M1, M2)
+        return collision_check_compact_objects(d, M1, M2, grav_rad_multiple)
     end
 end
 
@@ -210,9 +211,9 @@ function collision_check_star_compact_object(d, R2, M1, M2)
     end
 end
 
-function collision_check_compact_objects(d, M1, M2) 
+function collision_check_compact_objects(d, M1, M2, grav_rad_multiple) 
     rg = GRAVCONST*(M1 + M2)/c² # mutual gravitational radius
-    if d <= 1000*upreferred(rg).val
+    if d <= grav_rad_multiple*upreferred(rg).val
         return true
     else
         return false
