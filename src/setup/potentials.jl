@@ -77,7 +77,7 @@ function StaticEquilibriumTidalPotential(system, G=ustrip(upreferred(GRAVCONST))
     for i = 1:n_bodies
         
         particle = system.particles[i]
-        envelope_radius, envelope_mass = if particle.structure.type isa Star && particle.structure.m < 1.25u"Msun"
+        envelope_radius, envelope_mass = if particle.structure.stellar_type isa Star && particle.structure.m < 1.25u"Msun"
                                              envelope_structure(system.particles[i], age, Z)
                                          else
                                             0.0u"Rsun", 0.0u"Msun"
@@ -95,7 +95,7 @@ end
 """
     PN1Potential{gType <: Real}
 
-Potential for Post-Newtonian 1 (PNA1) acceleration
+Potential for Post-Newtonian 1 (PN1) acceleration. 
 """
 struct PN1Potential{gType <: Real} <: MultiBodyPotential
     G::gType
@@ -104,7 +104,7 @@ end
 """
     PN2Potential{gType <: Real}
 
-Potential for Post-Newtonian 2 (PNA2) acceleration
+Potential for Post-Newtonian 2 (PN2) acceleration.
 """
 struct PN2Potential{gType <: Real} <: MultiBodyPotential
     G::gType
@@ -113,7 +113,7 @@ end
 """
     PN1Potential{gType <: Real}
 
-Potential for Post-Newtonian 2.5 (PNA2.5) acceleration
+Potential for Post-Newtonian 2.5 (PN2.5) acceleration.
 """
 struct PN2_5Potential{gType <: Real} <: MultiBodyPotential
     G::gType
@@ -122,7 +122,7 @@ end
 """
     PN1Potential{gType <: Real}
 
-Potential for Post-Newtonian 1 to 2.5 (PNA1, PNA2, PNA2.5) acceleration
+Potential for Post-Newtonian 1 to 2.5 (PN1, PN2, PN2.5) acceleration
 """
 struct PNPotential{gType <: Real} <: MultiBodyPotential
     G::gType
@@ -372,19 +372,19 @@ function equilibrium_tidal_drag_force!(dv,
 end
 
 function PN1_acceleration!(dv,
-                                       rs,
-                                       vs,
-                                       params::SimulationParams,
-                                       i::Int,
-                                       n::Int,
-                                       potential::PN1Potential)
+                           rs,
+                           vs,
+                           params::SimulationParams,
+                           i::Int,
+                           n::Int,
+                           potential::PN1Potential)
                            
     r₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     v₁ = @SVector [vs[1, i], vs[2, i], vs[3, i]]
 
     G = potential.G
 
-    m₁ = params.M[i]
+    m₁ = params.M[i].val
     accel = @SVector [0.0, 0.0, 0.0]
     
     # i = 1, j = 2
@@ -392,37 +392,42 @@ function PN1_acceleration!(dv,
         if j != i                 
             r₂ = @SVector [rs[1, j], rs[2, j], rs[3, j]]
             v₂ = @SVector [vs[1, j], vs[2, j], vs[3, j]]
-            m₂ = params.M[j]
+            m₂ = params.M[j].val
 
-            r = r₂ - r₁
-            n = r/norm(r)
+            r = r₁ - r₂
+            r_norm = norm(r)
+            n = r/r_norm
 
-            G_r = G/r
+            nv₂ = dot(n, v₂)
+            G_r = G ./ r_norm
 
-            a = n*(-v₁^2 - 2v₂^2 + 4*dot(v₁, v₂) + 3/2*(dot(n, v₂)^2) + 5*G_r*m₁ + 4*G_r*m₂) +
-                (v₁ - v₂)*(4*dot(n, v₁) - 3*dot(n, v₂))
+            a = @. n*(5*G_r*m₁ + 4*G_r*m₂ + 3/2*nv₂^2 - v₁^2 + 4*dot(v₁, v₂) - 2*v₂^2) +
+                   (4*dot(n, v₁) - 3*dot(n, v₂))*(v₁ - v₂)
 
-            accel += @. G_r*m₂/r*a*c⁻²
+            accel += @. (G_r/r_norm*m₂)*a*c⁻².val
+
         end
 
     end
+    # println(accel)
+    @. dv += accel
 end
 
 
 function PN2_acceleration!(dv,
-                                       rs,
-                                       vs,
-                                       params::SimulationParams,
-                                       i::Int,
-                                       n::Int,
-                                       potential::PN2Potential)
+                            rs,
+                            vs,
+                            params::SimulationParams,
+                            i::Int,
+                            n::Int,
+                            potential::PN2Potential)
                            
     r₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     v₁ = @SVector [vs[1, i], vs[2, i], vs[3, i]]
     v₁² = v₁^2
 
     G = potential.G
-    
+    G³ = G^3
     mi = params.M[i]
     accel = @SVector [0.0, 0.0, 0.0]
     
@@ -435,7 +440,9 @@ function PN2_acceleration!(dv,
 
             r = r₁ - r₂
             v = v₁ - v₂
-            n = r/norm(r)
+
+            r_norm = norm(r)
+            n = r/r_norm
 
             v₁v₂ = dot(v₁, v₂)
             nv₁ = dot(n, v₁)
@@ -444,34 +451,36 @@ function PN2_acceleration!(dv,
             nv₁² = nv₁^2
             nv₂² = nv₂^2
 
-            G_r = G/r
+            
+            G³m₁m₂_r⁴ = G³*mi*mj/r_norm^4
 
-            a = n*(-2*v₂²^2 + 4v₂²*v₁v₂ - 2*v₁v₂^2 + 3/2*v₁²*nv₂² +
-                   9/2*v₂²*nv₂² - 6*v₁v₂*nv₂² - 15/8*nv₂^4 + 
-                   (G_r*mi)*(-15/4*v₁² + 5/4*v₂² - 5/2*v₁v₂ +
-                             39/2*nv₁² - 39*nv₁*nv₂ + 17/2*nv₂²
-                            ) + 
-                   (G_r*mj)*(4*v₂² - 8*v₁v₂ + 2*nv₁² - 4*nv₁*nv₂ - 6*nv₂²)
-                  ) + 
-                v*(v₁²*nv₂ + 4*v₂²*nv₁ -5v₂²*nv₂^3 +
-                   (G_r*mi)*(-63/4*nv₁ + 55/4*nv₂) + (G_r*mj)*(-2*nv₁ - 2*nv₂) 
-                  ) + 
-                G^3*mj/r^4*n*(-57/4*mi^2 - 9*mj^2 - 69/2*mi*mj)
+            # a = n*(-2*v₂²^2 + 4v₂²*v₁v₂ - 2*v₁v₂^2 + 3/2*v₁²*nv₂² +
+            #        9/2*v₂²*nv₂² - 6*v₁v₂*nv₂² - 15/8*nv₂^4 + 
+            #        (G_r*mi)*(-15/4*v₁² + 5/4*v₂² - 5/2*v₁v₂ +
+            #                  39/2*nv₁² - 39*nv₁*nv₂ + 17/2*nv₂²
+            #                 ) + 
+            #        (G_r*mj)*(4*v₂² - 8*v₁v₂ + 2*nv₁² - 4*nv₁*nv₂ - 6*nv₂²)
+            #       ) + 
+            #     v*(v₁²*nv₂ + 4*v₂²*nv₁ -5v₂²*nv₂^3 +
+            #        (G_r*mi)*(-63/4*nv₁ + 55/4*nv₂) + (G_r*mj)*(-2*nv₁ - 2*nv₂) 
+            #       ) + 
+            #     G^3*mj/r^4*n*(-57/4*mi^2 - 9*mj^2 - 69/2*mi*mj)
 
+            a = 
 
-            accel += @. G*mj/r^2*a * c⁻⁴
+            accel += @. G*mj/r_norm^2*a * c⁻⁴
         end
 
     end
 end
 
 function PN2_5_acceleration!(dv,
-                                    rs,
-                                    vs,
-                                    params::SimulationParams,
-                                    i::Int,
-                                    n::Int,
-                                    potential::PN2_5Potential)
+                            rs,
+                            vs,
+                            params::SimulationParams,
+                            i::Int,
+                            n::Int,
+                            potential::PN2_5Potential)
                            
     r₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     v₁ = @SVector [vs[1, i], vs[2, i], vs[3, i]]
@@ -503,12 +512,12 @@ function PN2_5_acceleration!(dv,
 end
 
 function PN1_to_2_5_acceleration(dv,
-                                       rs,
-                                       vs,
-                                       params::SimulationParams,
-                                       i::Int,
-                                       n::Int,
-                                       potential::PNPotential)
+                                rs,
+                                vs,
+                                params::SimulationParams,
+                                i::Int,
+                                n::Int,
+                                potential::PNPotential)
                            
     r₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     v₁ = @SVector [vs[1, i], vs[2, i], vs[3, i]]
@@ -566,16 +575,3 @@ function PN1_to_2_5_acceleration(dv,
     end
 end
 
-function Base.show(io::IO, params::DefaultSimulationParams)
-    print(nameof(typeof(params)))
-    print(":")
-    println()
-    for prop in propertynames(params)
-        val = getproperty(params, prop) 
-        un = unit(val[1])
-        val = ustrip(val)
-
-        @printf(io, "   %-16s %s %s", "$prop", "$val", "$un")
-        println(io)
-    end
-end
