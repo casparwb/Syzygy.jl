@@ -5,11 +5,10 @@ using RecipesBase
 
 @userplot EnergyPlot
 @userplot OrbitPlot
-@userplot ElementPlot
-@userplot StructurePlot
 @userplot DistancePlot
 @userplot AngularMomentumPlot
 @userplot ICPlot
+@userplot AccelerationPlot
 
 # function animate_threebody(sol::TripleSolution, name; 
 #                            max_diff=100, nframes=200, fps=20,
@@ -285,22 +284,12 @@ end
 
 end
 
-function getsibling(system::MultiBodySystem, particle::Particle)
-    system[particle.sibling]
-end
-
-function getsibling(system::MultiBodySystem, binary::Binary)
-    @assert binary.parent.i != -1 "Root binary has no sibling."
-    parent = system[binary.parent]
-    return [child for child in parent.children if child.key != binary.key][1]
-end
-
 @recipe function f(eO::OrbitPlot; bodies="all", dims=[1, 2, 3],
                      tspan=nothing, step=1, ref_frame="com", axis_units=u"AU")
 
     sol = eO.args[1]
     @assert sol isa MultiBodySolution "First argument must be a `MultiBodySolution`. Got $(typeof(sol))"
-    # labels = ["Primary", "Secondary"]
+
     if bodies isa String 
         bodies = keys(sol.ic.particles) |> collect |> sort
     end
@@ -313,7 +302,7 @@ end
         labels = ["Partcle $i" for i in bodies]
     end
 
-    time = sol.t#  .|> u"kyr"
+    time = sol.t
     tspan = isnothing(tspan) ? extrema(time) : tspan
 
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
@@ -324,7 +313,7 @@ end
     zlabel := length(dims) == 3 ? dimlabels[dims[3]] : nothing
     aspect_ratio --> 1
 
-    # data = 
+
     if ref_frame == "com"
         shift_coord = centre_of_mass(sol, bodies, tspan=tspan)#[:,indices]
     elseif !isnothing(tryparse(Int, ref_frame))
@@ -335,23 +324,16 @@ end
     end
 
     for idx in bodies
-        # data = Tuple([sol.r[dim,idx,indices] .- shift_coord[dim,:]  .|> u"AU" for dim in dims])
-        # @show size(sol.r[dim=1,particle=idx,time=tspan[1]..tspan[2]]), size(shift_coord[1,:])
-        # data = Tuple([sol.r[dim=dim,particle=idx,time=tspan[1]..tspan[2]] .- shift_coord[dim,:]  .|> axis_units for dim in dims])
         data = Tuple([sol.r[dim=dim,particle=idx,time=indices] .- shift_coord[dim,1:step:end]  .|> axis_units for dim in dims])
         @series begin 
-            # c --> idx
             label --> labels[idx]
-            # sol.r[1,idx,indices], .- shift_coord[1,:] .|> u"AU", 
-            # sol.r[2,idx,indices], .- shift_coord[2,:] .|> u"AU" 
-            # sol.r[3,idx,indices] .- shift_coord[3,:] .|> u"AU"
             data
         end
     end
 
 end
 
-@recipe function f(eP::EnergyPlot; tspan=nothing, step=1, t_unit=u"kyr")
+@recipe function f(eP::EnergyPlot; norm=true, tspan=nothing, step=1, t_unit=u"kyr")
 
     sol = eP.args[1]
     time = sol.t  .|> t_unit
@@ -362,23 +344,21 @@ end
     indices = indices[1]:step:indices[2]
 
     t = time[indices]
-    Etot = sol.quantities.E[indices] ./ first(sol.quantities.E)
-    Ekin = sol.quantities.K[indices] ./ first(sol.quantities.K)
-    Epot = sol.quantities.U[indices] ./ first(sol.quantities.U)
+    Ekin = kinetic_energy(sol)[indices]
+    Epot = potential_energy(sol)[indices]
 
-    if get(plotattributes, :yscale, :log10) == :log10
-        Etot = 1 .- Etot .|> abs
-        # Ekin = 1 .- Ekin .|> abs
-        # Epot = 1 .- Epot .|> abs
+    # if :PN1Potential in sol.ode_system[:potential] .|> typeof .|> nameof
+    #     Etot = PN1_energy(sol)[indices]
+    # else
+    # end
+    Etot = (Ekin .+ Epot)[indices]
 
-        Etot[1] += Etot[2]
-        # Ekin[1] += Ekin[2]
-        # Epot[1] += Epot[2]
-
-        ylabel = "1 - E/E₀"
-    else
-        ylabel = "E/E₀"
+    if norm
+        Ekin = (Ekin ./ Ekin[1])
+        Epot = (Epot ./ Epot[1])
+        Etot = (Etot ./ Etot[1]) .- 1
     end
+
 
     # set up subplots
     legend := :outerright
@@ -389,9 +369,8 @@ end
     # label := false
     size --> (800, 600)
 
-    lowerlim = minimum(minimum.([Ekin, Epot]))
-    upperlim = maximum(maximum.([Ekin, Epot]))
-    Elims    = extrema(Etot)
+    Elims = extrema(Etot)
+    Elims = (maximum(Elims), maximum(Elims))
     
     # Subplot 1 (potential energy)
     @series begin
@@ -411,12 +390,12 @@ end
     # Subplot 2 (total energy)
     @series begin
         seriestype --> :line
-        yscale --> get(plotattributes, :yscale, :log10)
+        yscale --> get(plotattributes, :yscale, :identity)
         subplot := 2
         linewidth --> 3
-        ylabel --> ylabel
+        ylabel --> "|E/E₀ - 1|"
         label --> false
-        #ylims --> (0.99Elims[1], 1.01Elims[2])
+        # ylims --> (-100.01Elims[1], 100.01Elims[2])
         title --> "Total"
         xticks := nothing
         ustrip(t), Etot
@@ -438,92 +417,139 @@ end
     end
 end
 
+@recipe function f(eA::AccelerationPlot; a_func=pure_gravitational_acceleration!, 
+                                         pot=PureGravitationalPotential(),
+                                         bodies=nothing, tspan=nothing)
 
-@recipe function f(eP::ElementPlot; loge=false, tspan=nothing, step=1, t_unit=u"kyr")
-
-    sol = eP.args[1]
-    # @assert sol isa MultiBodySolution
-    
+    sol = eA.args[1]
+    ic = sol.ic
     time = sol.t
+    p = sol.ode_params
+    
     tspan = isnothing(tspan) ? extrema(time) : tspan
+    
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
-    indices = indices[1]:step:indices[2]
-    t = t_unit.(time[indices])
+    indices = indices[1]:indices[2]
+    
+    N = length(indices)
+    bodies = isnothing(bodies) ? (1:ic.n) : bodies 
+    all_bodies = 1:ic.n
+    n_bodies = length(bodies)
+    dv = zeros(3)
+    accel = Array{typeof(1.0u"m/s^2"), 3}(undef, length(bodies), 3, N)
 
-    system = sol.ic
-    n_binaries = length(system.binaries)
-    n_particles = length(system.particles)
-
-    # label := false
-    # layout := @layout [a b; c d; e]
-    layout --> (3, 1)
-    size --> (900, 700)
-
-    legend := :outerright
-    legendfontsize --> 12
-    titlefontsize --> 20
-    tickfontsize --> 10
-
-
-    # Semi-major axis plot
-    for bin in 1:n_binaries
-
-        @series begin
-            seriestype --> :line
-            label := "Binary $bin"
-            subplot := 1
-            ylabel --> "a / a₀"
-            xticks --> nothing
-            title --> "Semi-major axis"
-
-            ustrip(t), sol.elements[bin].a ./ first(sol.elements[bin].a)
-
+    for i in indices
+        fill!(dv, 0.0)
+        for (j, b) in enumerate(bodies)
+            r = sol.r[:,:,i] .|> upreferred |> ustrip
+            v = sol.v[:,:,i] .|> upreferred |> ustrip
+            a_func(dv, r, v, p, b, length(all_bodies), pot)
+            accel[j, :, i] .= dv .* upreferred(u"m/s^2")
         end
     end
 
-    # Eccentricity plot
-    for bin in 1:n_binaries
+    ylims --> :auto
+    xlims --> :auto
 
+    for (j, b) in enumerate(bodies)
         @series begin
             seriestype --> :line
-            label := false#"Binary $bin"
-            subplot := 2
-
-            yscale --> ifelse(loge, :log10, :identity)
-            # @show plotattributes[:yscale]
-            edata = ifelse(loge, 1 .- sol.elements[bin].e, sol.elements[bin].e ./ first(sol.elements[bin].e))
-            ylabel := ifelse(loge,"log (1 - e)", "e / e₀")
-            xticks --> nothing
-            title --> "Eccentricity"
-
-            ustrip(t), edata
-
+            label --> "Particle $(b)"
+            # data = Tuple([[u"AU"(r)] for r in particle.position[dims]])
+            # rs = r.(particle.)
+            data = accel[j, :, :]
+            data = norm.(eachcol(data))
+            time[indices], data
         end
     end
+end 
 
 
-    # # Mutual inclination plot
-    for bin in 1:n_binaries
+# @recipe function f(eP::ElementPlot; loge=false, tspan=nothing, step=1, t_unit=u"kyr")
 
-        @series begin
-            seriestype --> :line
-            label --> false#"Binary $bin"
-            subplot := 3
+#     sol = eP.args[1]
+#     # @assert sol isa MultiBodySolution
+    
+#     time = sol.t
+#     tspan = isnothing(tspan) ? extrema(time) : tspan
+#     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
+#     indices = indices[1]:step:indices[2]
+#     t = t_unit.(time[indices])
 
-            ylabel := "i"
-            # @show plotattributes[:yscale]
-            # xticks --> nothing
-            title --> "Inclination"
+#     system = sol.ic
+#     n_binaries = length(system.binaries)
+#     n_particles = length(system.particles)
 
-            t, sol.elements[bin].i
+#     # label := false
+#     # layout := @layout [a b; c d; e]
+#     layout --> (3, 1)
+#     size --> (900, 700)
 
-        end
-    end
+#     legend := :outerright
+#     legendfontsize --> 12
+#     titlefontsize --> 20
+#     tickfontsize --> 10
 
-    # link := :x
+
+#     # Semi-major axis plot
+#     for bin in 1:n_binaries
+
+#         @series begin
+#             seriestype --> :line
+#             label := "Binary $bin"
+#             subplot := 1
+#             ylabel --> "a / a₀"
+#             xticks --> nothing
+#             title --> "Semi-major axis"
+
+#             ustrip(t), sol.elements[bin].a ./ first(sol.elements[bin].a)
+
+#         end
+#     end
+
+#     # Eccentricity plot
+#     for bin in 1:n_binaries
+
+#         @series begin
+#             seriestype --> :line
+#             label := false#"Binary $bin"
+#             subplot := 2
+
+#             yscale --> ifelse(loge, :log10, :identity)
+#             # @show plotattributes[:yscale]
+#             edata = ifelse(loge, 1 .- sol.elements[bin].e, sol.elements[bin].e ./ first(sol.elements[bin].e))
+#             ylabel := ifelse(loge,"log (1 - e)", "e / e₀")
+#             xticks --> nothing
+#             title --> "Eccentricity"
+
+#             ustrip(t), edata
+
+#         end
+#     end
 
 
-end
+#     # # Mutual inclination plot
+#     for bin in 1:n_binaries
+
+#         @series begin
+#             seriestype --> :line
+#             label --> false#"Binary $bin"
+#             subplot := 3
+
+#             ylabel := "i"
+#             # @show plotattributes[:yscale]
+#             # xticks --> nothing
+#             title --> "Inclination"
+
+#             t, sol.elements[bin].i
+
+#         end
+#     end
+
+#     # link := :x
+
+
+# end
 
 
 @recipe function f(eD::DistancePlot; tspan=nothing, step=1)
@@ -538,80 +564,32 @@ end
 
     t = time[indices]
 
-    r1 = sol.r[:,1,indices] .|> u"AU"
-    r2 = sol.r[:,2,indices] .|> u"AU"
-    r3 = sol.r[:,3,indices] .|> u"AU"
+    # r1 = sol.r[:,1,indices] .|> u"AU"
+    # r2 = sol.r[:,2,indices] .|> u"AU"
+    # r3 = sol.r[:,3,indices] .|> u"AU"
     
-    d12 = distances(r2 .- r1)
-    d312 = distances(r3 .- centre_of_mass(sol, (1, 2))[:,indices] .|> u"AU")
+    # d12 = distances(r2 .- r1)
+    # d312 = distances(r3 .- centre_of_mass(sol, (1, 2))[:,indices] .|> u"AU")
+
+    distances(r1, r2) = norm.(eachcol(r1 .- r2))
+
+    pairs = sol.ic.pairs
+    distances = Dict(p => distances(sol.r[particle=p[1]], sol.r[particle=p[2]]) .|> u"Rsun" for p in pairs)
 
     layout --> (2, 1)
-
-    @series begin
-        subplot := 1
-        title --> "Inner binary"
-        xticks --> nothing
-        label --> false
-        ylabel --> "Distanc"
-        ustrip(t), d12 #./ first(d12)
+    for pair in pairs
+        @series begin
+            # subplot := 1
+            # title --> "Inner binary"
+            xticks --> nothing
+            label --> "$pair"
+            ylabel --> "Distance"
+            ustrip(t), distances[pair] #./ first(d12)
+        end
     end
 
-    @series begin
-        subplot := 2
-        title --> "Outer binary"
-        xlabel --> "Time"
-        label := false
-        ylabel --> "Distance"
-        t, d312 #./ first(d312)
-    end
 
-    # p1 = plot(ustrip(t), d12 ./ first(d12), 
-    #           title="Inner binary distance", xticks=nothing, 
-    #           label=false, ylabel="d/d₀")
-    # p2 = plot(t, d312 ./ first(d312), 
-    #           title="Outer binary distance", label=false, 
-    #           xlabel="Time", ylabel="d/d₀")
 end
-
-
-@recipe function f(eS::StructurePlot; tspan=nothing, step=1)
-
-    sol = eS.args[1]
-    time = sol.t  .|> u"Myr"
-
-    tspan = isnothing(tspan) ? extrema(time) : tspan
-
-    indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
-    indices = indices[1]:step:indices[2]
-
-    t = time[indices]
-    
-    masses = sol.structure.m[:, indices] ./ sol.structure.m[:, 1] 
-    radii = sol.structure.R[:, indices] ./ sol.structure.R[:, 1] 
-
-    layout --> (2, 1)
-    legend --> :bottomleft
-
-    @series begin
-        subplot := 1
-        xticks --> nothing
-        ylabel --> "m/m₀"
-        label --> ["Primary" "Secondary" "Tertiary"]
-        ylims --> (0.999*minimum(masses), maximum(masses)*1.001)
-        linewidth --> 4
-        ustrip(t), masses'
-    end
-
-    @series begin
-        subplot := 2
-        label --> false
-        ylabel --> "R/R₀"
-        linewidth --> 4
-        ylims --> (0.9*minimum(radii), maximum(radii)*1.1)
-        t, radii'
-    end
-end
-
 
 @recipe function f(eS::AngularMomentumPlot; total=false, tspan=nothing, step=1)
 
