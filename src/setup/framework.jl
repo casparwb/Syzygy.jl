@@ -89,7 +89,7 @@ end
 
 abstract type AbstractMassBody end
 
-struct MassBody{posType <: Real, velType <: Real, mType <: Real} <: AbstractMassBody
+struct MassBody{posType, velType, mType} <: AbstractMassBody
     position::SVector{3, posType}
     velocity::SVector{3, velType}
     mass::mType
@@ -167,12 +167,21 @@ function get_accelerating_function(parameters::PN2Potential, n)
     (dv, u, v, p, t, i) -> PN2_acceleration!(dv, u, v, p, i, n, parameters)
 end
 
+
 function get_accelerating_function(parameters::PN2_5Potential, n)
     (dv, u, v, p, t, i) -> PN2_5_acceleration!(dv, u, v, p, i, n, parameters)
 end
 
+function get_accelerating_function(parameters::PN3Potential, n)
+    (dv, u, v, p, t, i) -> PN3_acceleration!(dv, u, v, p, i, n, parameters)
+end
+
+function get_accelerating_function(parameters::PN3_5Potential, n)
+    (dv, u, v, p, t, i) -> PN3_5acceleration!(dv, u, v, p, i, n, parameters)
+end
+
 function get_accelerating_function(parameters::PNPotential, n)
-    (dv, u, v, p, t, i) -> PN1_to_2_5_acceleration!(dv, u, v, p, i, n, parameters)
+    (dv, u, v, p, t, i) -> PN1_to_3_5_acceleration!(dv, u, v, p, i, n, parameters)
 end
 
 
@@ -208,22 +217,26 @@ function get_initial_conditions(simulation::MultiBodySimulation)
 end
 
 function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, acc_funcs::Tuple)
-
     u0, v0, n = get_initial_conditions(simulation)
 
-    a = MVector{3, Float64}(0.0, 0.0, 0.0)
-    # ids = 1:length(acc_funcs)
+    # uv0 = DiffEqBase.RecursiveArrayTools.ArrayPartition(u0, v0)
+    # a_u = typeof(upreferred(1.0u"m/s^2"))
+    # a = MVector{3, a_u}(zeros(a_u, 3)...)
+    a = MVector{3, Float64}(zeros(3)...)
     function soode_system!(dv, v, u, p, t)
         @inbounds for i = 1:n
-            fill!(a, 0.0)
+            fill!(a, zero(a[1]))
 
             apply_acc_funcs((a, u, v, p, t, i), acc_funcs)
-            
+
             dv[:, i] = a
         end
+        # println(dv)
     end
 
+    # SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
     SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
+
 end
 
 @unroll function apply_acc_funcs(state::Tuple, acc_funcs::Tuple)
@@ -259,14 +272,16 @@ function sodeprob_static(simulation::MultiBodySimulation)
     (u0, v0, n) = get_initial_conditions_static(simulation)
 
     acceleration_functions = gather_accelerations_for_potentials(simulation)
-
     a = MVector{3, Float64}(0.0, 0.0, 0.0)
     dv = MMatrix{3, n, Float64}(undef)
+
+    # a_u = typeof(upreferred(1.0u"m/s^2"))
+    # a = MVector{3, a_u}(zeros(a_u, 3)...)
     soode_system = let acceleration_functions = tuple(acceleration_functions...) 
         function soode_system(v, u, p, t)
-            fill!(dv, 0.0)
+            fill!(dv, zero(dv[1]))
             @inbounds for i = 1:n
-                fill!(a, 0.0)
+                fill!(a, zero(a[1]))
 
                 for acceleration! in acceleration_functions
                     acceleration!(a, u, v, p, t, i);
