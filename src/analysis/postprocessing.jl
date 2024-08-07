@@ -77,14 +77,14 @@ function to_solution(result::SimulationResult)
     n_steps = length(time)
 
     r = Array{typeof(upreferred(1.0u"m")), 3}(undef, 3, n_bodies, n_steps)
-    v = similar(r, typeof(1.0u"m/s"))
+    v = similar(r, typeof(upreferred(1.0u"m/s")))
 
     r = AxisArray(r; dim=1:3, particle=1:n_bodies, time=time)
     v = AxisArray(v; dim=1:3, particle=1:n_bodies, time=time)
 
     for idx in eachindex(time)
-        pos = result.solution.u[idx].x[2] .* upreferred(1.0u"m")
-        vel = result.solution.u[idx].x[1] .* upreferred(1.0u"m/s")
+        pos = result.solution.u[idx].x[2] .* upreferred(u"m")
+        vel = result.solution.u[idx].x[1] .* upreferred(u"m/s")
 
         r[:, :, idx] .= pos
         v[:, :, idx] .= vel
