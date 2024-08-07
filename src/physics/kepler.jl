@@ -34,10 +34,10 @@ function keplerian_to_cartesian(elements::OrbitalElements, mass; G=GRAVCONST)
     r = a*(1 - e^2)/(1 + e*cos(ν))
     h = √(μ*a*(1 - e^2))
 
-    o = zeros(typeof(1.0u"m"  ), 3)
-    o_dot = zeros(typeof(1.0u"m/s"  ), 3)
-    x = zeros(typeof(1.0u"m"  ), 3)
-    v = zeros(typeof(1.0u"m/s"), 3)
+    o = zeros(typeof(upreferred(1.0u"m")  ), 3)
+    o_dot = zeros(typeof(upreferred(1.0u"m/s")  ), 3)
+    x = zeros(typeof(upreferred(1.0u"m")  ), 3)
+    v = zeros(typeof(upreferred(1.0u"m/s")), 3)
 
     cosΩ, sinΩ = cos(Ω), sin(Ω)
 
@@ -49,12 +49,12 @@ function keplerian_to_cartesian(elements::OrbitalElements, mass; G=GRAVCONST)
     # Positions 
     o[1] = r*cos(ν)
     o[2] = r*sin(ν)
-    o[3] = 0.0u"m"
+    o[3] = upreferred(0.0u"m")
 
     f = √(μ*a)/r
     o_dot[1] = -f*sin(E)
     o_dot[2] = f*sqrt_1_min_e²*cos(E)
-    o_dot[3] = 0.0u"m/s"
+    o_dot[3] = upreferred(0.0u"m/s")
 
     # Positions
     x[1] = o[1]*(cosω*cosΩ - sinω*cosi*sinΩ) - o[2]*(sinω*cosΩ + cosω*cosi*sinΩ)
@@ -79,8 +79,8 @@ Solve Kepler's problem for a system with a given hierarchy. Returns two
 function keplers_problem(hierarchy, masses, elements)
 
     n = length(masses)
-    positions = zeros(typeof(1.0u"m"), n, 3)
-    velocities = zeros(typeof(1.0u"m/s"), n, 3)
+    positions = zeros(typeof(upreferred(1.0u"m")), n, 3)
+    velocities = zeros(typeof(upreferred(1.0u"m/s")), n, 3)
 
     i = 1
     bin = -1
@@ -125,7 +125,7 @@ function mass_ratio_matrix(hierarchy::AbstractMatrix, masses::AbstractVector)
 
     for j = 1:n
         for i = 1:n
-            m = zero(typeof(1.0u"kg"))
+            m = zero(typeof(upreferred(1.0u"kg")))
             for l = 1:n
                 m += masses[l]*ifelse(hierarchy[i, j] == hierarchy[i, l], 1.0, 0.0)
             end
