@@ -274,7 +274,7 @@ end
 
 
     for idx in eachindex(bodies)
-        data = [r[i][dims,idx] .- shift_coord[dims,i] .|> u"AU" for i ∈ indices]
+        data = [r[i][dims,idx] .- shift_coord[dims,i] .|> u"Rsun" for i ∈ indices]
         data = Tuple([[d[dim] for d in data] for dim in dims])
         @series begin 
             label --> labels[idx]
@@ -285,7 +285,7 @@ end
 end
 
 @recipe function f(eO::OrbitPlot; bodies="all", dims=[1, 2, 3],
-                     tspan=nothing, step=1, ref_frame="com", axis_units=u"AU")
+                     tspan=nothing, step=1, ref_frame="com", axis_units=u"Rsun")
 
     sol = eO.args[1]
     @assert sol isa MultiBodySolution "First argument must be a `MultiBodySolution`. Got $(typeof(sol))"
@@ -393,7 +393,7 @@ end
         yscale --> get(plotattributes, :yscale, :identity)
         subplot := 2
         linewidth --> 3
-        ylabel --> "|E/E₀ - 1|"
+        ylabel --> "E/E₀ - 1"
         label --> false
         # ylims --> (-100.01Elims[1], 100.01Elims[2])
         title --> "Total"
