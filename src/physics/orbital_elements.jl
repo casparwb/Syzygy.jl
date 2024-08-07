@@ -83,9 +83,9 @@ Return the longitude of ascending node of a body in an orbit with angular moment
 function longitude_of_ascending_node(h)
     n = SA[-h[2], h[1], zero(h[1])]
     Ω = acos(n[1]/norm(n))
-    isnan(Ω) && return 0.0
-    n[2] >= n[3] && return Ω
-    return 2π - Ω
+    isnan(Ω) && return 0.0u"rad"
+    n[2] >= n[3] && return (Ω)u"rad"
+    return (2π - Ω)u"rad"
 end
 
 """
@@ -103,10 +103,10 @@ function argument_of_periapsis(r, v, h, m, G)
     ω = acos(dot(e, n)/(norm(n)*norm(e)))
     if isnan(ω) 
         ω = atan(e[2], e[1])
-        return ifelse(h[3] < zero(h[3]), 2π - ω, ω)
+        return ifelse(h[3] < zero(h[3]), 2π - ω, ω)u"rad"
     end
 
-    return ifelse(e[3] < zero(e[3]), 2π - ω, ω)
+    return ifelse(e[3] < zero(e[3]), 2π - ω, ω)u"rad"
 end
 
 argument_of_periapsis(r, v, h, M) = argument_of_periapsis(r, v, h, M, GRAVCONST)
