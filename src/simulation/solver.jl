@@ -46,6 +46,7 @@ function simulate(simulation::MultiBodySimulation)
     
     acc_funcs = gather_accelerations_for_potentials(simulation)
     ode_problem = SecondOrderODEProblem(simulation, acc_funcs)
+
     integrator = OrdinaryDiffEq.init(ode_problem, args[:alg], saveat=args[:saveat], 
                                      callback=callbacks, maxiters=args[:maxiters], 
                                      abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
