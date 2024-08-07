@@ -33,14 +33,13 @@ end
 orbital_period(a, M) = orbital_period(a, M, GRAVCONST)
 
 
-function eccentricity_vector(r, d, v, α::Number, G)
-    # α = G*(m[1] + m[2])
-    e = (v × (r × v))/α - r/d
+function eccentricity_vector(r, d, v, μ)
+    e = (v × (r × v))/μ - r/d
 end
 
 function eccentricity_vector(r, d, v, m, G)
-    α = G*(m[1] + m[2])
-    eccentricity_vector(r, d, v, α, G)
+    μ = G*(m[1] + m[2])
+    eccentricity_vector(r, d, v, μ)
 end
 
 
@@ -98,6 +97,7 @@ velocity `r`, angular momentum `h` and mass `m`.
 function argument_of_periapsis(r, v, h, m, G)
     μ = G*m
     n = SA[-h[2], h[1], zero(h[1])]
+    # n = 
     e = (v × h)/μ .- r/norm(r)
 
     ω = acos(dot(e, n)/(norm(n)*norm(e)))
