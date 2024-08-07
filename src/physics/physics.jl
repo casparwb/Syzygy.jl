@@ -37,15 +37,6 @@ function centre_of_mass(positions::AbstractMatrix, masses::AbstractMatrix)
     return SVector(com*ustrip(one_over_m))
 end
 
-function centre_of_mass(binary::Binary)
-
-    particles = get_particles_recursive(binary)
-
-    positions = [p.position for p in particles]
-    masses = [p.mass for p in particles]
-    centre_of_mass(positions, masses)
-end
-
 
 function centre_of_mass(sol::MultiBodySolution, bodies=eachindex(sol.ic.particles); 
                         tspan=nothing)
@@ -63,7 +54,7 @@ function centre_of_mass(sol::MultiBodySolution, bodies=eachindex(sol.ic.particle
     return com
 end
 
-function centre_of_mass_velocity(sol::MultiBodySolution, bodies=eachindex(sol.initial_conditions.particles); 
+function centre_of_mass_velocity(sol::MultiBodySolution, bodies=eachindex(sol.ic.particles); 
                         tspan=nothing)
     time = sol.t
     tspan = isnothing(tspan) ? extrema(time) : tspan
@@ -73,7 +64,7 @@ function centre_of_mass_velocity(sol::MultiBodySolution, bodies=eachindex(sol.in
     
     for (c, idx) in enumerate(indices)
         v = [sol.v[:,body,idx] for body in bodies]
-        ms = [sol.structure.m[body,idx] for body in bodies]
+        ms = [sol.structure.m[body,ifelse(idx == 1, 1, 2)] for body in bodies]
         com[:,c] = centre_of_mass_velocity(v, ms)
     end
 
