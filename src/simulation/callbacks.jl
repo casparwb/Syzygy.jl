@@ -133,7 +133,7 @@ function collision_callback_old!(integrator, n, retcode)
                 d = norm(ri - rj)
 
                 if isless(d - ustrip(integrator.p.R[j]), ustrip(integrator.p.R[i]))
-                    t = integrator.t * upreferred(1.0u"s")
+                    t = integrator.t * upreferred(u"s")
                     retcode[:Collision] = (SA[i, j], t)
                     terminate!(integrator)
                 end
@@ -171,7 +171,7 @@ function collision_callback!(integrator, n, retcode, grav_rad_multiple)
                 collision::Bool = collision_check(d, Ri, Rj, Mi, Mj, stellar_type_i, stellar_type_j, 
                                                   grav_rad_multiple)::Bool
                 if collision
-                    t = integrator.t * upreferred(1.0u"s")
+                    t = integrator.t * upreferred(u"s")
                     retcode[:Collision] = (SA[i, j], t)
                     terminate!(integrator)
                 end
@@ -454,7 +454,7 @@ function rlof_callback_democratic!(integrator, retcode, n, rlof_rcodes)
 
         rlof = R_roche <= ustrip(integrator.p.R[i])
         if rlof
-            retcode[rcode] = integrator.t * upreferred(1.0u"s")
+            retcode[rcode] = integrator.t * upreferred(u"s")
         end
     end
     nothing
