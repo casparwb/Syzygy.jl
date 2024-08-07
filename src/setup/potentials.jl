@@ -390,7 +390,7 @@ function equilibrium_tidal_drag_force!(dv,
             k_T::Float64 = apsidal_motion_constant_over_tidal_timescale(M, R,
                                                                envelope_mass, envelope_radius,
                                                                stellar_type, luminosity, 
-                                                               m, a_quant) * upreferred(1.0u"yr^-1").val
+                                                               m, a_quant) * upreferred(u"yr^-1").val
 
             kτ = R_num^3/(potential.G*M_num)*k_T
 
@@ -456,7 +456,7 @@ function PN1_acceleration!(dv,
 
     end
     # println(accel)
-    @. dv += accel * c⁻².val
+    @. dv += accel * c⁻²
 end
 
 
@@ -546,7 +546,7 @@ function PN2_acceleration!(dv,
         end
     end
 
-    @. dv += accel * c⁻⁴.val
+    @. dv += accel * c⁻⁴
 
 end
 
@@ -606,7 +606,7 @@ function PN2_5_acceleration!(dv,
             accel += a
         end
     end
-    @. dv += accel * c⁻⁵.val
+    @. dv += accel * c⁻⁵
 end
 
 function PN3_acceleration!(dv,
@@ -724,7 +724,7 @@ function PN3_acceleration!(dv,
         end
     end
 
-    @. dv += accel * c⁻⁶.val
+    @. dv += accel * c⁻⁶
 end
 
 function PN3_5_acceleration!(dv,
@@ -829,7 +829,7 @@ function PN3_5_acceleration!(dv,
         end
     end
 
-    @. dv += accel * c⁻⁷.val
+    @. dv += accel * c⁻⁷
 end
 
 function PN1_to_3_5_acceleration!(dv,
@@ -989,7 +989,7 @@ function PN1_to_3_5_acceleration!(dv,
             #           G²_r³*m₁m₂*(60*nv^4 - 348/5*nv₁²*v² + 684/5*nv₁*nv₁*v² -
             #                               66*nv₂²*v² + 334/35*v₁^4 - 1336/35*v₁²*v₁v₂ + 1308/35*v₁v₂² + 654/35*v₁²*v₂² -
             #                               1252/35*v₁v₂*v₂² + 292/35*v₂^4))
-            accel += @. a₁*c⁻².val + a₂*c⁻⁴.val + a₃*c⁻⁵.val# + a₄*c⁻⁶.val# + a₅*c⁻⁷.val
+            accel += @. a₁*c⁻² + a₂*c⁻⁴ + a₃*c⁻⁵# + a₄*c⁻⁶# + a₅*c⁻⁷
 
 
         end

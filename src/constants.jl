@@ -1,17 +1,18 @@
 using StaticArrays
 
 const GRAVCONST = 6.6743015e-11u"m^3/kg/s^2" |> upreferred
-const G² = GRAVCONST.val^2
-const G³ = GRAVCONST.val^3
-const G⁴ = GRAVCONST.val^4
+const G = GRAVCONST
+const G² = G.val^2
+const G³ = G.val^3
+const G⁴ = G.val^4
 
 const c = 299_792_458u"m/s" |> upreferred
-const c² = c*c
-const c⁻² = 1/c²
-const c⁻⁴ = c⁻²/c²
-const c⁻⁵ = c⁻⁴/c
-const c⁻⁶ = c⁻⁵/c
-const c⁻⁷ = c⁻⁶/c
+const c² = (c*c).val
+const c⁻² = (1/c²).val
+const c⁻⁴ = (c⁻²/c²).val
+const c⁻⁵ = (c⁻⁴/c).val
+const c⁻⁶ = (c⁻⁵/c).val
+const c⁻⁷ = (c⁻⁶/c).val
 
 const π² = π^2
 
