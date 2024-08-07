@@ -1,11 +1,19 @@
 using StaticArrays
 
-const GRAVCONST = 6.6743015e-11u"m^3/kg/s^2"
-const c = 299_792_458u"m/s"
+const GRAVCONST = 6.6743015e-11u"m^3/kg/s^2" |> upreferred
+const G² = GRAVCONST.val^2
+const G³ = GRAVCONST.val^3
+const G⁴ = GRAVCONST.val^4
+
+const c = 299_792_458u"m/s" |> upreferred
 const c² = c*c
 const c⁻² = 1/c²
 const c⁻⁴ = c⁻²/c²
 const c⁻⁵ = c⁻⁴/c
+const c⁻⁶ = c⁻⁵/c
+const c⁻⁷ = c⁻⁶/c
+
+const π² = π^2
 
 const stellar_type = Dict(  "deeply or fully convective low mass MS star" => 0,
                             "Main Sequence star" => 1,
@@ -68,5 +76,4 @@ const orbital_elements = (:a, :P, :e, :ω, :i, :Ω, :ν)
 const hierarchy_labels = ["Primary", "Secondary", "Tertiary", 
                           "Quaternary", "Quinary", "Senary", 
                           "Septenary", "Octonary", "Oonary", "Denary"]
-
 
