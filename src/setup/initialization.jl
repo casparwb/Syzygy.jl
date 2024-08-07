@@ -64,8 +64,7 @@ function multibodysystem(masses::Vector{<:Quantity}; R      = 1.0u"Rsun",
                                                      ν      = (π)u"rad", 
                                                      time::Quantity = 0.0u"s", 
                                                      verbose::Bool = false, 
-                                                     hierarchy = [length(masses), repeat([1], length(masses)-1)...], 
-                                                     extras::Dict=Dict())
+                                                     hierarchy = [length(masses), repeat([1], length(masses)-1)...])
     n_bodies = length(masses)
     n_bins = n_bodies - 1
 
@@ -88,9 +87,8 @@ function multibodysystem(masses::Vector{<:Quantity}; R      = 1.0u"Rsun",
         idx = findall(x -> x < zero(x), S)
         S[idx] .= stellar_spin.(masses[idx], R[idx])
     end
-
     stellar_types = ifelse(stellar_types isa Number, repeat([stellar_types], n_bodies), stellar_types)
-    multibodysystem(masses, R, S, L, stellar_types, R_core, m_core, R_env, m_env, a, e, ω, i, Ω, ν, hierarchy, time, verbose=verbose, extras=extras)
+    multibodysystem(masses, R, S, L, stellar_types, R_core, m_core, R_env, m_env, a, e, ω, i, Ω, ν, hierarchy, time, verbose=verbose)
 end
 
 
@@ -106,7 +104,7 @@ function multibodysystem(masses::Vector{<:Quantity},
                          a::Vector{<:Quantity}, e::Vector{<:Real},     ω::Vector{<:Quantity}, 
                          i::Vector{<:Quantity}, Ω::Vector{<:Quantity}, ν::Vector{<:Quantity}, 
                          hierarchy::Vector{Int}, time::Quantity; 
-                         verbose::Bool = false, extras::Dict = Dict())
+                         verbose::Bool = false)
 
     n_bins = sum(hierarchy[2:end])
     n_particles = length(masses)
@@ -482,7 +480,7 @@ Remake a given system with new parameters.
 function multibodysystem(system::MultiBodySystem; new_params...)
 
     possible_kwargs = [:R, :S, :L, :stellar_types, :a, :e, :ω, :i, :Ω, :ν, 
-                       :hierarchy, :time, :verbose, :extras]
+                       :hierarchy, :time, :verbose]
 
     new_kwargs = Dict(new_params)
     unchanched_kwargs = [kw for kw in possible_kwargs if (!in(kw, keys(new_kwargs)))]
