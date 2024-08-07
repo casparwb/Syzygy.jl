@@ -2,5 +2,6 @@ using Syzygy
 using Test
 
 @testset "Syzygy.jl" begin
-    # Write your tests here.
+    
+    include("orbital_elements_test.jl")
 end
