@@ -1,15 +1,18 @@
 using StaticArrays
 
 const GRAVCONST = 6.6743015e-11u"m^3/kg/s^2" |> upreferred
-const G = GRAVCONST
-const G² = G.val^2
-const G³ = G.val^3
-const G⁴ = G.val^4
+const G = GRAVCONST.val
+const G² = G^2
+const G³ = G^3
+const G⁴ = G^4
 
 const c = 299_792_458u"m/s" |> upreferred
 const c² = (c*c).val
-const c⁻² = (1/c²).val
-const c⁻⁴ = (c⁻²/c²).val
+const c³ = (c²*c).val
+const c⁴ = (c³*c).val
+const c⁻² = (1/c²)
+const c⁻³ = (1/c³)
+const c⁻⁴ = (c⁻²/c²)
 const c⁻⁵ = (c⁻⁴/c).val
 const c⁻⁶ = (c⁻⁵/c).val
 const c⁻⁷ = (c⁻⁶/c).val
@@ -17,15 +20,15 @@ const c⁻⁷ = (c⁻⁶/c).val
 const π² = π^2
 
 const stellar_type = Dict(  "deeply or fully convective low mass MS star" => 0,
-                            "Main Sequence star" => 1,
+                            "Main Sequence Star" => 1,
                             "Hertzsprung Gap" => 2,
                             "First Giant Branch" => 3,
                             "Core Helium Burning" => 4,
                             "First Asymptotic Giant Branch" => 5,
                             "Second Asymptotic Giant Branch" => 6,
-                            "Main Sequence Naked Helium star" => 7,
-                            "Hertzsprung Gap Naked Helium star" => 8,
-                            "Giant Branch Naked Helium star" => 9,
+                            "Main Sequence Naked Helium Star" => 7,
+                            "Hertzsprung Gap Naked Helium Star" => 8,
+                            "Giant Branch Naked Helium Star" => 9,
                             "Helium White Dwarf" => 10,
                             "Carbon/Oxygen White Dwarf" => 11,
                             "Oxygen/Neon White Dwarf" => 12,
