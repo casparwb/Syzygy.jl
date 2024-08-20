@@ -36,6 +36,11 @@ struct PureGravitationalPotential{gType} <: MultiBodyPotential
     PureGravitationalPotential(G=upreferred(GRAVCONST).val) = new{typeof(G)}(G)
 end
 
+struct PureGravitationalPotential2{gType} <: MultiBodyPotential
+    G::gType
+    PureGravitationalPotential2(G=upreferred(GRAVCONST).val) = new{typeof(G)}(G)
+end
+
 struct DynamicalTidalPotential{gType <: Real, nType, fType <: Function} <: MultiBodyPotential
     G::gType # Gravitational constant
     nₜ::Int  # Tidal force power constant
@@ -185,6 +190,13 @@ function pure_gravitational_acceleration!(dv,
         end
     end
     @. dv += accel
+end
+
+function pure_gravitational_acceleration!(dv, nij, r, mj,
+                                          potential::PureGravitationalPotential2)
+    # accel = SA[0.0, 0.0, 0.0];
+    accel = G * mj * nij/r^2
+    dv .+= accel
 end
 
 
