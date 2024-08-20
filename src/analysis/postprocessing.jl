@@ -1,4 +1,5 @@
-using LinearAlgebra, StaticArrays, AxisArrays   
+using LinearAlgebra: norm
+using StaticArrays, AxisArrays   
 
 
 
@@ -41,7 +42,7 @@ function get_stellar_structure(result)
     mass_matrix = Matrix{typeof(1.0u"kg")}(undef, n_bodies, 2)
     stellar_type_matrix = Matrix{Int8}(undef, n_bodies, 2)
     lum_matrix = Matrix{typeof(1.0u"Lsun")}(undef, n_bodies, 2)
-    spin_matrix = Matrix{typeof(1.0u"1/s")}(undef, n_bodies, 2)
+    spin_matrix = nothing#Matrix{typeof(1.0u"1/s")}(undef, n_bodies, 2)
 
     structure = StellarStructure(stellar_type_matrix, mass_matrix, 
                                 radius_matrix, spin_matrix, lum_matrix,
@@ -49,6 +50,7 @@ function get_stellar_structure(result)
                                 similar(radius_matrix), similar(mass_matrix))
 
     for param in keys(initial_stellar_parameters)
+        param == :S && continue
         if !(param ∈ keys(final_stellar_parameters))
             setindex!(getproperty(structure, param), initial_stellar_parameters[param], 1:n_bodies, 1)
             setindex!(getproperty(structure, param), initial_stellar_parameters[param], 1:n_bodies, 2)
@@ -76,21 +78,35 @@ function to_solution(result::SimulationResult)
     
     n_steps = length(time)
 
+    S_unit = unit(system.particles.S[1][1])
+
     r = Array{typeof(upreferred(1.0u"m")), 3}(undef, 3, n_bodies, n_steps)
     v = similar(r, typeof(upreferred(1.0u"m/s")))
+    S = similar(r, typeof(upreferred(1.0*S_unit)))
+    Sv = similar(r, typeof(upreferred(1.0*S_unit/upreferred(u"yr"))))
+
 
     r = AxisArray(r; dim=1:3, particle=1:n_bodies, time=time)
     v = AxisArray(v; dim=1:3, particle=1:n_bodies, time=time)
+    S = AxisArray(S; dim=1:3, particle=1:n_bodies, time=time)
+    Sv = AxisArray(Sv; dim=1:3, particle=1:n_bodies, time=time)
 
+    
     for idx in eachindex(time)
-        pos = result.solution.u[idx].x[2] .* upreferred(u"m")
-        vel = result.solution.u[idx].x[1] .* upreferred(u"m/s")
+        pos = result.solution.u[idx].x[2][1:3,:] .* upreferred(u"m")
+        vel = result.solution.u[idx].x[1][1:3,:] .* upreferred(u"m/s")
 
+        spin = result.solution.u[idx].x[2][4:6,:] .* upreferred(S_unit)
+        spin_vel = result.solution.u[idx].x[1][4:6,:] .* upreferred(S_unit/upreferred(u"yr"))
+        
         r[:, :, idx] .= pos
         v[:, :, idx] .= vel
+
+        S[:, :, idx] .= spin
+        Sv[:, :, idx] .= spin_vel
     end
 
-    ode_solution = Dict(:potential => result.simulation.system.potential |> values,
+    ode_solution = Dict(:potential => result.simulation.potential |> values,
                         :retcodes => result.retcode,
                         :timesteps => result.solution.stats.naccept,
                         :func_1_evals => result.solution.stats.nf,
@@ -100,7 +116,7 @@ function to_solution(result::SimulationResult)
 
     stellar_structure = get_stellar_structure(result)
 
-    return MultiBodySolution(system, time, r, v, stellar_structure, attributes, result.ode_params)
+    return MultiBodySolution(system, time, r, v, S, Sv, stellar_structure, attributes, result.ode_params)
 
 end
 
