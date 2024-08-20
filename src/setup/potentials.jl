@@ -7,16 +7,27 @@ include("../physics/tides.jl")
 abstract type MultiBodyPotential end
 abstract type SimulationParams end
 
-struct DefaultSimulationParams{RType, MType, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
-    R::RType # radii
-    M::MType # masses
-    L::LType # luminosities
-    S::SType # spins
-    stellar_types::stpType 
-    M_cores::cMType # core masses
-    R_cores::cRType # core radii
-    ages::ageType 
+# struct DefaultSimulationParams{RType, MType, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
+#     R::RType # radii
+#     M::MType # masses
+#     L::LType # luminosities
+#     S::SType # spins
+#     stellar_types::stpType 
+#     M_cores::cMType # core masses
+#     R_cores::cRType # core radii
+#     ages::ageType 
+# end
+
+struct DefaultSimulationParams{FloatVecType, IntVecType} <: SimulationParams
+    R::FloatVecType # radii
+    M::FloatVecType # masses
+    L::FloatVecType # luminosities
+    stellar_types::IntVecType 
+    M_cores::FloatVecType # core masses
+    R_cores::FloatVecType # core radii
+    ages::FloatVecType 
 end
+
 
 # struct PNSimulationParams{RType, MType, M2_type, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
 #     R::RType # radii
@@ -178,10 +189,10 @@ function pure_gravitational_acceleration!(dv,
     ri = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     @inbounds for j = 1:n
         if j != i
-            m_num::Float64 = ustrip(params.M[j])
+            mj = params.M[j]
             rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
             rij = ri - rj
-            accel -= G * m_num * rij / (norm(rij)^3)
+            accel -= G * mj * rij / norm(rij)^3
         end
     end
     @. dv += accel

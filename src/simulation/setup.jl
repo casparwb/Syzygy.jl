@@ -281,44 +281,45 @@ end
 
 function setup_params(particles, time)
 
-    masses        = typeof(upreferred(1.0u"Msun"))[]
-    luminosities  = typeof(upreferred(1.0u"Lsun"))[]
-    radii         = typeof(upreferred(1.0u"Rsun"))[]
-    core_masses   = typeof(upreferred(1.0u"Msun"))[]
-    core_radii    = typeof(upreferred(1.0u"Rsun"))[]
-    ages          = typeof(upreferred(1.0u"yr"))[]
-    stellar_types = Int[]
+    # masses        = typeof(upreferred(1.0u"Msun"))[]
+    # luminosities  = typeof(upreferred(1.0u"Lsun"))[]
+    # radii         = typeof(upreferred(1.0u"Rsun"))[]
+    # core_masses   = typeof(upreferred(1.0u"Msun"))[]
+    # core_radii    = typeof(upreferred(1.0u"Rsun"))[]
+    # ages          = typeof(upreferred(1.0u"yr"))[]
 
-    spin_unit = unit(particles[1].structure.S[1])
-    spins = Vector{typeof(upreferred(1.0*spin_unit))}[]
+    masses        = Float64[]
+    luminosities  = Float64[]
+    radii         = Float64[]
+    core_masses   = Float64[]
+    core_radii    = Float64[]
+    ages          = Float64[]
+    stellar_types = Int[]
 
     particle_keys = keys(particles) |> collect |> sort
 
     for i in particle_keys
         p = particles[i]
         
-        mass         = p.structure.m      |> upreferred 
-        luminosity   = p.structure.L      |> upreferred
-        radius       = p.structure.R      |> upreferred 
-        spin         = p.structure.S     .|> upreferred 
-        core_mass    = p.structure.m_core |> upreferred
-        core_radius  = p.structure.R_core |> upreferred
+        mass         = p.structure.m      |> upreferred |> ustrip 
+        luminosity   = p.structure.L      |> upreferred |> ustrip
+        radius       = p.structure.R      |> upreferred |> ustrip 
+        core_mass    = p.structure.m_core |> upreferred |> ustrip
+        core_radius  = p.structure.R_core |> upreferred |> ustrip
         stellar_type = p.structure.stellar_type.index 
 
         push!(core_masses,   core_mass)
         push!(core_radii,    core_radius)
-        push!(ages,          upreferred(time))
+        push!(ages,          upreferred(time).val)
         push!(masses,        mass)
         push!(luminosities,  luminosity)
         push!(radii,         radius)
-        push!(spins,         spin)
         push!(stellar_types, stellar_type)
     end
 
     masses = MVector(masses...)
     luminosities = MVector(luminosities...)
     radii = MVector(radii...)
-    spins = MVector(spins...)
     stellar_types = MVector(stellar_types...)
     core_masses = MVector(core_masses...)
     core_radii = MVector(core_radii...)
@@ -326,7 +327,6 @@ function setup_params(particles, time)
 
     all_params = Dict(:R            => radii, 
                       :M            => masses, 
-                      :S            => spins,
                       :L            => luminosities,
                       :stellar_type => stellar_types,
                       :core_masses  => core_masses,
@@ -336,7 +336,6 @@ function setup_params(particles, time)
     ode_params = DefaultSimulationParams(all_params[:R], 
                                          all_params[:M], 
                                          all_params[:L], 
-                                         all_params[:S], 
                                          all_params[:stellar_type],
                                          all_params[:core_masses], 
                                          all_params[:core_radii], 
