@@ -1,4 +1,5 @@
-using LinearAlgebra, StaticArrays, AxisArrays   
+using LinearAlgebra: norm
+using StaticArrays, AxisArrays   
 
 
 function Base.show(io::IO, sol::MultiBodySolution)
@@ -236,7 +237,7 @@ function analyse_simulation(result::SimulationResult)
 
     end
 
-    ode_solution = Dict(:potential => result.simulation.system.potential |> values,
+    ode_solution = Dict(:potential => result.simulation.potential |> values,
                         :retcodes => result.retcode,
                         :timesteps => result.solution.destats.naccept,
                         :func_1_evals => result.solution.destats.nf,
