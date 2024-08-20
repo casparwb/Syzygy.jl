@@ -21,6 +21,7 @@ module Syzygy
     
     include("setup/initialization.jl")
     
+#     include("simulation/callbacks.jl")
     include("simulation/solver.jl")
     
     include("analysis/postprocessing.jl")

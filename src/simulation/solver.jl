@@ -1,7 +1,7 @@
 
 
-include("./setup.jl")
 include("./callbacks.jl")
+include("./setup.jl")
 
 using OrdinaryDiffEq
 using Unitful, UnitfulAstro, StaticArrays
@@ -25,13 +25,13 @@ function simulate(simulation::MultiBodySimulation)
     end
     
     cbs = setup_callbacks(args[:callbacks], simulation.ic, simulation.params, 
-                          retcodes, simulation.system.potential[:PureGravitationalPotential].G, args, start_time=start_time)
+                          retcodes, simulation.potential[:PureGravitationalPotential].G, args, start_time=start_time)
     callbacks = isnothing(cbs) ? nothing : CallbackSet(cbs...)
 
 
-    ##############################################################################################################
-    #              This block allows the full simulation to run without allocations. Don't know why.             #
-    ##############################################################################################################
+    # ##############################################################################################################
+    # #              This block allows the full simulation to run without allocations. Don't know why.             #
+    # ##############################################################################################################
     let
         ode_prob_static = sodeprob_static(simulation)
         integrator_static = OrdinaryDiffEq.init(ode_prob_static, args[:alg], saveat=args[:saveat], 
@@ -42,7 +42,7 @@ function simulate(simulation::MultiBodySimulation)
         terminate!(integrator_static)
 
     end
-    ##############################################################################################################
+    # ##############################################################################################################
     
     acc_funcs = gather_accelerations_for_potentials(simulation)
     ode_problem = SecondOrderODEProblem(simulation, acc_funcs)
@@ -124,12 +124,12 @@ function simulate(system::MultiBodyInitialConditions; args...)
     simulate(simulation(system; args...))
 end
 
-function get_masses(system::MultiBodyODESystem)
-    return [b.mass for b in system.bodies]
+function get_masses(sim::MultiBodySimulation)
+    return [b.mass for b in sim.bodies]
 end
 
 function total_energy(result::SimulationResult, time)
-    masses = get_masses(result.simulation.system)
+    masses = get_masses(result.simulation)
     idx = argmin(abs.(result.solution.t .- time))
 
     total_energy([result.solution.u[idx].x[2][:,i] for i ∈ eachindex(masses)], 
