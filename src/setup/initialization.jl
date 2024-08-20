@@ -126,7 +126,6 @@ function multibodysystem(masses::Vector{<:Unitful.Mass},
     end
 
     # if unit(masses)[1] != unit()
-
     structures = StellarStructure[]
     for idx = 1:n_particles
         stellar_type = stellar_type_from_index(stellar_types[idx])

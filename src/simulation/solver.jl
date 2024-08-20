@@ -25,7 +25,7 @@ function simulate(simulation::MultiBodySimulation)
     end
     
     cbs = setup_callbacks(args[:callbacks], simulation.ic, simulation.params, 
-                          retcodes, simulation.potential[:PureGravitationalPotential].G, args, start_time=start_time)
+                          retcodes, G, args, start_time=start_time)
     callbacks = isnothing(cbs) ? nothing : CallbackSet(cbs...)
 
 
@@ -46,6 +46,7 @@ function simulate(simulation::MultiBodySimulation)
     
     acc_funcs = gather_accelerations_for_potentials(simulation)
     ode_problem = SecondOrderODEProblem(simulation, acc_funcs)
+    # ode_problem = sode_problem_new(simulation, acc_funcs)
 
     integrator = OrdinaryDiffEq.init(ode_problem, args[:alg], saveat=args[:saveat], 
                                      callback=callbacks, maxiters=args[:maxiters], 

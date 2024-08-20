@@ -133,6 +133,10 @@ end
 
 
 ################################ Framework for the different potentials ################################
+function get_accelerating_function(parameters::PureGravitationalPotential2, n)
+    (dv, n, r, m) -> pure_gravitational_acceleration!(dv, n, r, m, parameters)
+end
+
 function get_accelerating_function(parameters::PureGravitationalPotential, n)
     (dv, u, v, p, t, i) -> pure_gravitational_acceleration!(dv, u, p, i, n, parameters)
 end
@@ -312,6 +316,12 @@ function sodeprob_static(simulation::MultiBodySimulation)
     (u0, v0, n) = get_initial_conditions_static(simulation)
     acc_funcs = gather_accelerations_for_potentials(simulation)
 
+    if :PureGravitationalPotential2 in keys(simulation.potential)
+        idx = findall(x -> x.parameters == PureGravitationalPotential2(), acc_funcs) |> only
+        acc_funcs = tuple([f for f in acc_funcs if !(f.parameters == PureGravitationalPotential2())]...)
+    end
+
+
     spin_precession = false
     if :SpinPrecessionPotential in keys(simulation.potential)
         spin_precession = true
@@ -368,9 +378,134 @@ function.
 end
 
 
-################################### Potential setup functions ###################################
+######################################## The new ODE solver #######################################
 
+function sode_problem_new(simulation::MultiBodySimulation, acc_funcs::Tuple)
+    u0, v0, n = get_initial_conditions(simulation)
+    pairs = simulation.ic.pairs
 
+    spin_precession = false
+    if :SpinPrecessionPotential in keys(simulation.potential)
+        spin_precession = true
+        idx = findall(x -> x.parameters == SpinPrecessionPotential(), acc_funcs) |> only
+        d²Sdt²! = acc_funcs[idx]
+        acc_funcs = tuple([f for f in acc_funcs if !(f.parameters == SpinPrecessionPotential())]...)
+    end
+
+    fg = acc_funcs[1]
+
+    a = MVector{3, Float64}(zeros(3)...)
+    a_spin = MVector{3, Float64}(zeros(3)...)
+    function soode_system!(dv, v, u, p, t)
+        # println(v[4:6, 1])
+        @inbounds for pair in pairs
+            fill!(a, 0.0)
+            i, j = pair
+            ri = @SVector [u[1, i], u[2, i], u[3, i]]
+            rj = @SVector [u[1, j], u[2, j], u[3, j]]
+
+            rij = ri - rj
+            # rji = -rij
+            r = norm(rij)
+            n = rij/r
+
+            vi = @SVector [v[1, i], v[2, i], v[3, i]]
+            vj = @SVector [v[1, j], v[2, j], v[3, j]]
+
+            vij = vi - vj
+            # vji = -vij
+
+            mi = p.M[i].val
+            mj = p.M[j].val
+
+            # ai = apply_acc_funcs((n, r, mj, p), acc_funcs)
+            # aj = apply_acc_funcs((-n, r, mi, p), acc_funcs)
+            
+            ai = fg(a, n, r, mj)
+            # aj = fg(-n, r, mi, p)
+
+            dv[1:3, i] = a
+            dv[1:3, j] = -a
+        end
+
+        if spin_precession
+            @inbounds for i = 1:n
+                fill!(a_spin, 0.0)
+                d²Sdt²!(a_spin, dv, u, v, p, t, i)
+
+                dv[4:6, i] = a_spin
+            end
+        end
+    end
+
+    SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
+end
+
+function sodeprob_static_new(simulation::MultiBodySimulation)
+    (u0, v0, n) = get_initial_conditions_static(simulation)
+    acc_funcs = gather_accelerations_for_potentials(simulation)
+    pairs = simulation.ic.pairs
+    
+    spin_precession = false
+    if :SpinPrecessionPotential in keys(simulation.potential)
+        spin_precession = true
+        idx = findall(x -> x.parameters == SpinPrecessionPotential(), acc_funcs) |> only
+        d²Sdt²! = acc_funcs[idx]
+        acc_funcs = tuple([f for f in acc_funcs if !(f.parameters == SpinPrecessionPotential())]...)
+    end
+
+    fg = acc_funcs[1]
+
+    a = MVector{3, Float64}(0.0, 0.0, 0.0)
+    a_spin = MVector{3, Float64}(zeros(3)...)
+
+    dv = MMatrix{6, n, Float64}(undef)
+    soode_system = let acc_funcs = tuple(acc_funcs...) 
+        function soode_system(v, u, p, t)
+            fill!(dv, zero(dv[1]))
+            @inbounds for pair in pairs
+                fill!(a, 0.0)
+                i, j = pair
+                ri = @SVector [u[1, i], u[2, i], u[3, i]]
+                rj = @SVector [u[1, j], u[2, j], u[3, j]]
+    
+                rij = ri - rj
+                # rji = -rij
+                r = norm(rij)
+                n = rij/r
+    
+                vi = @SVector [v[1, i], v[2, i], v[3, i]]
+                vj = @SVector [v[1, j], v[2, j], v[3, j]]
+    
+                vij = vi - vj
+                # vji = -vij
+    
+                mi = p.M[i].val
+                mj = p.M[j].val
+    
+                # ai = apply_acc_funcs((n, r, mj, p), acc_funcs)
+                # aj = apply_acc_funcs((-n, r, mi, p), acc_funcs)
+                
+                ai = fg(a, n, r, mj)
+    
+                dv[1:3, i] = a
+                dv[1:3, j] = -a
+            end
+
+            if spin_precession
+                @inbounds for i = 1:n
+                    fill!(a_spin, 0.0)
+                    d²Sdt²!(a_spin, dv, u, v, p, t, i)
+                    dv[4:6, i] = a_spin
+                end
+            end
+
+            SMatrix(dv)
+        end
+    end
+
+    SecondOrderODEProblem(soode_system, v0, u0, simulation.tspan, simulation.params)
+end
 
 #################################################################################################
 
