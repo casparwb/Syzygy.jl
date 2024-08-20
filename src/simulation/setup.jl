@@ -1,90 +1,100 @@
 using Printf, Unitful, UnitfulAstro
 
-abstract type AbstractSyzygyCallback end
+# abstract type AbstractSyzygyCallback end
 
-struct CollisionCB{T}         <: AbstractSyzygyCallback 
-    check_every::Int
-    grav_rad_multiple::T
-    CollisionCB(check_every=1, grav_rad_multiple=1000) = new{typeof(grav_rad_multiple)}(check_every)
-end
+# struct CollisionCB{T}         <: AbstractSyzygyCallback 
+#     check_every::Int
+#     grav_rad_multiple::T
+#     CollisionCB(check_every=1, grav_rad_multiple=1000) = new{typeof(grav_rad_multiple)}(check_every)
+# end
 
-struct EscapeCB{T}         <: AbstractSyzygyCallback 
-    max_a_factor::T
-    check_every::Int
-    EscapeCB(max_a_factor=100, check_every=100) = new{typeof(max_a_factor)}(max_a_factor, check_every)
-end
+# struct EscapeCB{T}         <: AbstractSyzygyCallback 
+#     max_a_factor::T
+#     check_every::Int
+#     EscapeCB(max_a_factor=100, check_every=100) = new{typeof(max_a_factor)}(max_a_factor, check_every)
+# end
 
-struct RocheLobeOverflowCB <: AbstractSyzygyCallback 
-    check_every::Int
-    RocheLobeOverflowCB(check_every=1) = new(check_every)
-end
+# struct RocheLobeOverflowCB <: AbstractSyzygyCallback 
+#     check_every::Int
+#     RocheLobeOverflowCB(check_every=1) = new(check_every)
+# end
 
-struct CPUTimeCB           <: AbstractSyzygyCallback 
-    check_every::Int
-    CPUTimeCB(check_every=1) = new(check_every)
-end
+# struct CPUTimeCB           <: AbstractSyzygyCallback 
+#     check_every::Int
+#     CPUTimeCB(check_every=1) = new(check_every)
+# end
 
-struct CentreOfMassCB      <: AbstractSyzygyCallback 
-    check_every::Int
-    CentreOfMassCB(check_every=1) = new(check_every)
-end
+# struct CentreOfMassCB      <: AbstractSyzygyCallback 
+#     check_every::Int
+#     CentreOfMassCB(check_every=1) = new(check_every)
+# end
 
-struct HubbleTimeCB        <: AbstractSyzygyCallback 
-    check_every::Int
-    HubbleTimeCB(check_every=1) = new(check_every)
-end
+# struct HubbleTimeCB        <: AbstractSyzygyCallback 
+#     check_every::Int
+#     HubbleTimeCB(check_every=1) = new(check_every)
+# end
 
-struct DemocraticCheckCB   <: AbstractSyzygyCallback 
-    check_every::Int
-    DemocraticCheckCB(check_every=1) = new(check_every)
-end
+# struct DemocraticCheckCB   <: AbstractSyzygyCallback 
+#     check_every::Int
+#     DemocraticCheckCB(check_every=1) = new(check_every)
+# end
 
-struct IonizationCB{T}     <: AbstractSyzygyCallback 
-    check_every::Int
-    max_a_factor::T
-    IonizationCB(max_a_factor=100, check_every=100) = new{typeof(max_a_factor)}(max_a_factor, check_every)
-end
+# struct IonizationCB{T}     <: AbstractSyzygyCallback 
+#     check_every::Int
+#     max_a_factor::T
+#     IonizationCB(max_a_factor=100, check_every=100) = new{typeof(max_a_factor)}(max_a_factor, check_every)
+# end
 
 function bodies(system::T where T <: MultiBodyInitialConditions)
 
-    positions = [zeros(3) for i = 1:system.n]
+    positions  = [zeros(3) for i = 1:system.n]
     velocities = [zeros(3) for i = 1:system.n]
-    masses = zeros(system.n)
+    spins      = [zeros(3) for i = 1:system.n]
+    masses     =  zeros(system.n)
 
     for (key, particle) in system.particles
-        positions[key] .= upreferred.(particle.position) |> ustrip
+        positions[key]  .= upreferred.(particle.position) |> ustrip
         velocities[key] .= upreferred.(particle.velocity) |> ustrip
-        masses[key] = upreferred(particle.mass) |> ustrip
+        spins[key]      .= upreferred.(particle.structure.S) |> ustrip
+        masses[key]      = upreferred(particle.mass) |> ustrip
     end
 
-    SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(positions, velocities, masses)]...]
+    SA[[MassBody(SA[r...], SA[v...], SA[s...], m) for (r, v, s, m) in zip(positions, velocities, spins, masses)]...]
 end
 
+function bodies(positions, velocities, spins, masses)
+    n = length(masses)
 
-function MultiBodyODESystem(bodies, params, potential::MultiBodyPotential)
+    positions  = [ustrip(upreferred(unit(p[1])), p) for p in positions]
+    velocities = [ustrip(upreferred(unit(v[1])), v) for v in velocities]
+    spins      = [ustrip(upreferred(unit(v[1])), v) for v in spins]
+    masses     = [ustrip(upreferred(unit(m)), m) for m in masses]
+
+    SA[[MassBody(SA[r...], SA[v...], SA[s...], m) for (r, v, s, m) in zip(positions, velocities, spins, masses)]...]
+end
+
+function get_potential_dict(potential::MultiBodyPotential)
     pot_dict = Dict{Symbol, MultiBodyPotential}(nameof(typeof(potential)) => potential)
-    system = MultiBodyODESystem(bodies, pot_dict)
-    return system
+    return pot_dict
 end
 
-function MultiBodyODESystem(bodies, params, potential::Vector)
+function get_potential_dict(potential::Vector)
     pot_dict = Dict{Symbol, MultiBodyPotential}()
     for pot in potential
         pot_dict[nameof(typeof(pot))] = pot
     end
-    system = MultiBodyODESystem(bodies, pot_dict)
-    return system
+    return pot_dict
 end
 
 
 function multibodysimulation(system::T where T <: MultiBodyInitialConditions, tspan,
-                             potential_params,
                              potential,
                              ode_params, args, diffeq_args)
     massbodies = bodies(system)
-    ode_system = MultiBodyODESystem(massbodies, potential_params, potential)
-    MultiBodySimulation(system, ode_system, tspan, 
-                      ode_params, args, diffeq_args)
+    pot_dict = get_potential_dict(potential)
+    
+    MultiBodySimulation(system, massbodies, pot_dict, tspan, 
+                        ode_params, args, diffeq_args)
 end
 
 
@@ -99,7 +109,7 @@ function parse_arguments!(kwargs::Dict)
                         :alg => DPRKN8(), :saveat => [], :npoints => 0,
                         :maxiters => Inf,
                         :abstol => 1.0e-10, :reltol => 1.0e-10,
-                        :potential => PureGravitationalPotential(), :potential_params => [GRAVCONST.val],
+                        :potential => PureGravitationalPotential(),
                         :callbacks => [CollisionCB()], :showprogress => false,
                         :verbose => false, :max_cpu_time => Inf
                         )
@@ -182,12 +192,10 @@ function simulation(system::MultiBodySystem; kwargs...)
     end
 
     # Setup parameters
-    ode_params = setup_params(system.time, system.binaries, particles)
+    ode_params = setup_params(particles, system.time)
    
-    simulation = multibodysimulation(system, args[:tspan], 
-                                          args[:potential_params], 
-                                          args[:potential], ode_params,
-                                          args, kwargs)
+    simulation = multibodysimulation(system, args[:tspan], args[:potential], 
+                                     ode_params, args, kwargs)
 
     return simulation
 end
@@ -212,7 +220,7 @@ julia> sim = simulation(masses, positions, velocities, multibodysystem_args = (;
 
 ```
 """
-function simulation(masses, positions, velocities; multibodysystem_args=(;), kwargs...)
+function simulation(masses, positions, velocities, spins=nothing; multibodysystem_args=(;), kwargs...)
 
     kwargs = Dict{Symbol, Any}(kwargs)
     args = parse_arguments!(kwargs)
@@ -247,14 +255,14 @@ function simulation(masses, positions, velocities; multibodysystem_args=(;), kwa
     tspan = setup_timespan(t0, t_sim, P_out)
     args[:tspan] = tspan
 
-    bodies  = SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(pos_body, vel_body, mass_body)]...]
-    
-    ode_params = setup_params(multiple_system.time, multiple_system.binaries, 
-                              multiple_system.particles)
+    spins = isnothing(spins) ? [zeros(3)*upreferred(u"kg/m^2/s") for i = 1:n] : spins
 
-    system = MultiBodyODESystem(bodies, args[:potential_params], args[:potential])
+    mass_bodies = bodies(positions, velocities, spins, masses)
+    pot_dict = get_potential_dict(kwargs[:potential])
+    ode_params = setup_params(multiple_system.particles, multiple_system.time)
+
     
-    return MultiBodySimulation(multiple_system, system, args[:tspan], ode_params, args, kwargs)
+    return MultiBodySimulation(multiple_system, mass_bodies, pot_dict, args[:tspan], ode_params, args, kwargs)
 end
 
 function setup_timespan(t0, t_sim, P_out)
@@ -271,45 +279,42 @@ function setup_timespan(t0, t_sim, P_out)
 end
 
 
-function setup_params(time, binaries, particles)
-    semi_major_axes = typeof(upreferred(1.0u"m"))[]
-    masses = typeof(upreferred(1.0u"Msun"))[]
-    luminosities = typeof(upreferred(1.0u"Lsun"))[]
-    radii = typeof(upreferred(1.0u"Rsun"))[]
-    spins = typeof(upreferred(1.0u"1/yr"))[]
+function setup_params(particles, time)
+
+    masses        = typeof(upreferred(1.0u"Msun"))[]
+    luminosities  = typeof(upreferred(1.0u"Lsun"))[]
+    radii         = typeof(upreferred(1.0u"Rsun"))[]
+    core_masses   = typeof(upreferred(1.0u"Msun"))[]
+    core_radii    = typeof(upreferred(1.0u"Rsun"))[]
+    ages          = typeof(upreferred(1.0u"yr"))[]
     stellar_types = Int[]
-    core_masses = typeof(upreferred(1.0u"Msun"))[]
-    core_radii = typeof(upreferred(1.0u"Rsun"))[]
-    ages = typeof(upreferred(1.0u"yr"))[]
+
+    spin_unit = unit(particles[1].structure.S[1])
+    spins = Vector{typeof(upreferred(1.0*spin_unit))}[]
 
     particle_keys = keys(particles) |> collect |> sort
-    for i in particle_keys
-        parent = binaries[particles[i].parent.i]
-        sma = parent.elements.a |> upreferred
-        push!(semi_major_axes, sma)
-    end
 
     for i in particle_keys
         p = particles[i]
-        mass = p.structure.m |> upreferred 
-        luminosity = p.structure.L |> upreferred
-        radius = p.structure.R |> upreferred 
-        spin = p.structure.S |> upreferred 
+        
+        mass         = p.structure.m      |> upreferred 
+        luminosity   = p.structure.L      |> upreferred
+        radius       = p.structure.R      |> upreferred 
+        spin         = p.structure.S     .|> upreferred 
+        core_mass    = p.structure.m_core |> upreferred
+        core_radius  = p.structure.R_core |> upreferred
         stellar_type = p.structure.stellar_type.index 
-        core_mass = p.structure.m_core |> upreferred
-        core_radius = p.structure.R_core |> upreferred
 
-        push!(core_masses, core_mass)
-        push!(core_radii, core_radius)
-        push!(ages, upreferred(time))
-        push!(masses, mass)
-        push!(luminosities, luminosity)
-        push!(radii, radius)
-        push!(spins, spin)
+        push!(core_masses,   core_mass)
+        push!(core_radii,    core_radius)
+        push!(ages,          upreferred(time))
+        push!(masses,        mass)
+        push!(luminosities,  luminosity)
+        push!(radii,         radius)
+        push!(spins,         spin)
         push!(stellar_types, stellar_type)
     end
 
-    semi_major_axes = MVector(semi_major_axes...)
     masses = MVector(masses...)
     luminosities = MVector(luminosities...)
     radii = MVector(radii...)
@@ -319,18 +324,22 @@ function setup_params(time, binaries, particles)
     core_radii = MVector(core_radii...)
     ages = MVector(ages...)
 
-    all_params = Dict(:a => semi_major_axes, :R => radii, 
-                      :M => masses, :S => spins,
-                      :L => luminosities,
+    all_params = Dict(:R            => radii, 
+                      :M            => masses, 
+                      :S            => spins,
+                      :L            => luminosities,
                       :stellar_type => stellar_types,
-                      :core_masses => core_masses,
-                      :core_radii => core_radii,
-                      :ages => ages)
+                      :core_masses  => core_masses,
+                      :core_radii   => core_radii,
+                      :ages         => ages)
 
-    ode_params = DefaultSimulationParams(all_params[:a], all_params[:R], 
-                                         all_params[:M], all_params[:L], 
-                                         all_params[:S], all_params[:stellar_type],
-                                         all_params[:core_masses], all_params[:core_radii], 
+    ode_params = DefaultSimulationParams(all_params[:R], 
+                                         all_params[:M], 
+                                         all_params[:L], 
+                                         all_params[:S], 
+                                         all_params[:stellar_type],
+                                         all_params[:core_masses], 
+                                         all_params[:core_radii], 
                                          all_params[:ages])
 
     return ode_params

@@ -256,7 +256,7 @@ end
     # aspect_ratio --> 1
 
     r = [res.solution.u[i].x[2][:,bodies] .* u"m" for i ∈ indices]
-    masses = get_masses(res.simulation.system)[bodies] .* u"kg"
+    masses = get_masses(res.simulation)[bodies] .* u"kg"
 
     if ref_frame == "com"
         com = zeros(eltype(r[1]), 3, length(indices))

@@ -1,4 +1,5 @@
-using LinearAlgebra, StaticArrays
+using LinearAlgebra: norm, ×
+using StaticArrays
 
 
 function centre_of_mass(positions::AbstractVector, masses::AbstractVector)
@@ -219,7 +220,7 @@ function total_energy(sol::MultiBodySolution)
 end
 
 
-function specific_orbital_energy(r, v², μ, G)
+function specific_orbital_energy(r, v², μ)
     return v²/2 - μ/r
 end
 
@@ -232,7 +233,15 @@ end
 #     htot
 # end
 
-function gravitational_radius(M; G=GRAVCONST)
+function reduced_mass(m1, m2)
+    return (m1*m2)/(m1 + m2)
+end
+
+function gravitational_radius(M::Unitful.Mass)
+    2*GRAVCONST*M/(c²*unit(c^2))
+end
+
+function gravitational_radius(M::Real)
     2*G*M/c²
 end
 
@@ -263,16 +272,15 @@ end
 Return the stellar rotation of a star with mass 'm [M⊙]' and radius 'R [R⊙]', as
 described by Hurley, Pols, & Tout 2000, eq 107-108.
 """
-function stellar_spin(m::Quantity{<:Real, mS}, R::Quantity{<:Real, RS}) where {mS, RS}
-    stellar_spin(u"Msun"(m).val, u"Rsun"(R).val)u"1/yr"
+function stellar_spin(m::Unitful.Mass, R::Unitful.Length)
+    stellar_spin(ustrip(u"Msun", m), ustrip(u"Rsun", R))*upreferred(1.0u"1/yr")
 end
+
 
 function stellar_spin(m::T, R::T) where T <: Real
     vᵣₒₜ = 330m^3.3/(15 + m^3.45)
     Ω = (45.35vᵣₒₜ/R)
 end
-
-
 
 function envelope_structure(mass::Real, radius, core_mass, core_radius, stellar_type, age, Z=0.02)
     tMS, tBGB = main_sequence_lifetime(mass, Z)
@@ -623,4 +631,89 @@ function PN1_energy(sol::MultiBodySolution)
     end
 
     return Etot
+end
+
+function deSitter_factor(binary)
+    a = binary.elements.a
+    e = binary.elements.e
+    m1, m2 = [p.mass for p in binary.children]
+    μ = reduced_mass(m1, m2)
+    n = √(G*(m1 + m2)/a^3)
+
+    c2 = c²*unit(c)^2
+    return 3G*n*(m2 + μ/3)/(2*c2*a*(1 - e^2))
+end
+
+function deSitter_spin_velocity(particle, parent_binary)
+    if particle.sibling isa BinaryIndex
+        return zeros(eltype(particle.structure.S)/oneunit(upreferred(1.0u"s")), 3)
+    end
+    
+    Ωds = deSitter_factor(parent_binary)
+
+    sibling = parent_binary.children[particle.sibling.i]
+    r1 = particle.position
+    r2 = sibling.position
+
+    v1 = particle.velocity
+    v2 = sibling.velocity
+
+    r = r2 - r1
+    v = v2 - v1
+
+    m1, m2 = particle.mass, sibling.mass
+    μ = reduced_mass(m1, m2)
+
+    L = angular_momentum(r, μ*v)
+    L̂ = L/norm(L)
+    S = particle.structure.S
+    # Ŝ = S/norm(S)
+
+    return Ωds*L̂ × S#Ŝ
+
+end
+
+function precession_vector(r1, r2, v1, v2, m1, m2)
+
+    M = m1 + m2
+    X1 = m1/M
+    X2 = m2/M
+
+    Δ = X1 - X2
+    ν = X1*X2
+
+    r̄ = r1 - r2
+    v̄ = v1 - v2
+
+    r = norm(r̄)
+    v² = norm(v̄)^2
+
+    GM = GRAVCONST*M
+    aDen = 2GM - v²*r
+    a = GM*r/aDen
+    # @show 
+    GM_a³ = GM/a^3
+    Ω = √GM_a³
+    x = (GM*Ω/c^3)^(2/3)
+
+    n̄ = r̄/r
+
+    nxv = n̄ × v̄
+    𝓁 = nxv/norm(nxv)
+
+
+    # num = (0.75 + 0.5ν - 0.75*Δ).val 
+    # num += x*(9/16 + 5/4*ν - 1/24*ν^2 + Δ*(-9/16 + 5/8*ν))
+    # num += x^2*(27/32 + 3/16*ν - 105/32*ν^2 - 1/48*ν^3 + 
+    #             Δ*(-27/32 + 39/8*ν - 5/32*ν^2))
+    # Ω₁ = c³*x^(5/2)/(G*M)*𝓁*num
+
+    Ω₁ = c^3*x^(5/2)/(G*M)*𝓁*(0.75 + 0.5ν - 0.75*Δ + 
+                              x*(9/16 + 5/4*ν - 1/24*ν^2 + Δ*(-9/16 + 5/8*ν)) +
+                              x^2*(27/32 + 3/16*ν - 105/32*ν^2 - 1/48*ν^3 + 
+                                   Δ*(-27/32 + 39/8*ν - 5/32*ν^2)
+                                  )
+                             )
+
+    return Ω₁
 end

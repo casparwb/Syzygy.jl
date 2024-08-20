@@ -1,13 +1,13 @@
 # abstract type Body end
 using StaticArrays, JLD2, Printf
+using LinearAlgebra: dot, norm, ×
 
 include("../physics/tides.jl")
 
 abstract type MultiBodyPotential end
 abstract type SimulationParams end
 
-struct DefaultSimulationParams{aType, RType, MType, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
-    a::aType # initial semi-major axes
+struct DefaultSimulationParams{RType, MType, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
     R::RType # radii
     M::MType # masses
     L::LType # luminosities
@@ -18,8 +18,7 @@ struct DefaultSimulationParams{aType, RType, MType, LType, SType, stpType, cMTyp
     ages::ageType 
 end
 
-# struct GWSimulationParams{aType, RType, MType, M2_type, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
-#     a::aType # initial semi-major axes
+# struct PNSimulationParams{RType, MType, M2_type, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
 #     R::RType # radii
 #     M::MType # masses
 #     M_squared::M2_type # masses squared
@@ -35,10 +34,7 @@ end
 struct PureGravitationalPotential{gType} <: MultiBodyPotential
     G::gType
     PureGravitationalPotential(G=upreferred(GRAVCONST).val) = new{typeof(G)}(G)
-
 end
-
-# PureGravitationalPotential() = PureGravitationalPotential(upreferred(GRAVCONST).val)
 
 struct DynamicalTidalPotential{gType <: Real, nType, fType <: Function} <: MultiBodyPotential
     G::gType # Gravitational constant
@@ -158,6 +154,14 @@ struct PNPotential{gType <: Real} <: MultiBodyPotential
     PNPotential(G=upreferred(GRAVCONST).val) = new{typeof(G)}(G)
 end
 
+"""
+    SpinPrecessionPotential{gType <: Real}
+
+Potential for spin precession.
+"""
+struct SpinPrecessionPotential <: MultiBodyPotential end
+
+
 
 """
     pure_gravitational_acceleration!(dv,, rs,, params::SimulationParams,, i::Integer,, n::Integer,, potential::PureGravitationalPotential)
@@ -172,16 +176,15 @@ function pure_gravitational_acceleration!(dv,
                                           potential::PureGravitationalPotential)
     accel = SA[0.0, 0.0, 0.0];
     ri = @SVector [rs[1, i], rs[2, i], rs[3, i]]
-   @inbounds for j = 1:n
+    @inbounds for j = 1:n
         if j != i
             m_num::Float64 = ustrip(params.M[j])
             rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
             rij = ri - rj
-            accel -= potential.G * m_num * rij / (norm(rij)^3)
+            accel -= G * m_num * rij / (norm(rij)^3)
         end
     end
     @. dv += accel
-
 end
 
 
@@ -414,7 +417,7 @@ function PN1_acceleration!(dv,
 
     v₁² = v₁^2
 
-    G = potential.G 
+     
     
     m₁ = params.M[i].val
     accel = @SVector [0.0, 0.0, 0.0]
@@ -474,7 +477,7 @@ function PN2_acceleration!(dv,
 
     v₁² = v₁^2
 
-    G = potential.G 
+     
     
     m₁ = params.M[i].val
     accel = @SVector [0.0, 0.0, 0.0]
@@ -623,7 +626,7 @@ function PN3_acceleration!(dv,
 
     v₁² = v₁^2
 
-    G = potential.G 
+     
     
     m₁ = params.M[i].val
     accel = @SVector [0.0, 0.0, 0.0]
@@ -741,7 +744,7 @@ function PN3_5_acceleration!(dv,
 
     v₁² = v₁^2
 
-    G = potential.G 
+     
     
     m₁ = params.M[i].val
     accel = @SVector [0.0, 0.0, 0.0]
@@ -846,8 +849,6 @@ function PN1_to_3_5_acceleration!(dv,
     v₁ = norm(v̄₁)
 
     v₁² = v₁^2
-
-    G = potential.G 
     
     m₁ = params.M[i].val
     accel = @SVector [0.0, 0.0, 0.0]
@@ -997,4 +998,298 @@ function PN1_to_3_5_acceleration!(dv,
     end
     # println(accel)
     @. dv += accel
+end
+
+# function deSitter_precession!(dv,
+#                                dvs,
+#                                rs,
+#                                vs,
+#                                params::SimulationParams,
+#                                i::Int,
+#                                n::Int,
+#                                potential::deSitterPotential)
+
+#     ā₁  = @SVector [dvs[1, i], dvs[2, i], dvs[3, i]]
+#     r̄₁  = @SVector [rs[1, i], rs[2, i], rs[3, i]]
+#     v̄₁  = @SVector [vs[1, i], vs[2, i], vs[3, i]]
+#     S̄₁  = @SVector [rs[4, i], rs[5, i], rs[6, i]]
+#     dS̄₁ = @SVector [vs[4, i], vs[5, i], vs[6, i]]
+#     v₁  = norm(v̄₁)
+
+#     v₁² = v₁^2
+    
+#     m₁ = params.M[i].val
+#     accel = @SVector [0.0, 0.0, 0.0]
+    
+#     # i = 1, j = 2
+#     # add @fastmath?
+#     @inbounds for j = 1:n
+#         if j != i   
+#             m₂ = params.M[j].val
+#             μ = reduced_mass(m₁, m₂)
+
+#             ā₂ = @SVector [dvs[1, j], dvs[2, j], dvs[3, j]]
+#             r̄₂ = @SVector [rs[1, j], rs[2, j], rs[3, j]]
+#             v̄₂ = @SVector [vs[1, j], vs[2, j], vs[3, j]]
+#             v₂ = norm(v̄₂)
+
+#             ā = ā₁ - ā₂
+#             r̄ = r̄₁ - r̄₂
+#             v̄ = v̄₁ - v̄₂
+
+#             r = norm(r̄) # r₁₂
+#             # v = norm(v̄) # v₁₂
+
+#             n = r̄/r
+
+#             L̄ = angular_momentum(r̄, μ*v̄)
+#             L = norm(L̄)
+#             L̂ = L̄/L
+
+#             τ = μ/L*(r̄ × ā)
+
+#             # Ωds = 3G*n*(m₂ + μ/3)/(2*c²*a*(1 - e^2))
+
+#             accel += (S̄₁ × τ) + (L̂ × dS̄₁)
+#         end 
+
+#     end
+
+#     @. dv = accel
+# end
+
+function spin_precession!(dv,
+                          dvs,
+                          rs,
+                          vs,
+                          params::SimulationParams,
+                          i::Int,
+                          n::Int,
+                          potential::SpinPrecessionPotential)
+
+    ā₁  = @SVector [dvs[1, i], dvs[2, i], dvs[3, i]]
+    r̄₁  = @SVector [rs[1, i], rs[2, i], rs[3, i]]
+    v̄₁  = @SVector [vs[1, i], vs[2, i], vs[3, i]]
+    S̄₁  = @SVector [rs[4, i], rs[5, i], rs[6, i]]
+    dS̄₁ = @SVector [vs[4, i], vs[5, i], vs[6, i]]
+    v₁  = norm(v̄₁)
+
+    v₁² = v₁^2
+    
+    m₁ = params.M[i].val
+    accel = @SVector [0.0, 0.0, 0.0]
+    
+    # i = 1, j = 2
+    # add @fastmath?
+    @inbounds for j = 1:n
+        if j != i   
+            m₂ = params.M[j].val
+
+            ā₂ = @SVector [dvs[1, j], dvs[2, j], dvs[3, j]]
+            r̄₂ = @SVector [rs[1,  j], rs[2,  j], rs[3,  j]]
+            v̄₂ = @SVector [vs[1,  j], vs[2,  j], vs[3,  j]]
+            # v₂ = norm(v̄₂)
+            ā = ā₁ - ā₂
+            r̄ = r̄₁ - r̄₂
+            v̄ = v̄₁ - v̄₂
+            rxv = r̄ × v̄
+
+            rv = dot(r̄, v̄)
+            av = dot(ā, v̄)
+
+            r = norm(r̄) # r₁₂
+            v = norm(v̄) # v₁₂
+            v² = v*v
+            v³ = v²*v
+
+            n = r̄/r
+
+            M = m₁ + m₂
+            X1 = m₁/M
+            X2 = m₂/M
+
+            GM = G*M
+
+            Δ = X1 - X2
+            ν = X1*X2
+            ν² = ν*ν
+            ν³ = ν²*ν
+
+            aDen = 2GM - v²*r
+            a = GM*r/aDen
+            GM_a³ = GM/a^3
+            Ω = √GM_a³
+            x = (GM*Ω*c⁻³)^(2/3)
+
+            n̄ = r̄/r
+
+            nxv = n̄ × v̄
+            nxv_norm = norm(nxv)
+            𝓁 = nxv/nxv_norm
+
+            dnxv_dt = 1/r*(v̄ - rv/r^2*r̄)
+            dnxv_norm_dt = 1/r*dot((-2rv/r^2*rxv + (r̄ × (2*ā))), rxv)
+
+            d𝓁_dt = (nxv_norm*dnxv_dt - nxv*dnxv_norm_dt)/nxv_norm^2
+
+            da_dt = GM/aDen*(rv/r + (2av*r^2 + rv*v²)/aDen)
+
+            # dx_dt = GM^(2/3)/a*c⁻²*(GM/a^3)^(1/3)*da_dt
+            dx_dt = GM/a^2*c⁻²*da_dt
+
+            
+            dΩ₁_dt = c³*((Δ*(5*ν/8 + -9/16) - ν^2/24 + 5*ν/4 + 9/16)*dx_dt + 
+                          2*(Δ*(-5*ν^2/32 + 39*ν/8 + -27/32) - 
+                             ν^3/48 - 105*ν^2/32 + 3*ν/16 + 
+                             27/32)*x*dx_dt)*x^5/2/(GM) + 
+                          5*c³*(-3*Δ/4 + ν/2 + 
+                                 (Δ*(5*ν/8 + -9/16) - 
+                                  ν^2/24 + 5*ν/4 + 9/16)*x + 
+                                 (Δ*(-5*ν^2/32 + 39*ν/8 + -27/32) - 
+                                  ν^3/48 - 105*ν^2/32 + 3*ν/16 + 27/32)*x^2 + 
+                                 3/4)*x^3/2*dx_dt/(2*GM)
+
+            # num = c⁴*(1.875*Δ - 1.25*ν + -1.875) + 
+            #       c²*(GM)^(2/3)*GM_a³^(1/3)*(-3.5*Δ*(0.625*ν + -0.5625) + 
+            #       0.14583333333333331*ν² - 4.375*ν + -1.96875)
+            # num += (GM)^(4/3)*GM_a³^(2/3)*(2.0*Δ*(0.15625*ν² - 4.875*ν + 0.84375) + 
+            #        0.041666666666666664*ν³ + 6.5625*ν² - 0.375*ν + -1.6875)
+            # num += (GM)^(4/3)*GM_a³^(2/3)*(2.5*Δ*(0.15625*ν² - 4.875*ν + 0.84375) + 
+            #         0.052083333333333329*ν³ + 8.203125*ν² - 0.46875*ν -2.109375)
+            # num *= ((GM)^(2/3)*GM_a³^(1/3)/c²)^2.5
+            # dΩ₁_dt = num*da_dt/(GM*c.val*a)
+
+            # dΩ₁_dt2 = ((GM)^(2/3)*GM_a³^(1/3)/c²)^2.5*(c⁴*(1.875*Δ - 1.25*ν + -1.875) + 
+            #          c²*(GM)^(2/3)*GM_a³^(1/3)*(-3.5*Δ*(0.625*ν + -0.5625) + 
+            #          0.14583333333333331*ν² - 4.375*ν + -1.96875) + 
+            #          (GM)^(4/3)*GM_a³^(2/3)*(2.0*Δ*(0.15625*ν² - 4.875*ν + 0.84375) + 
+            #          0.041666666666666664*ν³ + 6.5625*ν² - 0.375*ν + -1.6875) + 
+            #          (GM)^(4/3)*GM_a³^(2/3)*(2.5*Δ*(0.15625*ν² - 4.875*ν + 0.84375) + 
+            #          0.052083333333333329*ν³ + 8.203125*ν² - 0.46875*ν -2.109375))*da_dt/(GM*c*a)
+                     
+            # println(dΩ₁_dt)#, " ", dΩ₁_dt2)
+
+            d𝓁xS̄₁_dt = (S̄₁ × d𝓁_dt) + (𝓁 × dS̄₁)
+
+            num = 0.75 + 0.5ν - 0.75*Δ 
+            num += x*(9/16 + 5/4*ν - 1/24*ν^2 + Δ*(-9/16 + 5/8*ν))
+            num += x^2*(27/32 + 3/16*ν - 105/32*ν^2 - 1/48*ν^3 + 
+                        Δ*(-27/32 + 39/8*ν - 5/32*ν^2))
+            Ω₁ = c³*x^(5/2)/(G*M)*𝓁*num
+            # println(𝓁 × S̄₁)
+            accel += dΩ₁_dt .* (𝓁 × S̄₁) .+ Ω₁ .* d𝓁xS̄₁_dt
+        end 
+
+    end
+
+    @. dv = accel
+end
+
+function spin_precession_COM!(dv,
+                          dvs,
+                          rs,
+                          vs,
+                          params::SimulationParams,
+                          i::Int,
+                          n::Int,
+                          potential::SpinPrecessionPotential)
+
+    ā₁  = @SVector [dvs[1, i], dvs[2, i], dvs[3, i]]
+    r̄₁  = @SVector [rs[1, i], rs[2, i], rs[3, i]]
+    v̄₁  = @SVector [vs[1, i], vs[2, i], vs[3, i]]
+    S̄₁  = @SVector [rs[4, i], rs[5, i], rs[6, i]]
+    dS̄₁ = @SVector [vs[4, i], vs[5, i], vs[6, i]]
+    v₁  = norm(v̄₁)
+
+    v₁² = v₁^2
+    
+    m₁ = params.M[i].val
+    accel = @SVector [0.0, 0.0, 0.0]
+    
+    # i = 1, j = 2
+    # add @fastmath?
+    @inbounds for j = 1:n
+        if j != i   
+            m₂ = params.M[j].val
+
+            ā₂ = @SVector [dvs[1, j], dvs[2, j], dvs[3, j]]
+            r̄₂ = @SVector [rs[1,  j], rs[2,  j], rs[3,  j]]
+            v̄₂ = @SVector [vs[1,  j], vs[2,  j], vs[3,  j]]
+            # v₂ = norm(v̄₂)
+            ā = ā₁ - ā₂
+            r̄ = r̄₁ - r̄₂
+            v̄ = v̄₁ - v̄₂
+            # rxv = r̄ × v̄
+
+            rv = dot(r̄, v̄)
+            av = dot(ā, v̄)
+
+            r = norm(r̄) # r₁₂
+            v = norm(v̄) # v₁₂
+            v² = v*v
+            v³ = v²*v
+
+            n = r̄/r
+
+            M = m₁ + m₂
+            X1 = m₁/M
+            X2 = m₂/M
+
+            GM = G*M
+
+            Δ = X1 - X2
+            ν = X1*X2
+            ν² = ν*ν
+            ν³ = ν²*ν
+
+            n̄ = r̄/r
+
+            nxv = n̄ × v̄
+            nv = dot(n̄, v̄)
+            nxv_norm = norm(nxv)
+
+            # G² G³
+            dnxv_dt = 1/r*(v̄ - rv/r^2*r̄)
+
+            # dΩ_dt =  -4*G³*M^3*(ν^3/2 - 9*ν^2/8 - 9*ν/4 + (7/16) + dm*(-ν^2/8 - ν/8 + (-7/16))/M)*dr_dt/r^5 - 
+            #          3*G²*M^2*((-9*ν^3/8 + 75*ν^2/32 + 27*ν/4 + (3/16) + dm*(35*ν^2/32 + 9*ν/8 + (-3/16))/M)*v^2 + 
+            #                    (13*ν^3/4 - 159*ν^2/16 - 525*ν/32 + (1/4) + dm*(-87*ν^2/16 - 75*ν/32 + (-1/4))/M)*nv^2)*dr_dt/r^4 + 
+            #          G²*M^2*(2*(-9*ν^3/8 + 75*ν^2/32 + 27*ν/4 + (3/16) + dm*(35*ν^2/32 + 9*ν/8 + (-3/16))/M)*v*dv_dt + 2*(13*ν^3/4 - 
+            #                     159*ν^2/16 - 525*ν/32 + (1/4) + dm*(-87*ν^2/16 - 75*ν/32 + (-1/4))/M)*nv*dnv_dt)/r^3 - 
+            #          2*GM*((-45*ν^3/16 + 291*ν^2/32 - 3*ν + dm*(177*ν^2/32 - 3*ν)/M)*nv^2*v^2 + 
+            #                (15*ν^3/16 - 195*ν^2/32 + 15*ν/8 + dm*(-75*ν^2/32 + 15*ν/8)/M)*nv^4 +
+            #                (17*ν^3/16 - 31*ν^2/8 + 19*ν/16 + (1/32) + dm*(-11*ν^2/8 + 3*ν/4 + (-1/32))/M)*v^4)*dr_dt/r^3 + 
+            #          GM*(2*(-45*ν^3/16 + 291*ν^2/32 - 3*ν + dm*(177*ν^2/32 - 3*ν)/M)*nv^2*v*dv_dt + 
+            #              2*(-45*ν^3/16 + 291*ν^2/32 - 3*ν + dm*(177*ν^2/32 - 3*ν)/M)*nv*v^2*dnv_dt + 
+            #              4*(15*ν^3/16 - 195*ν^2/32 + 15*ν/8 + dm*(-75*ν^2/32 + 15*ν/8)/M)*nv^3*dnv_dt + 
+            #              4*(17*ν^3/16 - 31*ν^2/8 + 19*ν/16 + (1/32) + dm*(-11*ν^2/8 + 3*ν/4 + (-1/32))/M)*v^3*dv_dt)/r^2 - 
+            #           2*GM*(ν/2 + (3/4) - 3*dm/(4*M))*dr_dt/(c^2*r^3) + (-3*G²*M^2*(ν^2/2 - 3*ν/8 + (-1/4) + dm*((1/4) - ν/8)/M)*dr_dt/r^4 + 
+            #           2*GM*(-3*ν/4 - 3*dm*ν/(2*M))*nv*dnv_dt/r^2 - 2*GM*(ν^2*(-3*ν^2/8 + 11*ν/8 + (1/16) + dm*(ν/2 + (-1/16))/M) + 
+            #           (-3*ν/4 - 3*dm*ν/(2*M))*nv^2)*dr_dt/r^3)/c^4
+
+            dΩ_dt = -2*GM*(ν/2 + (3/4) - 3*dm/(4*M))*dr_dt/(c^2*r^3) + 
+                    (-3*G^2*M^2*(ν²/2 - 3*ν/8 + (-1/4) + dm*((1/4) - ν/8)/M)*dr_dt/r^4 + 
+                     2*GM*(-3*ν/4 - 3*dm*ν/(2*M))*nv*dnv_dt/r^2 - 
+                     2*GM*(ν²*(-3*ν²/8 + 11*ν/8 + (1/16) + dm*(ν/2 + (-1/16))/M) + 
+                     (-3*ν/4 - 3*dm*ν/(2*M))*nv^2)*dr_dt/r^3)/c^4 + 
+                    (-4*G^3*M^3*(ν³/2 - 9*ν²/8 - 9*ν/4 + (7/16) + dm*(-ν²/8 - ν/8 + (-7/16))/M)*dr_dt/r^5 - 
+                    3*G^2*M^2*((-9*ν³/8 + 75*ν²/32 + 27*ν/4 + (3/16) + dm*(35*ν²/32 + 9*ν/8 + (-3/16))/M)*v^2 + 
+                               (13*ν³/4 - 159*ν²/16 - 525*ν/32 + (1/4) + dm*(-87*ν²/16 - 75*ν/32 + 
+                               (-1/4))/M)*nv^2)*dr_dt/r^4 + 
+                    G^2*M^2*(2*(-9*ν³/8 + 75*ν²/32 + 27*ν/4 + (3/16) + dm*(35*ν²/32 + 9*ν/8 + (-3/16))/M)*v*dv_dt + 
+                             2*(13*ν³/4 - 159*ν²/16 - 525*ν/32 + (1/4) + dm*(-87*ν²/16 - 75*ν/32 + (-1/4))/M)*nv*dnv_dt)/r^3 - 
+                    2*GM*((-45*ν³/16 + 291*ν²/32 - 3*ν + dm*(177*ν²/32 - 3*ν)/M)*nv^2*v^2 + (15*ν³/16 - 195*ν²/32 + 15*ν/8 + 
+                          dm*(-75*ν²/32 + 15*ν/8)/M)*nv^4 + 
+                          (17*ν³/16 - 31*ν²/8 + 19*ν/16 + (1/32) + dm*(-11*ν²/8 + 3*ν/4 + (-1/32))/M)*v^4)*dr_dt/r^3 + 
+                    GM*(2*(-45*ν³/16 + 291*ν²/32 - 3*ν + dm*(177*ν²/32 - 3*ν)/M)*nv^2*v*dv_dt + 
+                         2*(-45*ν³/16 + 291*ν²/32 - 3*ν + dm*(177*ν²/32 - 3*ν)/M)*nv*v^2*dnv_dt + 
+                         4*(15*ν³/16 - 195*ν²/32 + 15*ν/8 + dm*(-75*ν²/32 + 15*ν/8)/M)*nv^3*dnv_dt + 
+                         4*(17*ν³/16 - 31*ν²/8 + 19*ν/16 + (1/32) + dm*(-11*ν²/8 + 3*ν/4 + (-1/32))/M)*v^3*dv_dt)/r^2)/c^6
+
+            accel += nxv*dΩ_dt + Ω*dnxv_dt
+        end 
+
+    end
+
+    @. dv = accel
 end

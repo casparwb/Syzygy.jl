@@ -1,4 +1,4 @@
-using LinearAlgebra
+using LinearAlgebra: norm
 
 
 
@@ -48,7 +48,7 @@ julia> quadruple = multibodysystem([1.0, 1.0, 1.0, 1.0]u"Msun", hierarchy=[4, 2,
 
 ```
 """
-function multibodysystem(masses::Vector{<:Quantity}; R      = 1.0u"Rsun", 
+function multibodysystem(masses::Vector{<:Unitful.Mass}; R  = 1.0u"Rsun", 
                                                      S      = 0.0u"1/yr", 
                                                      L      = 1.0u"Lsun", 
                                                      R_core = unit(R[1])*(0.0),
@@ -69,12 +69,19 @@ function multibodysystem(masses::Vector{<:Quantity}; R      = 1.0u"Rsun",
     n_bins = n_bodies - 1
 
     R = ifelse(R isa Number, repeat([R], n_bodies), R)
-    S = ifelse(S isa Number, repeat([S], n_bodies), S)
     L = ifelse(L isa Number, repeat([L], n_bodies), L)
     R_core = ifelse(R_core isa Number, repeat([R_core], n_bodies), R_core)
     m_core = ifelse(m_core isa Number, repeat([m_core], n_bodies), m_core)
     R_env  = ifelse(R_env  isa Number, repeat([R_env ], n_bodies), R_env )
     m_env  = ifelse(m_env  isa Number, repeat([m_env ], n_bodies), m_env )
+
+    S = if S isa Number #ifelse(S isa Number, repeat([S], n_bodies), S)
+        Sv = [[S, zero(S), zero(S)] for i in 1:n_bodies]
+    elseif S isa Vector{<:Number}
+        Sv = [[ss, zero(ss), zero(ss)] for ss in S]
+    else
+        S
+    end
 
     a = ifelse(a isa Number, repeat([a], n_bins), a)
     e = ifelse(e isa Number, repeat([e], n_bins), e)
@@ -83,25 +90,26 @@ function multibodysystem(masses::Vector{<:Quantity}; R      = 1.0u"Rsun",
     Ω = ifelse(Ω isa Number, repeat([Ω], n_bins), Ω)
     ν = ifelse(ν isa Number, repeat([ν], n_bins), ν)
 
-    if any(x -> x < zero(x), S)
-        idx = findall(x -> x < zero(x), S)
-        S[idx] .= stellar_spin.(masses[idx], R[idx])
-    end
+    # if any(x -> x < zero(x), S)
+    #     idx = findall(x -> x < zero(x), S)
+    #     S[idx] .= stellar_spin.(masses[idx], R[idx])
+    # end
+
     stellar_types = ifelse(stellar_types isa Number, repeat([stellar_types], n_bodies), stellar_types)
     multibodysystem(masses, R, S, L, stellar_types, R_core, m_core, R_env, m_env, a, e, ω, i, Ω, ν, hierarchy, time, verbose=verbose)
 end
 
 
-function multibodysystem(masses::Vector{<:Quantity}, 
-                         R::Vector{<:Quantity}, 
-                         S::Vector{<:Quantity}, 
+function multibodysystem(masses::Vector{<:Unitful.Mass}, 
+                         R::Vector{<:Unitful.Length}, 
+                         S::Vector{<:Union{<:Vector{<:Quantity}, <:Quantity}}, 
                          L::Vector{<:Quantity}, 
                          stellar_types::Vector{Int}, 
-                         R_core::Vector{<:Quantity}, 
-                         m_core::Vector{<:Quantity}, 
-                         R_env::Vector{<:Quantity}, 
-                         m_env::Vector{<:Quantity},
-                         a::Vector{<:Quantity}, e::Vector{<:Real},     ω::Vector{<:Quantity}, 
+                         R_core::Vector{<:Unitful.Length}, 
+                         m_core::Vector{<:Unitful.Mass}, 
+                         R_env::Vector{<:Unitful.Length}, 
+                         m_env::Vector{<:Unitful.Mass},
+                         a::Vector{<:Unitful.Length}, e::Vector{<:Real}, ω::Vector{<:Quantity}, 
                          i::Vector{<:Quantity}, Ω::Vector{<:Quantity}, ν::Vector{<:Quantity}, 
                          hierarchy::Vector{Int}, time::Quantity; 
                          verbose::Bool = false)
@@ -131,6 +139,43 @@ function multibodysystem(masses::Vector{<:Quantity},
     multibodysystem(masses, hierarchy, elements, structures, time, verbose=verbose)
 end
 
+# function multibodysystem(masses::Vector{<:Unitful.Mass}, 
+#                          R::Vector{<:Unitful.Length}, 
+#                          S::Vector{Vector{<:Quantity}}, 
+#                          L::Vector{<:Quantity}, 
+#                          stellar_types::Vector{Int}, 
+#                          R_core::Vector{<:Unitful.Length}, 
+#                          m_core::Vector{<:Unitful.Mass}, 
+#                          R_env::Vector{<:Unitful.Length}, 
+#                          m_env::Vector{<:Unitful.Mass},
+#                          a::Vector{<:Unitful.Length}, e::Vector{<:Real}, ω::Vector{<:Quantity}, 
+#                          i::Vector{<:Quantity}, Ω::Vector{<:Quantity}, ν::Vector{<:Quantity}, 
+#                          hierarchy::Vector{Int}, time::Quantity; 
+#                          verbose::Bool = false)
+
+#     n_bins = sum(hierarchy[2:end])
+#     n_particles = length(masses)
+    
+#     @assert length(masses) == length(S) == length(L) == length(stellar_types) "Must give structural property for each particles."
+#     @assert n_bins == n_particles - 1 "Number of binary elements must equal N particles - 1."
+
+#     elements = OrbitalElements[]
+#     for idx = 1:n_bins
+#         push!(elements, OrbitalElements(a[idx], 0.0u"d", e[idx], ω[idx], i[idx], Ω[idx], ν[idx]))
+#     end
+
+#     # if unit(masses)[1] != unit()
+
+#     structures = StellarStructure[]
+#     for idx = 1:n_particles
+#         stellar_type = stellar_type_from_index(stellar_types[idx])
+#         # push!(structures, StellarStructure(stellar_type, masses[idx], R[idx], S[idx], L[idx]))
+#         push!(structures, StellarStructure(stellar_type, masses[idx], R[idx], S[idx], L[idx],
+#                                             R_core[idx], m_core[idx], R_env[idx], m_env[idx]))
+#     end
+
+#     multibodysystem(masses, hierarchy, elements, structures, time, verbose=verbose)
+# end
 
 
 function multibodysystem(masses::Vector, hierarchy::Vector, 

@@ -6,6 +6,51 @@
 
 using DiffEqCallbacks: ManifoldProjection
 
+abstract type AbstractSyzygyCallback end
+
+struct CollisionCB{T}         <: AbstractSyzygyCallback 
+    check_every::Int
+    grav_rad_multiple::T
+    CollisionCB(check_every=1, grav_rad_multiple=1000) = new{typeof(grav_rad_multiple)}(check_every)
+end
+
+struct EscapeCB{T}         <: AbstractSyzygyCallback 
+    max_a_factor::T
+    check_every::Int
+    EscapeCB(max_a_factor=100, check_every=100) = new{typeof(max_a_factor)}(max_a_factor, check_every)
+end
+
+struct RocheLobeOverflowCB <: AbstractSyzygyCallback 
+    check_every::Int
+    RocheLobeOverflowCB(check_every=1) = new(check_every)
+end
+
+struct CPUTimeCB           <: AbstractSyzygyCallback 
+    check_every::Int
+    CPUTimeCB(check_every=1) = new(check_every)
+end
+
+struct CentreOfMassCB      <: AbstractSyzygyCallback 
+    check_every::Int
+    CentreOfMassCB(check_every=1) = new(check_every)
+end
+
+struct HubbleTimeCB        <: AbstractSyzygyCallback 
+    check_every::Int
+    HubbleTimeCB(check_every=1) = new(check_every)
+end
+
+struct DemocraticCheckCB   <: AbstractSyzygyCallback 
+    check_every::Int
+    DemocraticCheckCB(check_every=1) = new(check_every)
+end
+
+struct IonizationCB{T}     <: AbstractSyzygyCallback 
+    check_every::Int
+    max_a_factor::T
+    IonizationCB(max_a_factor=100, check_every=100) = new{typeof(max_a_factor)}(max_a_factor, check_every)
+end
+
 function setup_callbacks(conditions, system, p, retcodes, G, args; start_time=0)
     cbs = []
 
@@ -397,7 +442,7 @@ function rlof_callback_hierarchical!(integrator, retcode, particles, binaries, n
         R_roche = roche_radius(d, M₁/M₂)
         rlof = isless(R_roche, ustrip(integrator.p.R[i]))
         if rlof
-            retcode[rcode] = upreferred(1.0u"s")*integrator.t
+            retcode[rcode] = upreferred(u"s")*integrator.t
         end
     end
 end
@@ -479,7 +524,7 @@ function max_cpu_time_callback!(integrator, retcode, start_time, max_cpu_time)
 end
 
 function hubble_time_callback!(integrator, retcode)
-    if upreferred(1.0u"s")*integrator.t > 13.8u"Gyr"
+    if upreferred(u"s")*integrator.t > 13.8u"Gyr"
         retcode[:HubbleTime] = true
         terminate!(integrator)
     end

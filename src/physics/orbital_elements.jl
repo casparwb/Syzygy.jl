@@ -12,7 +12,8 @@ velocity magnitude squared.
 ```
 """
 function semi_major_axis(d, v², M, G)
-    G*M*d/(2G*M - d*v²)
+    GM = G*M
+    GM*d/(2GM - d*v²)
 end
 
 semi_major_axis(d, v², M) = semi_major_axis(d, v², M, GRAVCONST)
