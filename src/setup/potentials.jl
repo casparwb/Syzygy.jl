@@ -184,30 +184,47 @@ struct SpinPrecessionPotential <: MultiBodyPotential end
 
 Acceleration function from gravitational acceleration.
 """
-function pure_gravitational_acceleration!(dv,
-                                          rs,
-                                          params::SimulationParams,
-                                          i::Int,
-                                          n::Int,
-                                          potential::PureGravitationalPotential)
-    accel = SA[0.0, 0.0, 0.0];
-    ri = @SVector [rs[1, i], rs[2, i], rs[3, i]]
-    @inbounds for j = 1:n
-        if j != i
-            mj = params.M[j]
-            rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
-            rij = ri - rj
-            accel -= G * mj * rij / norm(rij)^3
-        end
-    end
-    @. dv += accel
-end
+# function pure_gravitational_acceleration!(dv,
+#                                           rs,
+#                                           params::SimulationParams,
+#                                           i::Int,
+#                                           n::Int,
+#                                           potential::PureGravitationalPotential)
+#     accel = SA[0.0, 0.0, 0.0];
+#     ri = @SVector [rs[1, i], rs[2, i], rs[3, i]]
+#     @inbounds for j = 1:n
+#         if j != i
+#             m_num::Float64 = ustrip(params.M[j])
+#             rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
+#             rij = ri - rj
+#             accel -= G * m_num * rij / (norm(rij)^3)
+#         end
+#     end
+#     @. dv += accel
+# end
 
-function pure_gravitational_acceleration!(dv, nij, r, mj,
-                                          potential::PureGravitationalPotential2)
-    # accel = SA[0.0, 0.0, 0.0];
-    accel = G * mj * nij/r^2
-    dv .+= accel
+function pure_gravitational_acceleration!(dvi,
+                                          dvj,
+                                          rs,
+                                          pair::Tuple{Int, Int},
+                                          params::SimulationParams)
+    
+                                          i, j = pair
+    ri = @SVector [rs[1, i], rs[2, i], rs[3, i]]
+    rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
+
+    rij = ri - rj
+    r = norm(rij)
+    nij = rij/r
+
+    mi = params.M[i]
+    mj = params.M[j]
+    G_r² = -G/r^2
+    ai = G_r²*mj*nij
+    aj = G_r²*mi*(-nij)
+
+    dvi .+= ai
+    dvj .+= aj
 end
 
 
@@ -426,154 +443,169 @@ function equilibrium_tidal_drag_force!(dv,
     @. dv += accel
 end
 
-function PN1_acceleration!(dv,
+function PN1_acceleration!(dvi, 
+                           dvj,
                            rs,
                            vs,
-                           params::SimulationParams,
-                           i::Int,
-                           n::Int,
-                           potential::PN1Potential)
+                           pair::Tuple{Int, Int},
+                           params::SimulationParams)
                            
+    i, j = pair # i = 1, j = 2
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     v̄₁ = @SVector [vs[1, i], vs[2, i], vs[3, i]]
     v₁ = norm(v̄₁)
 
+    r̄₂ = @SVector [rs[1, j], rs[2, j], rs[3, j]]
+    v̄₂ = @SVector [vs[1, j], vs[2, j], vs[3, j]]
+    v₂ = norm(v̄₂)
+    
+    m₁ = params.M[i]
+    m₂ = params.M[j]
+        
     v₁² = v₁^2
+    v₂² = v₂^2
 
-     
+    r̄ = r̄₁ - r̄₂
+    v̄ = v̄₁ - v̄₂
+
+    r = norm(r̄) # r₁₂
+
+    r⁻¹ = 1/r
+
+    n = r̄*r⁻¹
+
+    v₁v₂ = dot(v̄₁, v̄₂) 
+    nv₁ = dot(n, v̄₁)
+    nv₂ = dot(n, v̄₂)
+    nv₂² = nv₂^2
+
+    G_r = G*r⁻¹
+    G_r² = G_r*r⁻¹
+
+    # PN-1 acceleration
+    ai = @. n*(G_r²*m₂)*(5*G_r*m₁ + 4*G_r*m₂ + 3/2*nv₂² - v₁² + 4*v₁v₂ - 2*v₂²) +
+            (4*nv₁ - 3*nv₂)*v̄
+
+    aj = @. (-n)*(G_r²*m₁)*(5*G_r*m₂ + 4*G_r*m₁ + 3/2*nv₂² - v₁² + 4*v₁v₂ - 2*v₂²) +
+            (4*(-nv₁) - 3*(-nv₂))*(-v̄)
     
-    m₁ = params.M[i].val
-    accel = @SVector [0.0, 0.0, 0.0]
-    
-    # i = 1, j = 2
-    # add @fastmath?
-    @inbounds for j = 1:n
-        if j != i   
-            r̄₂ = @SVector [rs[1, j], rs[2, j], rs[3, j]]
-            v̄₂ = @SVector [vs[1, j], vs[2, j], vs[3, j]]
-            v₂ = norm(v̄₂)
-
-            v₂² = v₂^2
-
-            r̄ = r̄₁ - r̄₂
-            v̄ = v̄₁ - v̄₂
-
-            r = norm(r̄) # r₁₂
-
-            r⁻¹ = 1/r
-
-            n = r̄*r⁻¹
-
-            v₁v₂ = dot(v̄₁, v̄₂) 
-            nv₁ = dot(n, v̄₁)
-            nv₂ = dot(n, v̄₂)
-            nv₂² = nv₂^2
-
-            m₂ = params.M[j].val
-            G_r = G*r⁻¹
-            G_r² = G_r*r⁻¹
-      
-            # PN-1 acceleration
-            a = @. n*(G_r²*m₂)*(5*G_r*m₁ + 4*G_r*m₂ + 3/2*nv₂² - v₁² + 4*v₁v₂ - 2*v₂²) +
-                    (4*nv₁ - 3*nv₂)*v̄
-
-            accel += a
-        end
-
-    end
-    # println(accel)
-    @. dv += accel * c⁻²
+    dvi .= ai*c⁻²
+    dvj .= aj*c⁻²
+    nothing        
 end
 
 
-function PN2_acceleration!(dv,
-                            rs,
-                            vs,
-                            params::SimulationParams,
-                            i::Int,
-                            n::Int,
-                            potential::PN2Potential)
+function PN2_acceleration!(dvi, 
+                           dvj,
+                           rs,
+                           vs,
+                           pair::Tuple{Int, Int},
+                           params::SimulationParams)
                            
+    i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     v̄₁ = @SVector [vs[1, i], vs[2, i], vs[3, i]]
     v₁ = norm(v̄₁)
-
     v₁² = v₁^2
 
-     
+    r̄₂ = @SVector [rs[1, j], rs[2, j], rs[3, j]]
+    v̄₂ = @SVector [vs[1, j], vs[2, j], vs[3, j]]
+    v₂ = norm(v̄₂)
+    v₂² = v₂^2
+
     
-    m₁ = params.M[i].val
+    m₁ = params.M[i]
+    m₂ = params.M[j]
+
     accel = @SVector [0.0, 0.0, 0.0]
     
     # i = 1, j = 2
     # add @fastmath?
-    @inbounds for j = 1:n
-        if j != i   
-            r̄₂ = @SVector [rs[1, j], rs[2, j], rs[3, j]]
-            v̄₂ = @SVector [vs[1, j], vs[2, j], vs[3, j]]
-            v₂ = norm(v̄₂)
 
-            v₂² = v₂^2
+    r̄ = r̄₁ - r̄₂
+    v̄ = v̄₁ - v̄₂
 
-            r̄ = r̄₁ - r̄₂
-            v̄ = v̄₁ - v̄₂
+    r = norm(r̄) # r₁₂
 
-            r = norm(r̄) # r₁₂
+    r⁻¹ = 1/r
 
-            r⁻¹ = 1/r
+    r² = r^2
+    r³ = r²*r
 
-            r² = r^2
-            r³ = r²*r
+    n = r̄*r⁻¹
 
-            n = r̄*r⁻¹
+    v₁v₂ = dot(v̄₁, v̄₂) 
+    nv₁ = dot(n, v̄₁)
+    nv₂ = dot(n, v̄₂)
 
-            v₁v₂ = dot(v̄₁, v̄₂) 
-            nv₁ = dot(n, v̄₁)
-            nv₂ = dot(n, v̄₂)
+    v₁v₂² = v₁v₂^2 
 
-            v₁v₂² = v₁v₂^2 
+    nv₁² = nv₁^2
+    nv₂² = nv₂^2
 
-            nv₁² = nv₁^2
-            nv₂² = nv₂^2
+    # nv₁³ = nv₁^3
+    nv₂³ = nv₂^3
 
-            # nv₁³ = nv₁^3
-            nv₂³ = nv₂^3
+    # nv₁⁴ = nv₁^4
+    nv₂⁴ = nv₂^4
 
-            # nv₁⁴ = nv₁^4
-            nv₂⁴ = nv₂^4
+    m₁m₂ = m₁*m₂
+    m₁²m₂ = m₁^2*m₂
+    m₁m₂² = m₁*m₂^2
 
-            m₂ = params.M[j].val
-            m₁m₂ = m₁*m₂
-            m₁²m₂ = m₁^2*m₂
-            m₁m₂² = m₁*m₂^2
+    G_r = G*r⁻¹
+    G_r² = G_r*r⁻¹
+    G²_r³ = G²*r⁻¹^3
+    G³_r⁴ = G³*r⁻¹^4
 
-            G_r = G*r⁻¹
-            G_r² = G_r*r⁻¹
-            G²_r³ = G²*r⁻¹^3
-            G³_r⁴ = G³*r⁻¹^4
+    # PN-2.5 acceleration:
+    # expression is split up to avoid allocations that can appear in long expressions
 
-      
-            # PN-2.5 acceleration
-            # expression is split up to avoid allocations that can appear in long expressions
-            a_num = -57G³_r⁴*m₁²m₂/4 - 69G³_r⁴*m₁m₂²/2 - 9G³_r⁴*m₂^3 
-            a_num += G*m₂/r²*(-15/8*nv₂⁴ + 3/2*nv₂²*v₁² - 6*nv₂²*v₁v₂ - 2*v₁v₂² + 9/2*nv₂²*v₂² + 
-                                4*v₁v₂*v₂² - 2v₂^4)
-            a_num += G²_r³*m₁m₂*(39/2*nv₁² - 39*nv₁*nv₂ + 17/2*nv₂² - 15/4*v₁² - 5/2*v₁v₂ + 5/4*v₂²) 
-            a_num += G²_r³*m₂^2*(2*nv₁² - 4*nv₁*nv₂ - 6*nv₂² - 8*v₁v₂ + 4v₂²) 
-            a₂1 = n*a_num
+    # acceleration for body 1 (i)
+    a_num = -57G³_r⁴*m₁²m₂/4 - 69G³_r⁴*m₁m₂²/2 - 9G³_r⁴*m₂^3 
+    a_num += G*m₂/r²*(-15/8*nv₂⁴ + 3/2*nv₂²*v₁² - 6*nv₂²*v₁v₂ - 2*v₁v₂² + 9/2*nv₂²*v₂² + 
+                        4*v₁v₂*v₂² - 2v₂^4)
+    a_num += G²_r³*m₁m₂*(39/2*nv₁² - 39*nv₁*nv₂ + 17/2*nv₂² - 15/4*v₁² - 5/2*v₁v₂ + 5/4*v₂²) 
+    a_num += G²_r³*m₂^2*(2*nv₁² - 4*nv₁*nv₂ - 6*nv₂² - 8*v₁v₂ + 4v₂²) 
+    a₂1 = n*a_num
 
-            a_num = G²_r³*m₂^2*(-2*nv₁ - 2*nv₂) + G²*m₁m₂/r³*(-63/4*nv₁ + 55/4*nv₂) 
-            a_num += G_r²*m₂*(-6*nv₁*nv₂² + 9/2*nv₂³ + nv₂*v₁² - 4*nv₁*v₁v₂ + 
-                                4*nv₂*v₁v₂ + 4*nv₁*v₂² - 5*nv₂*v₂²)
-            a₂2 = v̄*a_num
-            a = a₂1 + a₂2
+    a_num = G²_r³*m₂^2*(-2*nv₁ - 2*nv₂) + G²*m₁m₂/r³*(-63/4*nv₁ + 55/4*nv₂) 
+    a_num += G_r²*m₂*(-6*nv₁*nv₂² + 9/2*nv₂^3 + nv₂*v₁² - 4*nv₁*v₁v₂ + 
+                        4*nv₂*v₁v₂ + 4*nv₁*v₂² - 5*nv₂*v₂²)
+    a₂2 = v̄*a_num
+    ai = a₂1 + a₂2
 
-            accel += @. a 
-        end
-    end
 
-    @. dv += accel * c⁻⁴
+    # acceleration for body 2 (j)
+    a_num = -57G³_r⁴*m₁²m₂/4 - 69G³_r⁴*m₁m₂²/2 - 9G³_r⁴*m₂^3 
+    a_num += G*m₂/r²*(-15/8*nv₂⁴ + 3/2*nv₂²*v₁² - 6*nv₂²*v₁v₂ - 2*v₁v₂² + 9/2*nv₂²*v₂² + 
+                        4*v₁v₂*v₂² - 2v₂^4)
+    a_num += G²_r³*m₁m₂*(39/2*nv₁² - 39*nv₁*nv₂ + 17/2*nv₂² - 15/4*v₁² - 5/2*v₁v₂ + 5/4*v₂²) 
+    a_num += G²_r³*m₂^2*(2*nv₁² - 4*nv₁*nv₂ - 6*nv₂² - 8*v₁v₂ + 4v₂²) 
+    a₂1 = n*a_num
 
+    a_num = G²_r³*m₂^2*(-2*nv₁ - 2*nv₂) + G²*m₁m₂/r³*(-63/4*nv₁ + 55/4*nv₂) 
+    a_num += G_r²*m₂*(-6*nv₁*nv₂² + 9/2*nv₂^3 + nv₂*v₁² - 4*nv₁*v₁v₂ + 
+                        4*nv₂*v₁v₂ + 4*nv₁*v₂² - 5*nv₂*v₂²)
+    a₂2 = v̄*a_num
+    ai = a₂1 + a₂2
+
+    # a_num = -57G³_r⁴*m₁²m₂/4 - 69G³_r⁴*m₁m₂²/2 - 9G³_r⁴*m₁^3 
+    # a_num += G*m₁/r²*(-15/8*nv₂⁴ + 3/2*nv₂²*v₂² - 6*nv₂²*v₁v₂ - 2*v₁v₂² + 9/2*nv₂²*v₁² + 
+    #                     4*v₁v₂*v₂² - 2v₁^4)
+    # a_num += G²_r³*m₁m₂*(39/2*nv₁² - 39*(-nv₁)*(-nv₂) + 17/2*nv₂² - 15/4*v₂² - 5/2*v₁v₂ + 5/4*v₁²) 
+    # a_num += G²_r³*m₁^2*(2*nv₁² - 4*(-nv₁)*(-nv₂) - 6*nv₂² - 8*v₁v₂ + 4v₁²) 
+    # a₂1 = (-n)*a_num
+
+    # a_num = G²_r³*m₁^2*(-2*(-nv₁) - 2*(-nv₂)) + G²*m₁m₂/r³*(-63/4*(-nv₁) + 55/4*(-nv₂)) 
+    # a_num += G_r²*m₁*(-6*(-nv₁)*nv₂² + 9/2*nv₁^3 + nv₂*v₂² - 4*(-nv₁)*v₁v₂ + 
+    #                     4*(-nv₂)*v₁v₂ + 4*(-nv₁)*v₁² - 5*(-nv₂)*v₁²)
+    # a₂2 = (-v̄)*a_num
+    # aj = a₂1 + a₂2
+
+    dvi .= ai*c⁻⁴
+    dvj .= aj*c⁻⁴
+    nothing
 end
 
 function PN2_5_acceleration!(dv,
@@ -587,7 +619,7 @@ function PN2_5_acceleration!(dv,
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     v̄₁ = @SVector [vs[1, i], vs[2, i], vs[3, i]]
     
-    m₁ = params.M[i].val
+    m₁ = params.M[i]
     accel = @SVector [0.0, 0.0, 0.0]
     
     # i = 1, j = 2
@@ -611,7 +643,7 @@ function PN2_5_acceleration!(dv,
 
             nv = dot(n, v̄)
 
-            m₂ = params.M[j].val
+            m₂ = params.M[j]
             m₁m₂ = m₁*m₂
             m₁²m₂ = m₁^2*m₂
             m₁m₂² = m₁*m₂^2
@@ -651,7 +683,7 @@ function PN3_acceleration!(dv,
 
      
     
-    m₁ = params.M[i].val
+    m₁ = params.M[i]
     accel = @SVector [0.0, 0.0, 0.0]
     a₂ =  @MVector [0.0, 0.0, 0.0]
     
@@ -698,7 +730,7 @@ function PN3_acceleration!(dv,
             # nv₁⁴ = nv₁^4
             nv₂⁴ = nv₂^4
 
-            m₂ = params.M[j].val
+            m₂ = params.M[j]
             m₁m₂ = m₁*m₂
             m₁²m₂ = m₁^2*m₂
             m₁m₂² = m₁*m₂^2
@@ -769,7 +801,7 @@ function PN3_5_acceleration!(dv,
 
      
     
-    m₁ = params.M[i].val
+    m₁ = params.M[i]
     accel = @SVector [0.0, 0.0, 0.0]
     
     # i = 1, j = 2
@@ -816,7 +848,7 @@ function PN3_5_acceleration!(dv,
 
             # nv₁⁴ = nv₁^4
 
-            m₂ = params.M[j].val
+            m₂ = params.M[j]
             m₁m₂ = m₁*m₂
             m₁²m₂ = m₁^2*m₂
             m₁m₂² = m₁*m₂^2
@@ -873,7 +905,7 @@ function PN1_to_3_5_acceleration!(dv,
 
     v₁² = v₁^2
     
-    m₁ = params.M[i].val
+    m₁ = params.M[i]
     accel = @SVector [0.0, 0.0, 0.0]
     a₂ =  @MVector [0.0, 0.0, 0.0]
     
@@ -922,7 +954,7 @@ function PN1_to_3_5_acceleration!(dv,
             # nv₁⁴ = nv₁^4
             nv₂⁴ = nv₂^4
 
-            m₂ = params.M[j].val
+            m₂ = params.M[j]
             m₁m₂ = m₁*m₂
             m₁²m₂ = m₁^2*m₂
             m₁m₂² = m₁*m₂^2
@@ -1041,14 +1073,14 @@ end
 
 #     v₁² = v₁^2
     
-#     m₁ = params.M[i].val
+#     m₁ = params.M[i]
 #     accel = @SVector [0.0, 0.0, 0.0]
     
 #     # i = 1, j = 2
 #     # add @fastmath?
 #     @inbounds for j = 1:n
 #         if j != i   
-#             m₂ = params.M[j].val
+#             m₂ = params.M[j]
 #             μ = reduced_mass(m₁, m₂)
 
 #             ā₂ = @SVector [dvs[1, j], dvs[2, j], dvs[3, j]]
@@ -1099,14 +1131,14 @@ function spin_precession!(dv,
 
     v₁² = v₁^2
     
-    m₁ = params.M[i].val
+    m₁ = params.M[i]
     accel = @SVector [0.0, 0.0, 0.0]
     
     # i = 1, j = 2
     # add @fastmath?
     @inbounds for j = 1:n
         if j != i   
-            m₂ = params.M[j].val
+            m₂ = params.M[j]
 
             ā₂ = @SVector [dvs[1, j], dvs[2, j], dvs[3, j]]
             r̄₂ = @SVector [rs[1,  j], rs[2,  j], rs[3,  j]]
@@ -1180,7 +1212,7 @@ function spin_precession!(dv,
             # num += (GM)^(4/3)*GM_a³^(2/3)*(2.5*Δ*(0.15625*ν² - 4.875*ν + 0.84375) + 
             #         0.052083333333333329*ν³ + 8.203125*ν² - 0.46875*ν -2.109375)
             # num *= ((GM)^(2/3)*GM_a³^(1/3)/c²)^2.5
-            # dΩ₁_dt = num*da_dt/(GM*c.val*a)
+            # dΩ₁_dt = num*da_dt/(GM*c*a)
 
             # dΩ₁_dt2 = ((GM)^(2/3)*GM_a³^(1/3)/c²)^2.5*(c⁴*(1.875*Δ - 1.25*ν + -1.875) + 
             #          c²*(GM)^(2/3)*GM_a³^(1/3)*(-3.5*Δ*(0.625*ν + -0.5625) + 
@@ -1226,14 +1258,14 @@ function spin_precession_COM!(dv,
 
     v₁² = v₁^2
     
-    m₁ = params.M[i].val
+    m₁ = params.M[i]
     accel = @SVector [0.0, 0.0, 0.0]
     
     # i = 1, j = 2
     # add @fastmath?
     @inbounds for j = 1:n
         if j != i   
-            m₂ = params.M[j].val
+            m₂ = params.M[j]
 
             ā₂ = @SVector [dvs[1, j], dvs[2, j], dvs[3, j]]
             r̄₂ = @SVector [rs[1,  j], rs[2,  j], rs[3,  j]]
