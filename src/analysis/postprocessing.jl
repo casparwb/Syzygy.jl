@@ -36,6 +36,11 @@ function get_stellar_structure(result)
         tmp
     end
 
+    for (k, v) in initial_stellar_parameters
+        !(k in keys(final_stellar_parameters)) && continue
+        final_stellar_parameters[k] = final_stellar_parameters[k] .* unit(v[1])
+    end
+
     # elements, structure, quantities = setup_simulation_solution(n_steps, n_bodies, n_binaries)
 
     radius_matrix = Matrix{typeof((1.0u"m"))}(undef, n_bodies, 2)
