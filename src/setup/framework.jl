@@ -260,7 +260,7 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
     aj = SizedVector{3, dtype}(zeros(dtype, 3)...)
     a_spin = SizedVector{3, dtype}(zeros(dtype, 3)...)
 
-    SecondOrderODEProblem(simulation, acc_funcs, u0, v0, ai, aj, a_spin, dv)
+    SecondOrderODEProblem(simulation, acc_funcs, u0, v0, ai, aj, a_spin)
 end
 
 function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
