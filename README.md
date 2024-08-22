@@ -2,7 +2,10 @@
 
 > In astronomy, a syzygy (/ˈsɪzədʒi/ SIZ-ə-jee; from Ancient Greek συζυγία (suzugía) 'union, yoke') is a roughly straight-line configuration of three or more celestial bodies in a gravitational system.
 
-`Syzygy.jl` is a [Julia](https://julialang.org/) code for simulating and visualizing the dynamics of hierarchical multistar systems. This package is being developed by someone with very little experience in software development, and is not meant for use by the general public. 
+`Syzygy.jl` is a high-performance few-body simulator written in [Julia](https://julialang.org/). This code is mainly aimed at simulating and visualizing the dynamics of hierarchical multistar systems, but it also supports non-hierarchical few-body systems. 
+
+> [!CAUTION] 
+> This package is still being developed, so certain features may not work as expected. If you want to use this package, please ensure that you perform tests to ensure that your results are to be expected.
 
 The package uses the [DifferentialEquations.jl](https://diffeq.sciml.ai/) ecosystem to solve the governing differential equations. This makes the package highly performant and flexible, allowing for, e.g., both fixed and adaptive timestepping with adjustable error tolerances, and the flexibility of callbacks for code injection.
 
@@ -16,11 +19,10 @@ The package uses the [DifferentialEquations.jl](https://diffeq.sciml.ai/) ecosys
 add https://github.com/casparwb/Syzygy.jl
 ```
 
-Alternatively, you can do
+Alternatively, from you terminal run
 
-```julia
-import Pkg
-Pkg.add(url="https://github.com/casparwb/Syzygy.jl")
+```bash
+julia -e 'import Pkg;  Pkg.add(url='https://github.com/casparwb/Syzygy.jl")'
 ```
 
 ## System initialization
@@ -30,6 +32,7 @@ A simulation in `Syzygy.jl` begins by setting up the system you want to simulate
 
 <img src="https://github.com/casparwb/Syzygy.jl/assets/42641901/971bfd0d-d206-4912-963c-5edd2eeee186" width="500" />
 
+> [!IMPORTANT]
 > The code for setting up the hierarchy (converting the orbital elements into state vectors) is either heavily inspired by, or directly taken from [NbodyGradient.jl](https://github.com/ericagol/NbodyGradient.jl). All credits go to the authors.
 
 ### Examples
@@ -67,6 +70,8 @@ quintuple = multibodysystem(masses, a=[r1, r2, r3, r4], hierarchy=hierarchy)
 The components of the system can be accessed via `system.binaries[index]`, with `index` being an integer from 1 to number of binaries, and `system.particles[index]`, for the individual particles. A binary or particle are instances of the `Binary` or `Particle` type, both of which have a number of fields containing information about their state and internal structure.
 
 
+> [!NOTE]
+> `Syzygy.jl` uses units when initializing a system and when postprocessing a simulation results. The units are discarded before the actual simulation begins in order to ensure performance. The initial conditions and parameters that are sent to the ODE solver are always the preferred units of the respective dimensions. The default unit system is solar mass ($M_\odot$), solar radii ($R_\odot$), and year. If you want to change the default unit system, you have to call the `preferunits` function from `Unitful.jl` BEFORE importing `Syzygy.jl`.
 
 ## Simulation setup
 
@@ -100,17 +105,7 @@ To get the full list of callbacks, you can call `Syzygy.callbacks()`.
 
 ## Potentials
 
-`Syzygy.jl` has support for including/varying the potentials and corresponding acceleration functions in a simulation.  In this package, you can specify the acceleration functions to include by setting the `potentials` keyword argument when calling `simulate` or `simulation`. This argument accepts a `Vector{FewBodyPotential}` where `FewBodyPotential` is a supertype of all the potentials defined in the package, and for each of which there exists a unique acceleration function. The total acceleration of a particle at each time step is thus a sum of all the acceleration functions defined by the `potential` vector. Internally, this looks something like
-
-```julia
-function acceleration_function(potential::PureGravitationalPotential)
-    return (u, p, t) -> newtonian_gravity(u, p, t, potential)
-end
-
-function acceleration_function(potential::PostNewtonianPotential)
-    return (u, p, t) -> post_newtonian_acceleration(u, p, t, potential)
-end
-```
+`Syzygy.jl` has support for including/varying the potentials and corresponding acceleration functions in a simulation.  In this package, you can specify the acceleration functions to include by setting the `potentials` keyword argument when calling `simulate` or `simulation`. This argument accepts a `Vector{MultiBodyPotential}` where `MultiBodyPotential` is a supertype of all the potentials defined in the package, and for each of which there exists a unique acceleration function. The total acceleration of a particle at each time step is thus a sum of all the acceleration functions defined by the `potential` vector.
 
 Currently, there are 4 possible potentials, with post-newtonian acceleration being being implemented. These are
 
@@ -121,13 +116,15 @@ Currently, there are 4 possible potentials, with post-newtonian acceleration bei
 
 Each of these accepts a specific set of arguments related to the acceleration functions. To get an overview of these, enter the `help`-mode in the REPL with `?` and type any of the above names. 
 
-> The numerical implementation of potentials and acceleration functions in this package is again heavily inspired by or completely taken from [NbodySimulator.jl](https://github.com/SciML/NBodySimulator.jl), so all credit go the authors.
+> [!IMPORTANT]
+> The numerical implementation of potentials and acceleration functions in this package is heavily inspired by or completely taken from [NbodySimulator.jl](https://github.com/SciML/NBodySimulator.jl). All credit go the authors.
+
 ### Example
 
 ```julia
 grav_pot = PureGravitationalAcceleration()
 tidal_pot = DynamicalTidalAcceleration(;kwargs...)
-res = simulate(triple, potentials=[grav_pot, tidal_pot]) 
+res = simulate(system, potential=[grav_pot, tidal_pot]) 
 ```
 
 ## Running a simulation
@@ -141,20 +138,16 @@ res = simulate(triple, t_sim=10, npoints=1000)
 
 ## Analysis and visualization
 
-Once a simulation has finished, it can be analyzed and converted to a `FewBodySolution` type, which allows for easy access to the state vectors and other parameters. This is done using the `analyse_simulation` function, which only takes in the resulting output from `simulate` as its argument. In the `FewBodySolution` type, the state vectors are stored in 3-dimensional `LArray` from [LabelledArrays.jl](https://github.com/SciML/LabelledArrays.jl), with the axes being (dimension, particle, time). The time evolution of the orbital elemenst of each binary can also be accessed from the `elements`-field, which is a `Vector{OrbitalElements{`, with the index corresponding to the original binary indices.
+Once a simulation has finished, it can be analyzed and converted to a `MultiBodySolution` type, which allows for easy access to the state vectors and other parameters. This is done using the `analyse_simulation` function, which only takes in the resulting output from `simulate` as its argument. In the `MultiBodySolution` type, the state vectors are stored in 3-dimensional `AxisArray` from [AxisArrays.jl](https://github.com/JuliaArrays/AxisArrays.jl), with the axes being (dimension, particle, time). 
 
 ```julia
-sol = analyse_simulation(res)
+sol = to_solution(res)
 N = length(sol.t)
-r1 = sol.r[particle=1] # a (3, N) array
+r1 = sol.r[particle=1] # a (3, N) array, alias for sol.r[:,1,:]
 v1 = sol.v[particle=1]
-
-r1 == sol.r[:,1,:]
-
-inner_sma = sol.elements[1].a
 ```
 
-`Syzygy.jl` contains a few plot recipes for [Plots.jl](https://docs.juliaplots.org/latest/tutorial/), which can be used to create quick and simple visualizations of the orbits. To use this, simply import `Plots.jl`, and use the function `orbitplot`, which takes in a `FewBodySolution` as its first argument, followed by keyword arguments:
+`Syzygy.jl` contains a few plot recipes for [Plots.jl](https://docs.juliaplots.org/latest/tutorial/), which can be used to create quick and simple visualizations of the orbits. To use this, simply import `Plots.jl`, and use the function `orbitplot`, which takes in a `MultiBodySolution` as its first argument, followed by keyword arguments:
 
 - `dims`: which dimensions to plot. Should be a `Vector{Int}`, with any combination of `(1, 2, 3)` (x, y, z).
 - `bodies`: which bodies (particles) to plot. Should be a `Vector{Int}`, with any combination of `1:N_particles`.
@@ -176,41 +169,47 @@ To define you own callback, simply set it up following the the [DiffEq docs](htt
 
 ## Adding another potential
 
-To add a new potential and acceleration function, you first need to define the acceleration function itself, which should be an in-place function that calculates the force for one particle and adds it to an acceleration vector (dv). Example:
+To add a new potential and acceleration function, you first need to define the acceleration function itself, which should be an in-place function that calculates the pairwise acceleration for two particles $(i, j)$ and adds it to an acceleration vectors (dvi and dvj). The function must return `nothing`. 
+Example:
 
 ```julia
-function my_acceleration_function!(dv, v, r, i, n, p)
-    accel = @SVector zeros(3) # for storing the x,y,z acceleration on particle i
+function my_acceleration_function!(dvi, dvj, rs, vs, pair, params, potential)
 
-    for k = 1:n
-        if k != i
-            force = some_interaction(i, k)
-            accel .+= force
-        end
-    end
-    dv .+= accel
+    i, j = pair
+    mi, mj = params.M[i], params.M[j]
+    ai = acceleration(i, mj)
+    aj = acceleration(j, mi)
 
+    dvi .+= ai
+    dvj .+= aj
+    nothing
 end
 ```
 
-You then need to define a potential type, which must be a subtype of the `Syzygy.FewBodyPotential` supertype. 
+You then need to define a potential type, which must be a subtype of the `Syzygy.MultiBodyPotential` supertype.  
 
 ```julia
-struct MyPotential{T1, T2} <: Syzygy.FewBodyPotential
-    parameter_1::T1
-    parameter_2::T2
+struct MyPotential <: Syzygy.MultiBodyPotential end
+```
+
+You can optionally include parameters in your potential
+
+```julia
+struct MyPotential{T1, T2} <: Syzygy.MultiBodyPotential
+    parameter1::T1
+    parameter2::T2
 end
 ```
 
-Finally, you add a method to the `Syzygy.get_accelerating_function` such that is returns a wrapper around your acceleration function that can be used by DiffEq:
+Finally, you add a method to the `Syzygy.get_accelerating_function` such that is returns a wrapper around your acceleration function. The wrapper has to have the following signature:
 
 ```julia
 function Syzygy.get_accelerating_function(parameters::MyPotential, n)
-    (dv, u, v, p, t, i) -> my_acceleration_function!(dv, u, parameters, i, n)
+    (dvi, dvj, rs, vs, pair, time, params)-> my_acceleration_function!(dvi, dvj, rs, vs, pair, params, potential)
 end
 ```
 
-To use this potential in a simulation, create an instance of your new `MyPotential` type, and include it in the `potentials` vector as a keyword argument when initializing the simulation. 
+To use this potential in a simulation, create an instance of your new `MyPotential` type, and include it in the `potential` vector as a keyword argument when initializing the simulation. 
 
 
 
