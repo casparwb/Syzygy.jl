@@ -33,7 +33,7 @@ function simulate(simulation::MultiBodySimulation)
     # #              This block allows the full simulation to run without allocations. Don't know why.             #
     # ##############################################################################################################
     let
-        ode_prob_static = sodeprob_static(simulation)
+        ode_prob_static = sodeprob_static(simulation, args[:dtype])
         integrator_static = OrdinaryDiffEq.init(ode_prob_static, args[:alg], saveat=args[:saveat], 
                                                 callback=callbacks, maxiters=args[:maxiters], 
                                                 abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
@@ -43,15 +43,15 @@ function simulate(simulation::MultiBodySimulation)
 
     end
     # ##############################################################################################################
-    
+
     acc_funcs = gather_accelerations_for_potentials(simulation)
-    ode_problem = SecondOrderODEProblem(simulation, acc_funcs)
-    # ode_problem = sode_problem_new(simulation, acc_funcs)
+    ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
 
     integrator = OrdinaryDiffEq.init(ode_problem, args[:alg], saveat=args[:saveat], 
                                      callback=callbacks, maxiters=args[:maxiters], 
                                      abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                      diffeq_args...)
+
     prog = ProgressUnknown("Evolving system:", showspeed=true, spinner=true, enabled=args[:showprogress])
     maxtime = simulation.tspan[end]
     try

@@ -1,56 +1,11 @@
-using Printf, Unitful, UnitfulAstro
+using Printf, Unitful, UnitfulAstro, DoubleFloats, ArbNumerics
 
-# abstract type AbstractSyzygyCallback end
+function bodies(system::T where T <: MultiBodyInitialConditions, dtype=Float64)
 
-# struct CollisionCB{T}         <: AbstractSyzygyCallback 
-#     check_every::Int
-#     grav_rad_multiple::T
-#     CollisionCB(check_every=1, grav_rad_multiple=1000) = new{typeof(grav_rad_multiple)}(check_every)
-# end
-
-# struct EscapeCB{T}         <: AbstractSyzygyCallback 
-#     max_a_factor::T
-#     check_every::Int
-#     EscapeCB(max_a_factor=100, check_every=100) = new{typeof(max_a_factor)}(max_a_factor, check_every)
-# end
-
-# struct RocheLobeOverflowCB <: AbstractSyzygyCallback 
-#     check_every::Int
-#     RocheLobeOverflowCB(check_every=1) = new(check_every)
-# end
-
-# struct CPUTimeCB           <: AbstractSyzygyCallback 
-#     check_every::Int
-#     CPUTimeCB(check_every=1) = new(check_every)
-# end
-
-# struct CentreOfMassCB      <: AbstractSyzygyCallback 
-#     check_every::Int
-#     CentreOfMassCB(check_every=1) = new(check_every)
-# end
-
-# struct HubbleTimeCB        <: AbstractSyzygyCallback 
-#     check_every::Int
-#     HubbleTimeCB(check_every=1) = new(check_every)
-# end
-
-# struct DemocraticCheckCB   <: AbstractSyzygyCallback 
-#     check_every::Int
-#     DemocraticCheckCB(check_every=1) = new(check_every)
-# end
-
-# struct IonizationCB{T}     <: AbstractSyzygyCallback 
-#     check_every::Int
-#     max_a_factor::T
-#     IonizationCB(max_a_factor=100, check_every=100) = new{typeof(max_a_factor)}(max_a_factor, check_every)
-# end
-
-function bodies(system::T where T <: MultiBodyInitialConditions)
-
-    positions  = [zeros(3) for i = 1:system.n]
-    velocities = [zeros(3) for i = 1:system.n]
-    spins      = [zeros(3) for i = 1:system.n]
-    masses     =  zeros(system.n)
+    positions  = [zeros(dtype, 3) for i = 1:system.n]
+    velocities = [zeros(dtype, 3) for i = 1:system.n]
+    spins      = [zeros(dtype, 3) for i = 1:system.n]
+    masses     =  zeros(dtype, system.n)
 
     for (key, particle) in system.particles
         positions[key]  .= upreferred.(particle.position) |> ustrip
@@ -62,13 +17,13 @@ function bodies(system::T where T <: MultiBodyInitialConditions)
     SA[[MassBody(SA[r...], SA[v...], SA[s...], m) for (r, v, s, m) in zip(positions, velocities, spins, masses)]...]
 end
 
-function bodies(positions, velocities, spins, masses)
+function bodies(positions, velocities, spins, masses, dtype=Float64)
     n = length(masses)
 
-    positions  = [ustrip(upreferred(unit(p[1])), p) for p in positions]
-    velocities = [ustrip(upreferred(unit(v[1])), v) for v in velocities]
-    spins      = [ustrip(upreferred(unit(v[1])), v) for v in spins]
-    masses     = [ustrip(upreferred(unit(m)), m) for m in masses]
+    positions  = [dtype.(ustrip(upreferred(unit(p[1])), p)) for p in positions]
+    velocities = [dtype.(ustrip(upreferred(unit(v[1])), v)) for v in velocities]
+    spins      = [dtype.(ustrip(upreferred(unit(v[1])), v)) for v in spins]
+    masses     = [dtype(ustrip(upreferred(unit(m)), m)) for m in masses]
 
     SA[[MassBody(SA[r...], SA[v...], SA[s...], m) for (r, v, s, m) in zip(positions, velocities, spins, masses)]...]
 end
@@ -90,7 +45,7 @@ end
 function multibodysimulation(system::T where T <: MultiBodyInitialConditions, tspan,
                              potential,
                              ode_params, args, diffeq_args)
-    massbodies = bodies(system)
+    massbodies = bodies(system, args[:dtype])
     pot_dict = get_potential_dict(potential)
     
     MultiBodySimulation(system, massbodies, pot_dict, tspan, 
@@ -105,13 +60,14 @@ end
 function parse_arguments!(kwargs::Dict)
 
     default_args = Dict(
-                        :t0 => nothing, :dt => 1/10, :t_sim => 1.0,
-                        :alg => DPRKN8(), :saveat => [], :npoints => 0,
-                        :maxiters => Inf,
-                        :abstol => 1.0e-10, :reltol => 1.0e-10,
+                        :t0        => nothing,  :dt     => 1/10, :t_sim => 1.0,
+                        :alg       => DPRKN8(), :saveat => [], :npoints => 0,
+                        :maxiters  => Inf,
+                        :abstol    => 1.0e-10, :reltol  => 1.0e-10,
                         :potential => PureGravitationalPotential(),
                         :callbacks => [CollisionCB()], :showprogress => false,
-                        :verbose => false, :max_cpu_time => Inf
+                        :verbose   => false, :max_cpu_time => Inf,
+                        :precision => :Float64, :stellar_evolution => false,
                         )
 
     args = copy(default_args)
@@ -150,6 +106,7 @@ Setup a simulation with a given system and simulation arguments. Returns a
                                          or a custom callback from the `DifferentialEquations.jl` ecosystem. See [`Event Handling and Callback Functions`](https://docs.sciml.ai/DiffEqDocs/stable/features/callback_functions/) for more.
 - `showprogress = false`: whether to display the progress of the simulation.
 - `max_cpu_time = Inf`: maximum time (in seconds) allowed for the simulation to run. Will terminate if it runs for longer than `max_cpu_time`.  
+- `stellar_evolution = false`: whether the stars will be evolved, meaning their structural properties will change. If true, the structural parameters of the stars will be types `MVector`, otherwise `SVector`.
 ...
 
 The function also accepts all keyword arguments supported by the `CommonSolve.solve` interface from
@@ -171,6 +128,8 @@ function simulation(system::MultiBodySystem; kwargs...)
     kwargs = Dict{Symbol, Any}(kwargs)
     args = parse_arguments!(kwargs)
 
+    dtype = get_datatype_from_precision(args[:precision])
+    args[:dtype] = dtype
     particles = system.particles
 
     # Setup time step (only used if using symplectic integrator)
@@ -183,7 +142,7 @@ function simulation(system::MultiBodySystem; kwargs...)
     t0 = isnothing(t0) ? ustrip(upreferred(u"s"), system.time) : ustrip(upreferred(u"s"), t0)
     args[:t0] = t0
     t_sim = args[:t_sim]
-    tspan = setup_timespan(t0, t_sim, P_out)
+    tspan = setup_timespan(t0, t_sim, P_out, dtype)
     args[:tspan] = tspan
 
     # Setup optional saving points
@@ -192,7 +151,7 @@ function simulation(system::MultiBodySystem; kwargs...)
     end
 
     # Setup parameters
-    ode_params = setup_params(particles, system.time)
+    ode_params = setup_params(particles, system.time, dtype)
    
     simulation = multibodysimulation(system, args[:tspan], args[:potential], 
                                      ode_params, args, kwargs)
@@ -225,6 +184,8 @@ function simulation(masses, positions, velocities, spins=nothing; multibodysyste
     kwargs = Dict{Symbol, Any}(kwargs)
     args = parse_arguments!(kwargs)
 
+    dtype = get_datatype_from_precision(args[:precision])
+
     n = length(masses)
     multiple_system = multibodysystem(masses; multibodysystem_args...)
 
@@ -252,20 +213,20 @@ function simulation(masses, positions, velocities, spins=nothing; multibodysyste
     args[:t0] = t0
     t_sim = args[:t_sim]
 
-    tspan = setup_timespan(t0, t_sim, P_out)
+    tspan = setup_timespan(t0, t_sim, P_out, dtype)
     args[:tspan] = tspan
 
-    spins = isnothing(spins) ? [zeros(3)*upreferred(u"kg/m^2/s") for i = 1:n] : spins
+    spins = isnothing(spins) ? [zeros(dtype, 3)*upreferred(u"kg/m^2/s") for i = 1:n] : spins
 
-    mass_bodies = bodies(positions, velocities, spins, masses)
+    mass_bodies = bodies(positions, velocities, spins, masses, dtype)
     pot_dict = get_potential_dict(kwargs[:potential])
-    ode_params = setup_params(multiple_system.particles, multiple_system.time)
+    ode_params = setup_params(multiple_system.particles, multiple_system.time, dtype)
 
     
     return MultiBodySimulation(multiple_system, mass_bodies, pot_dict, args[:tspan], ode_params, args, kwargs)
 end
 
-function setup_timespan(t0, t_sim, P_out)
+function setup_timespan(t0, t_sim, P_out, datatype=Float64)
     if t_sim isa Quantity
         t_sim *= 1.0
         t_sim = ustrip(upreferred(u"s"), t_sim) + t0
@@ -275,11 +236,13 @@ function setup_timespan(t0, t_sim, P_out)
         t_sim = t_sim*P_out.val
     end
 
+    tspan = datatype.(tspan)
+
     return tspan
 end
 
 
-function setup_params(particles, time)
+function setup_params(particles, time, datatype=Float64, stellar_evolution=false)
 
     # masses        = typeof(upreferred(1.0u"Msun"))[]
     # luminosities  = typeof(upreferred(1.0u"Lsun"))[]
@@ -288,12 +251,12 @@ function setup_params(particles, time)
     # core_radii    = typeof(upreferred(1.0u"Rsun"))[]
     # ages          = typeof(upreferred(1.0u"yr"))[]
 
-    masses        = Float64[]
-    luminosities  = Float64[]
-    radii         = Float64[]
-    core_masses   = Float64[]
-    core_radii    = Float64[]
-    ages          = Float64[]
+    masses        = datatype[]
+    luminosities  = datatype[]
+    radii         = datatype[]
+    core_masses   = datatype[]
+    core_radii    = datatype[]
+    ages          = datatype[]
     stellar_types = Int[]
 
     particle_keys = keys(particles) |> collect |> sort
@@ -317,13 +280,23 @@ function setup_params(particles, time)
         push!(stellar_types, stellar_type)
     end
 
-    masses = MVector(masses...)
-    luminosities = MVector(luminosities...)
-    radii = MVector(radii...)
-    stellar_types = MVector(stellar_types...)
-    core_masses = MVector(core_masses...)
-    core_radii = MVector(core_radii...)
-    ages = MVector(ages...)
+    if stellar_evolution
+        masses = MVector(masses...)
+        luminosities = MVector(luminosities...)
+        radii = MVector(radii...)
+        stellar_types = MVector(stellar_types...)
+        core_masses = MVector(core_masses...)
+        core_radii = MVector(core_radii...)
+        ages = MVector(ages...)
+    else
+        masses = SVector(masses...)
+        luminosities = SVector(luminosities...)
+        radii = SVector(radii...)
+        stellar_types = SVector(stellar_types...)
+        core_masses = SVector(core_masses...)
+        core_radii = SVector(core_radii...)
+        ages = SVector(ages...)
+    end
 
     all_params = Dict(:R            => radii, 
                       :M            => masses, 
@@ -342,4 +315,26 @@ function setup_params(particles, time)
                                          all_params[:ages])
 
     return ode_params
+end
+
+function get_datatype_from_precision(precision)
+
+    if precision isa Int
+        setworkingprecision(ArbFloat, precision)
+        return ArbFloat
+    elseif precision isa Symbol
+        if precision == :Float64
+            return Float64
+        elseif precision == :Float32
+            return Float32
+        elseif precision == :Double64
+            return Double64
+        elseif precision == :Double32
+            return Double32
+        else
+            @error "Datatype $precision not supported."
+        end
+    else
+        @info "Precision should be either an integer for the number of bits, or a symbol."
+    end
 end
