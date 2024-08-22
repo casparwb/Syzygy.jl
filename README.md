@@ -158,6 +158,16 @@ using Plots
 orbitplot(sol, bodies=[1, 2], dims=[1, 2]) # plot only particles 1 and 2 in the x-y plane
 ```
 
+## Arbitrary precision
+
+By default `Syzygy.jl` uses `Float64` datatypes for the variables of integration, which means that we can not set the error tolerances for the ODE solver lower than $\sim 10^{-14}$ (see [DiffEq docs](https://docs.sciml.ai/DiffEqDocs/stable/basics/faq/#How-to-get-to-zero-error)). While this is generally pretty good, for longer simulation times, this might not be enough. Therefore, `Syzygy.jl` supports arbitrary precision arithmetic, which means you can essentially get as small error as you want, as the cost of speed of course. You can still get pretty decent speed if you use the `Double64` type from (DoubleFloats.jl)[https://github.com/JuliaMath/DoubleFloats.jl]. These have twice as many bits as a standard `Float64`, while still being somewhat performant. If you need even higher precision, you can use the arbitrary precision floating point numbers from (ArbNumerics.jl)[https://github.com/JeffreySarnoff/ArbNumerics.jl]. However, using these will dramatically slow down the code (using Double64 gives a slowdown of $\sim 70\times$, while using ArbFloat with the same number of bits makes the code run over $2000\times$ slower.) To use this functionality, simply specify the `precision` keyword when calling either `simulation` or `simulate`. Fixed-bit types are specified with symbols, while arbitrary precision are specified with an integer, determining the number of bits to use. 
+
+```julia
+binary = multibodysystem([2.0, 1.0]u"Msun", a=1.0u"AU")
+result = simulate(binary, t_sim=1, save_everystep=false, precision=:Double64) # will use Double64 precision (106 bits)
+result = simulate(binary, t_sim=1, save_everystep=false, precision=254) # will use ArbFloat type with 254 bit precision
+```
+
 # Advanced Usage
 
 `Syzygy.jl` is designed to be highly composable and flexible, and not only includes additional acceleration functions for including other forces, but also allows the users to define their own potentials and callbacks. 
