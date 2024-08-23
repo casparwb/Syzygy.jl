@@ -296,7 +296,7 @@ end
 
     @assert length(bodies) <= sol.ic.n "Number of bodies to plot is greater than bodies in system."
     
-    if all(isone, sol.ic.hierarchy[2:end])
+    if sol.ic isa MultiBodySystem && all(isone, sol.ic.hierarchy[2:end]) 
         labels = hierarchy_labels#[bodies]
     else
         labels = ["Partcle $i" for i in bodies]

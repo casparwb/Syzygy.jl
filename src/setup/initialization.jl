@@ -75,7 +75,7 @@ function multibodysystem(masses::Vector{<:Unitful.Mass}; R  = 1.0u"Rsun",
     R_env  = ifelse(R_env  isa Number, repeat([R_env ], n_bodies), R_env )
     m_env  = ifelse(m_env  isa Number, repeat([m_env ], n_bodies), m_env )
 
-    S = if S isa Number #ifelse(S isa Number, repeat([S], n_bodies), S)
+    S = if S isa Number 
         Sv = [[S, zero(S), zero(S)] for i in 1:n_bodies]
     elseif S isa Vector{<:Number}
         Sv = [[ss, zero(ss), zero(ss)] for ss in S]
@@ -268,7 +268,7 @@ function multibodysystem(masses::Vector, hierarchy::Vector,
                     child2 = Particle(ParticleIndex(tot_bodies+1), BinaryIndex(binary_key), child1.key, masses[child_2_idx],
                                       positions[:,child_2_idx], 
                                       velocities[:, child_2_idx], 
-                                      structures[child_2_idx], Dict())
+                                      structures[child_2_idx])
     
                     binary = create_binary(child1, child2, binary_elements, level, binary_key, parent_key)
                     push!(binaries, binary)
@@ -298,7 +298,7 @@ function multibodysystem(masses::Vector, hierarchy::Vector,
                     child2 = Particle(ParticleIndex(tot_bodies+1), BinaryIndex(binary_key), child1.key, masses[child_2_idx],
                                       positions[:,child_2_idx], 
                                       velocities[:, child_2_idx], 
-                                      structures[child_2_idx], Dict())
+                                      structures[child_2_idx])
     
                     binary = create_binary(child1, child2, binary_elements, level, binary_key, parent_key)
                     push!(binaries, binary)
@@ -332,7 +332,7 @@ function multibodysystem(masses::Vector, hierarchy::Vector,
         end
     end
 
-    MultiBodySystem(n_bodies, t, bodies, pairs, binaries, levels, root_bin, hierarchy, nothing)
+    MultiBodySystem(n_bodies, t, bodies, pairs, binaries, levels, root_bin, hierarchy)
 end
 
 function create_binary(positions, velocities, masses, structures, elements, 
@@ -346,7 +346,7 @@ function create_binary(positions, velocities, masses, structures, elements,
                          ParticleIndex(sibling_key),
                          masses[i], SA[positions[:,i]...], 
                          SA[velocities[:,i]...], 
-                         structures[i], Dict())
+                         structures[i])
         push!(children, child)
     end
 
@@ -477,18 +477,36 @@ function multibodysystem(masses, positions, velocities;
     m_env  = ifelse(m_env  isa Number, repeat([m_env ], n_bodies), m_env )
     stellar_types = ifelse(stellar_types isa Number, repeat([stellar_types], n_bodies), stellar_types)
 
-    particle_structures = StellarStructure[]
-    for idx in eachindex(masses)
-        structure = StellarStructure(stellar_types[idx], masses[idx], R[idx], S[idx], L[idx],
-                                    R_core[idx], m_core[idx], R_env[idx], m_env[idx])
-        push!(particle_structures, structure)
+    S = if S isa Number 
+        Sv = [[S, zero(S), zero(S)] for i in 1:n_bodies]
+    elseif S isa Vector{<:Number}
+        Sv = [[ss, zero(ss), zero(ss)] for ss in S]
+    else
+        S
     end
+
+    # particle_structures = StellarStructure[]
+    # for idx in eachindex(masses)
+    #     structure = StellarStructure(stellar_types[idx], masses[idx], R[idx], S[idx], L[idx],
+    #                                 R_core[idx], m_core[idx], R_env[idx], m_env[idx])
+    #     push!(particle_structures, structure)
+    # end
 
     particles = Particle[]
     for idx in eachindex(masses)
-        p = Particle(ParticleIndex(particle_keys[idx]), BinaryIndex(-1), -1, 
-                     masses[idx], positions[idx], 
-                     velocities[idx], particle_structures[idx], nothing)
+        stellar_type = stellar_type_from_index(stellar_types[idx])
+        structure = StellarStructure(stellar_type, 
+                                     masses[idx], 
+                                     R[idx], S[idx], L[idx],
+                                     R_core[idx], m_core[idx], 
+                                     R_env[idx], m_env[idx])
+
+        p = Particle(ParticleIndex(particle_keys[idx]), 
+                     BinaryIndex(-1), -1, 
+                     masses[idx], 
+                     positions[idx], 
+                     velocities[idx], 
+                     structure)
         push!(particles, p)
     end
 
@@ -501,18 +519,20 @@ function multibodysystem(masses, positions, velocities;
         end
     end
 
-    binaries = nothing
-    levels = SA[1]
-    root = Binary(BinaryIndex(1), 1, BinaryIndex(-1), 1, SA[1, 2], SA[particle_keys...], 
-                  centre_of_mass(positions, masses), 
-                  centre_of_mass_velocity(velocities, masses), 
-                  masses, OrbitalElements())
-    hierarchy = [n_bodies, repeat([1], n_bodies-1)...]
+    # binaries = nothing
+    # levels = SA[1]
+    # root = Binary(BinaryIndex(1), 1, BinaryIndex(-1), 1, SA[1, 2], SA[particle_keys...], 
+    #               centre_of_mass(positions, masses), 
+    #               centre_of_mass_velocity(velocities, masses), 
+    #               masses, OrbitalElements())
+    # hierarchy = [n_bodies, repeat([1], n_bodies-1)...]
 
-    bodies = Dict{Int, Particle}(i => p for (i, p) in enumerate(particles))
-    binaries = Dict(1 => root)
+    # bodies = Dict{Int, Particle}(i => p for (i, p) in enumerate(particles))
+    # binaries = Dict(1 => root)
 
-    MultiBodySystem(n_bodies, time, bodies, pairs, binaries, levels, root, hierarchy, nothing)
+    particles = Dict{Int, Particle}(i => p for (i, p) in enumerate(particles))
+
+    NonHierarchicalSystem(n_bodies, time, particles, pairs)
 end
 
 
@@ -597,3 +617,4 @@ function multibodysystem(sol::MultiBodySolution, time)
                            stellar_types=stellar_types, time=time)
 
 end
+

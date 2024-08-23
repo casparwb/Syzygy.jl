@@ -83,7 +83,7 @@ end
 
 
 """
-    simulation(system::MultiBodySystem; <simulation kwargs>)
+    simulation(system::MultiBodyInitialConditions; <simulation kwargs>)
 
 Setup a simulation with a given system and simulation arguments. Returns a 
 [`MultiBodySimulation`](@ref) object.
@@ -122,7 +122,7 @@ julia> sim = simulation(triple, t_sim=1, npoints=1000) # save 1000 datapoints
 julia> sim = simulation(triple, t_sim=1, alg=Syzygy.McAte5(), dt=1.0) # use the McAte5 symplectic integrator with a timestep of 1*innermost period.
 ```
 """
-function simulation(system::MultiBodySystem; kwargs...)
+function simulation(system::MultiBodyInitialConditions; kwargs...)
 
 
     kwargs = Dict{Symbol, Any}(kwargs)
@@ -133,7 +133,12 @@ function simulation(system::MultiBodySystem; kwargs...)
     particles = system.particles
 
     # Setup time step (only used if using symplectic integrator)
-    periods = [bin.elements.P |> upreferred for bin in values(system.binaries)]
+    periods = if system isa NonHierarchicalSystem
+        Rs = [norm(particles[ij[1]].position - particles[ij[2]].position) for ij in system.pairs]
+        2π/(GRAVCONST*sum(particles.mass)) .* (Rs ./ 2) .^ (3/2)
+    else
+        [bin.elements.P |> upreferred for bin in values(system.binaries)]
+    end
     P_in, P_out = extrema(periods)
     args[:dt] *= P_in.val # time step is multiple of inner period
 

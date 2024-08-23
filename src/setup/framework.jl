@@ -1,6 +1,7 @@
 using DiffEqBase, StaticArrays
 using Unrolled
 using FunctionWranglers
+using DoubleFloats, ArbNumerics
 
 abstract type MultiBodyInitialConditions end
 abstract type AbstractBinary end
@@ -40,14 +41,7 @@ struct StellarStructure{tT, mT, RT, ST, LT}
     m_env::mT  # envelope mass
 end
 
-struct PhysicalQuantities{hT, ET}
-    h::hT # (Specific) Angular momentum
-    E::ET # total energy
-    K::ET # kinetic energy
-    U::ET # potential energy
-end
-
-struct Particle{siblingType, massType, posType, velType, structType, attType} <: AbstractParticle
+struct Particle{siblingType, massType, posType, velType, structType} <: AbstractParticle
     key::ParticleIndex
     parent::BinaryIndex
     sibling::siblingType
@@ -55,7 +49,6 @@ struct Particle{siblingType, massType, posType, velType, structType, attType} <:
     position::posType
     velocity::velType
     structure::structType
-    attributes::attType
 end
 
 struct Binary{siblingType, childType, nchildType, posType, velType, massType, elType} <: AbstractBinary
@@ -71,7 +64,7 @@ struct Binary{siblingType, childType, nchildType, posType, velType, massType, el
     elements::elType
 end
 
-struct MultiBodySystem{timeType, bodType, pairType, binType, hierType, quanType} <: MultiBodyInitialConditions
+struct MultiBodySystem{timeType, bodType, pairType, binType, hierType} <: MultiBodyInitialConditions
     n::Int
     time::timeType
     particles::bodType
@@ -80,7 +73,13 @@ struct MultiBodySystem{timeType, bodType, pairType, binType, hierType, quanType}
     levels::SVector{N, Int} where N
     root::Binary
     hierarchy::hierType
-    quantities::quanType
+end
+
+struct NonHierarchicalSystem{tT, T, pT} <: MultiBodyInitialConditions
+    n::Int
+    time::tT
+    particles::T
+    pairs::pT
 end
 
 ####################################################################################################
@@ -90,7 +89,6 @@ end
 
 abstract type AbstractMassBody end
 
-
 struct MassBody{T} <: AbstractMassBody
     position::SVector{3, T}
     velocity::SVector{3, T}
@@ -98,9 +96,8 @@ struct MassBody{T} <: AbstractMassBody
     mass::T
 end
 
-
 struct MultiBodySimulation{tType, pType, aType, bType <: AbstractMassBody, potType <: MultiBodyPotential}
-    ic::MultiBodySystem
+    ic::MultiBodyInitialConditions
     bodies::SVector{N, bType} where N
     potential::Dict{Symbol, potType}
     tspan::Tuple{tType, tType}
@@ -118,9 +115,8 @@ struct SimulationResult{cType, rType <: Quantity{T} where T <: Real, opType, aTy
     args::aType
 end
 
-
 struct MultiBodySolution{tT, rT, vT, ST, SvT, sT, oT, pT}
-    ic::MultiBodySystem # initial conditions
+    ic::MultiBodyInitialConditions # initial conditions
     t::tT # time
     r::rT # positions
     v::vT # velocities
