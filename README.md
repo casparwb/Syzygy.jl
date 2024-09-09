@@ -1,5 +1,14 @@
 # Syzygy.jl
 
+<div align="center">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" 
+        srcset="logo-big-svg.svg" >
+      <img alt="Syzygy.jl logo" 
+        src="logo.svg" width="450">
+    </picture>
+</div>
+
 > In astronomy, a syzygy (/ˈsɪzədʒi/ SIZ-ə-jee; from Ancient Greek συζυγία (suzugía) 'union, yoke') is a roughly straight-line configuration of three or more celestial bodies in a gravitational system.
 
 `Syzygy.jl` is a high-performance few-body simulator written in [Julia](https://julialang.org/). This code is mainly aimed at simulating and visualizing the dynamics of hierarchical multistar systems, but it also supports non-hierarchical few-body systems. 
