@@ -1,4 +1,4 @@
-# Syzygy.jl
+<!-- # Syzygy.jl -->
 
 <div align="center">
     <picture>
