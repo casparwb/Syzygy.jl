@@ -3,7 +3,8 @@
 include("./callbacks.jl")
 include("./setup.jl")
 
-using OrdinaryDiffEq
+# using OrdinaryDiffEq
+using OrdinaryDiffEqRKN
 using Unitful, UnitfulAstro, StaticArrays
 using ProgressMeter
 
@@ -34,7 +35,7 @@ function simulate(simulation::MultiBodySimulation)
     # ##############################################################################################################
     let
         ode_prob_static = sodeprob_static(simulation, args[:dtype])
-        integrator_static = OrdinaryDiffEq.init(ode_prob_static, args[:alg], saveat=args[:saveat], 
+        integrator_static = OrdinaryDiffEqRKN.init(ode_prob_static, args[:alg], saveat=args[:saveat], 
                                                 callback=callbacks, maxiters=args[:maxiters], 
                                                 abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                                 diffeq_args...)
@@ -47,7 +48,7 @@ function simulate(simulation::MultiBodySimulation)
     acc_funcs = gather_accelerations_for_potentials(simulation)
     ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
 
-    integrator = OrdinaryDiffEq.init(ode_problem, args[:alg], saveat=args[:saveat], 
+    integrator = OrdinaryDiffEqRKN.init(ode_problem, args[:alg], saveat=args[:saveat], 
                                      callback=callbacks, maxiters=args[:maxiters], 
                                      abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                      diffeq_args...)
