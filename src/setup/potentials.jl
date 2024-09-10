@@ -546,7 +546,7 @@ function PN2_acceleration!(dvi,
     # nv₁³ = nv₁^3
     nv₂³ = nv₂^3
 
-    # nv₁⁴ = nv₁^4
+    nv₁⁴ = nv₁^4
     nv₂⁴ = nv₂^4
 
     m₁m₂ = m₁*m₂
