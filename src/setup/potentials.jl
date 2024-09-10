@@ -516,8 +516,6 @@ function PN2_acceleration!(dvi,
     
     m₁ = params.M[i]
     m₂ = params.M[j]
-
-    accel = @SVector [0.0, 0.0, 0.0]
     
     # i = 1, j = 2
     # add @fastmath?
@@ -558,18 +556,18 @@ function PN2_acceleration!(dvi,
     G²_r³ = G²*r⁻¹^3
     G³_r⁴ = G³*r⁻¹^4
 
-    # PN-2.5 acceleration:
+    # PN-2 acceleration:
     # expression is split up to avoid allocations that can appear in long expressions
 
     # acceleration for body 1 (i)
-    a_num = -57G³_r⁴*m₁²m₂/4 - 69G³_r⁴*m₁m₂²/2 - 9G³_r⁴*m₂^3 
+    a_num = G³_r⁴*(-57*m₁²m₂/4 - 69*m₁m₂²/2 - 9*m₂^3) 
     a_num += G*m₂/r²*(-15/8*nv₂⁴ + 3/2*nv₂²*v₁² - 6*nv₂²*v₁v₂ - 2*v₁v₂² + 9/2*nv₂²*v₂² + 
                         4*v₁v₂*v₂² - 2v₂^4)
     a_num += G²_r³*m₁m₂*(39/2*nv₁² - 39*nv₁*nv₂ + 17/2*nv₂² - 15/4*v₁² - 5/2*v₁v₂ + 5/4*v₂²) 
     a_num += G²_r³*m₂^2*(2*nv₁² - 4*nv₁*nv₂ - 6*nv₂² - 8*v₁v₂ + 4v₂²) 
     a₂1 = n*a_num
 
-    a_num = G²_r³*m₂^2*(-2*nv₁ - 2*nv₂) + G²*m₁m₂/r³*(-63/4*nv₁ + 55/4*nv₂) 
+    a_num = G²_r³*m₂^2*(-2*nv₁ - 2*nv₂) + G²_r³*m₁m₂*(-63/4*nv₁ + 55/4*nv₂) 
     a_num += G_r²*m₂*(-6*nv₁*nv₂² + 9/2*nv₂^3 + nv₂*v₁² - 4*nv₁*v₁v₂ + 
                         4*nv₂*v₁v₂ + 4*nv₁*v₂² - 5*nv₂*v₂²)
     a₂2 = v̄*a_num
@@ -584,27 +582,14 @@ function PN2_acceleration!(dvi,
     a_num += G²_r³*m₁^2*(2*nv₂² - 4*(-nv₂)*(-nv₁) - 6*nv₁² - 8*v₁v₂ + 4v₁²) 
     a₂1 = (-n)*a_num
 
-    a_num = G²_r³*m₁^2*(-2*(-nv₂) - 2*(-nv₁)) + G²*m₁m₂/r³*(-63/4*(-nv₂) + 55/4*(-nv₁)) 
+    a_num = G²_r³*m₁^2*(-2*(-nv₂) - 2*(-nv₁)) + G²_r³*m₁m₂*(-63/4*(-nv₂) + 55/4*(-nv₁)) 
     a_num += G_r²*m₁*(-6*(-nv₂)*nv₁² + 9/2*(-nv₁)^3 + (-nv₁)*v₂² - 4*(-nv₂)*v₁v₂ + 
                         4*(-nv₁)*v₁v₂ + 4*(-nv₂)*v₁² - 5*(-nv₁)*v₁²)
     a₂2 = (-v̄)*a_num
     aj = a₂1 + a₂2
 
-    # a_num = -57G³_r⁴*m₁²m₂/4 - 69G³_r⁴*m₁m₂²/2 - 9G³_r⁴*m₁^3 
-    # a_num += G*m₁/r²*(-15/8*nv₂⁴ + 3/2*nv₂²*v₂² - 6*nv₂²*v₁v₂ - 2*v₁v₂² + 9/2*nv₂²*v₁² + 
-    #                     4*v₁v₂*v₂² - 2v₁^4)
-    # a_num += G²_r³*m₁m₂*(39/2*nv₁² - 39*(-nv₁)*(-nv₂) + 17/2*nv₂² - 15/4*v₂² - 5/2*v₁v₂ + 5/4*v₁²) 
-    # a_num += G²_r³*m₁^2*(2*nv₁² - 4*(-nv₁)*(-nv₂) - 6*nv₂² - 8*v₁v₂ + 4v₁²) 
-    # a₂1 = (-n)*a_num
-
-    # a_num = G²_r³*m₁^2*(-2*(-nv₁) - 2*(-nv₂)) + G²*m₁m₂/r³*(-63/4*(-nv₁) + 55/4*(-nv₂)) 
-    # a_num += G_r²*m₁*(-6*(-nv₁)*nv₂² + 9/2*nv₁^3 + nv₂*v₂² - 4*(-nv₁)*v₁v₂ + 
-    #                     4*(-nv₂)*v₁v₂ + 4*(-nv₁)*v₁² - 5*(-nv₂)*v₁²)
-    # a₂2 = (-v̄)*a_num
-    # aj = a₂1 + a₂2
-
-    dvi .= ai*c⁻⁴
-    dvj .= aj*c⁻⁴
+    dvi .+= ai*c⁻⁴
+    dvj .+= aj*c⁻⁴
     nothing
 end
 
@@ -657,14 +642,11 @@ function PN2_5_acceleration!(dvi,
     ai = a1 + a2
 
     # acceleration for body 2 (j)
-    a_num = 208G³_r⁴*m₁m₂²/15*(-nv) - 24G³_r⁴*m₁m₂²/5*(-nv) + 12G²_r³*m₁m₂/5*v²
+    a_num = 208G³_r⁴*m₁²m₂/15*nv - 24G³_r⁴*m₁m₂²/5*nv + 12G²_r³*m₁m₂/5*v²
     a1 = a_num*(-n)
-    a_num = 8G³_r⁴*m₁m₂²/5 - 32G³_r⁴*m₁m₂²/5 - 4G²_r³*m₁m₂/5*v²
+    a_num = 8G³_r⁴*m₁m₂²/5 - 32G³_r⁴*m₁²m₂/5 - 4G²_r³*m₁m₂/5*v²
     a2 = a_num*(-v̄)
     aj = a1 + a2
-
-    # a = @. (208G³_r⁴*m₁m₂²/15*nv - 24G³_r⁴*m₁²m₂/5*nv + 12G²_r³*m₁m₂/5*v²)*n + 
-    #          (8G³_r⁴*m₁²m₂/5 - 32G³_r⁴*m₁m₂²/5 - 4G²_r³*m₁m₂/5*v²)*v̄
 
     dvi .+= ai*c⁻⁵
     dvj .+= aj*c⁻⁵
@@ -967,30 +949,31 @@ function PN1_to_3_5_acceleration!(dvi,
 
     # r₁′ = r₂′ = 1.0
 
-    # PN-1 acceleration
+    ################## PN-1 acceleration ##################
     ai = @. n*(G_r²*m₂)*(5*G_r*m₁ + 4*G_r*m₂ + 3/2*nv₂^2 - v₁² + 4*v₁v₂ - 2*v₂²) +
             (4*nv₁ - 3*nv₂)*v̄
 
     aj = @. (-n)*(G_r²*m₁)*(5*G_r*m₂ + 4*G_r*m₁ + 3/2*nv₁^2 - v₂² + 4*v₁v₂ - 2*v₁²) +
             (4*(-nv₂) - 3*(-nv₁))*(-v̄)
+    
+    dvi .+= ai*c⁻²
+    dvj .+= aj*c⁻²
 
-    dvi .= ai*c⁻²
-    dvj .= aj*c⁻²
-
-    # PN-2 acceleration
+    ################## PN-2 acceleration ##################
     # acceleration for body 1 (i)
-    a_num = -57G³_r⁴*m₁²m₂/4 - 69G³_r⁴*m₁m₂²/2 - 9G³_r⁴*m₂^3 
+    a_num = G³_r⁴*(-57*m₁²m₂/4 - 69*m₁m₂²/2 - 9*m₂^3) 
     a_num += G*m₂/r²*(-15/8*nv₂⁴ + 3/2*nv₂²*v₁² - 6*nv₂²*v₁v₂ - 2*v₁v₂² + 9/2*nv₂²*v₂² + 
                         4*v₁v₂*v₂² - 2v₂^4)
     a_num += G²_r³*m₁m₂*(39/2*nv₁² - 39*nv₁*nv₂ + 17/2*nv₂² - 15/4*v₁² - 5/2*v₁v₂ + 5/4*v₂²) 
     a_num += G²_r³*m₂^2*(2*nv₁² - 4*nv₁*nv₂ - 6*nv₂² - 8*v₁v₂ + 4v₂²) 
     a₂1 = n*a_num
 
-    a_num = G²_r³*m₂^2*(-2*nv₁ - 2*nv₂) + G²*m₁m₂/r³*(-63/4*nv₁ + 55/4*nv₂) 
+    a_num = G²_r³*m₂^2*(-2*nv₁ - 2*nv₂) + G²_r³*m₁m₂*(-63/4*nv₁ + 55/4*nv₂) 
     a_num += G_r²*m₂*(-6*nv₁*nv₂² + 9/2*nv₂^3 + nv₂*v₁² - 4*nv₁*v₁v₂ + 
                         4*nv₂*v₁v₂ + 4*nv₁*v₂² - 5*nv₂*v₂²)
     a₂2 = v̄*a_num
     ai = a₂1 + a₂2
+
 
     # acceleration for body 2 (j)
     a_num = -57G³_r⁴*m₁m₂²/4 - 69G³_r⁴*m₁²m₂/2 - 9G³_r⁴*m₁^3 
@@ -1000,16 +983,16 @@ function PN1_to_3_5_acceleration!(dvi,
     a_num += G²_r³*m₁^2*(2*nv₂² - 4*(-nv₂)*(-nv₁) - 6*nv₁² - 8*v₁v₂ + 4v₁²) 
     a₂1 = (-n)*a_num
 
-    a_num = G²_r³*m₁^2*(-2*(-nv₂) - 2*(-nv₁)) + G²*m₁m₂/r³*(-63/4*(-nv₂) + 55/4*(-nv₁)) 
+    a_num = G²_r³*m₁^2*(-2*(-nv₂) - 2*(-nv₁)) + G²_r³*m₁m₂*(-63/4*(-nv₂) + 55/4*(-nv₁)) 
     a_num += G_r²*m₁*(-6*(-nv₂)*nv₁² + 9/2*(-nv₁)^3 + (-nv₁)*v₂² - 4*(-nv₂)*v₁v₂ + 
                         4*(-nv₁)*v₁v₂ + 4*(-nv₂)*v₁² - 5*(-nv₁)*v₁²)
     a₂2 = (-v̄)*a_num
     aj = a₂1 + a₂2
 
-    dvi .= ai*c⁻⁴
-    dvj .= aj*c⁻⁴
+    dvi .+= ai*c⁻⁴
+    dvj .+= aj*c⁻⁴
 
-    # PN-2.5 acceleration
+    ################## PN-2.5 acceleration ##################
     # acceleration for body 1 (i)
     a_num = 208G³_r⁴*m₁m₂²/15*nv - 24G³_r⁴*m₁²m₂/5*nv + 12G²_r³*m₁m₂/5*v²
     a1 = a_num*n
@@ -1018,9 +1001,9 @@ function PN1_to_3_5_acceleration!(dvi,
     ai = a1 + a2
 
     # acceleration for body 2 (j)
-    a_num = 208G³_r⁴*m₁m₂²/15*(-nv) - 24G³_r⁴*m₁m₂²/5*(-nv) + 12G²_r³*m₁m₂/5*v²
+    a_num = 208G³_r⁴*m₁²m₂/15*nv - 24G³_r⁴*m₁m₂²/5*nv + 12G²_r³*m₁m₂/5*v²
     a1 = a_num*(-n)
-    a_num = 8G³_r⁴*m₁m₂²/5 - 32G³_r⁴*m₁m₂²/5 - 4G²_r³*m₁m₂/5*v²
+    a_num = 8G³_r⁴*m₁m₂²/5 - 32G³_r⁴*m₁²m₂/5 - 4G²_r³*m₁m₂/5*v²
     a2 = a_num*(-v̄)
     aj = a1 + a2
 
