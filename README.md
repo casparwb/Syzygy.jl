@@ -9,16 +9,12 @@
     </picture>
 </div>
 
-> In astronomy, a syzygy (/ˈsɪzədʒi/ SIZ-ə-jee; from Ancient Greek συζυγία (suzugía) 'union, yoke') is a roughly straight-line configuration of three or more celestial bodies in a gravitational system.
-
-`Syzygy.jl` is a high-performance few-body simulator written in [Julia](https://julialang.org/). This code is mainly aimed at simulating and visualizing the dynamics of hierarchical multistar systems, but it also supports non-hierarchical few-body systems. 
+`Syzygy.jl` is a high-performance few-body simulator written in [Julia](https://julialang.org/). This code is mainly aimed at simulating and visualizing the dynamics of hierarchical multistar systems, but it also supports non-hierarchical few-body systems. The package uses the [DifferentialEquations.jl](https://diffeq.sciml.ai/) ecosystem to solve the governing differential equations. This makes the package highly performant and flexible, allowing for, e.g., both fixed and adaptive timestepping with adjustable error tolerances, and the flexibility of callbacks for code injection.
 
 > [!CAUTION] 
 > This package is still being developed, so certain features may not work as expected. If you want to use this package, please ensure that you perform tests to ensure that your results are to be expected.
 
-The package uses the [DifferentialEquations.jl](https://diffeq.sciml.ai/) ecosystem to solve the governing differential equations. This makes the package highly performant and flexible, allowing for, e.g., both fixed and adaptive timestepping with adjustable error tolerances, and the flexibility of callbacks for code injection.
-
-# Usage
+# Getting started
 
 ## Installation
 
@@ -31,10 +27,10 @@ add https://github.com/casparwb/Syzygy.jl
 Alternatively, from you terminal run
 
 ```bash
-julia -e 'import Pkg;  Pkg.add(url='https://github.com/casparwb/Syzygy.jl")'
+julia -e 'import Pkg;  Pkg.add(url="https://github.com/casparwb/Syzygy.jl")'
 ```
 
-## System initialization
+## Hierarchical system initialization
 
 A simulation in `Syzygy.jl` begins by setting up the system you want to simulate. This is done by the `multibodysystem` function, which takes in the structural arguments of the bodies in the system - masses, radii, stellar types, luminositites, etc... -, and the orbital parameters of the binaries - semi-major axes, eccentricities, etc.. . The masses are set as the first positional argument, while all other parameters are set using keyword arguments. `Syzygy.jl` uses units by utilizing [Unitful.jl](https://painterqubits.github.io/Unitful.jl/stable/) and [UnitfulAstro.jl](https://juliaastro.org/UnitfulAstro.jl/stable/), which of which are re-exported upon loading `Syzygy.jl`. Arguments that are not unitless need to be defined with a unit when initializing the system. The system is set up following [Hamers & Portegies Zwart 2016](https://doi.org/10.1093/mnras/stw784), with labeling being done as shown in this figure (Evans 1968):
 
@@ -57,8 +53,8 @@ quadruple = multibodysystem([1.0, 1.0, 1.0, 1.0]u"Msun", a=[0.1, 0.5, 10.0]u"Rsu
 bh1_mass = 9.62u"Msun"
 bh2_mass = 8.4u"Msun"
 
-bh1_radius = 2*𝒢*bh1_mass/c² # the gravitational constant G can be accessed using \scrG in the REPL. 
-bh2_radius = 2*𝒢*bh2_mass/c²
+bh1_radius = 2*GRAVCONST*bh1_mass/c² # the gravitational constant G can be accessed using GRAVCONST in the REPL. 
+bh2_radius = 2*GRAVCONST*bh2_mass/c²
 
 binary_blackholes = multibodysystem([bh1_mass, bh2_mass], a=15.3u"Rsun", R=[bh1_radius, bh2_radius], type=[14, 14]) 
 ```
@@ -77,6 +73,23 @@ quintuple = multibodysystem(masses, a=[r1, r2, r3, r4], hierarchy=hierarchy)
 ```
 
 The components of the system can be accessed via `system.binaries[index]`, with `index` being an integer from 1 to number of binaries, and `system.particles[index]`, for the individual particles. A binary or particle are instances of the `Binary` or `Particle` type, both of which have a number of fields containing information about their state and internal structure.
+
+## Arbitrary system initialization
+
+A system can also be initialized using just masses, positions, and velocities (in addition to structural arguments like radius etc.). To do this, call `multibodysystem` with positional arguments masses, positions, velocities.
+
+### Example
+
+```julia
+
+masses = [2.0, 1.0]u"Msun"
+r1 = [-1.0, 0.0, 0.0]u"Rsun"
+r2 = [1.0, 0.0, 0.0]u"Rsun"
+v1 = [0.0, -25.0, 0.0]u"km/s"
+v2 = [0.0, 25.0, 0.0]u"km/s"
+
+twobody = multibodysystem(masses, [r1, r2], [v1, v2], R=[1.5, 0.5]u"Rsun")
+```
 
 
 > [!NOTE]
@@ -116,7 +129,7 @@ To get the full list of callbacks, you can call `Syzygy.callbacks()`.
 
 `Syzygy.jl` has support for including/varying the potentials and corresponding acceleration functions in a simulation.  In this package, you can specify the acceleration functions to include by setting the `potentials` keyword argument when calling `simulate` or `simulation`. This argument accepts a `Vector{MultiBodyPotential}` where `MultiBodyPotential` is a supertype of all the potentials defined in the package, and for each of which there exists a unique acceleration function. The total acceleration of a particle at each time step is thus a sum of all the acceleration functions defined by the `potential` vector.
 
-Currently, there are 4 possible potentials, with post-newtonian acceleration being being implemented. These are
+Currently, there are 4 possible potentials, with post-newtonian acceleration currently being implemented. These are
 
 - `PureGravitationalAcceleration`: Newtonian gravitational acceleration
 - `DynamicalTidalAcceleration`: energy dissipation from dynamical tidal, following the prescription of [Samsing et al. 2018](http://arxiv.org/abs/1803.08215).
