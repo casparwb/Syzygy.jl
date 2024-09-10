@@ -1,5 +1,4 @@
 using DiffEqBase, StaticArrays
-using Unrolled
 using FunctionWranglers
 using DoubleFloats, ArbNumerics
 
@@ -165,7 +164,7 @@ end
 
 
 function get_accelerating_function(potential::PN2_5Potential, n)
-    (dvi, dvj, rs, vs, pair, time, params) -> PN1_5_acceleration!(dvi, dvj, rs, vs, pair, params)
+    (dvi, dvj, rs, vs, pair, time, params) -> PN2_5_acceleration!(dvi, dvj, rs, vs, pair, params)
 end
 
 function get_accelerating_function(potential::PN3Potential, n)
@@ -424,61 +423,54 @@ end
 
 #################################################################################################
 
-"""
-    apply_acc_funcs(state::Tuple, acc_funcs::Tuple)
+# """
+#     apply_acc_funcs(state::Tuple, acc_funcs::Tuple)
 
-Apply the acceleration functions to the given state using an unrolled loop.
-Unrolling this loop makes it non-allocating when you have more than one acceleration
-function.
-"""
-# @unroll function apply_acc_funcs(state::sT, acc_funcs::aT) where {sT, aT}
-#     @unroll for i in 1:length(acc_funcs)
-#         # acc_funcs[i](state...)
-#         acc_funcs[i](state[1], state[2], state[3], state[4], state[5], state[6], state[7])
-#     end
+# Apply the acceleration functions to the given state using an unrolled loop.
+# Unrolling this loop makes it non-allocating when you have more than one acceleration
+# function.
+# """
+# # @unroll function apply_acc_funcs(state::sT, acc_funcs::aT) where {sT, aT}
+# #     @unroll for i in 1:length(acc_funcs)
+# #         # acc_funcs[i](state...)
+# #         acc_funcs[i](state[1], state[2], state[3], state[4], state[5], state[6], state[7])
+# #     end
+# # end
+
+# # @unroll function apply_acc_funcs(state::sT, acc_funcs::aT, ::Val{N}()) where {sT, aT, N}
+# #     @unroll for i in 1:N
+# #         # acc_funcs[i](state...)
+# #         acc_funcs[i](state[1], state[2], state[3], state[4], state[5], state[6], state[7])
+# #     end
+# # end
+
+# @inline function apply_acc_funcs(state::Tuple, acc_funcs::Tuple, ::Val{1})
+#     acc_funcs[1](state[1], state[2], state[3], state[4], state[5], state[6], state[7])
 # end
 
-# @unroll function apply_acc_funcs(state::sT, acc_funcs::aT, ::Val{N}()) where {sT, aT, N}
-#     @unroll for i in 1:N
-#         # acc_funcs[i](state...)
-#         acc_funcs[i](state[1], state[2], state[3], state[4], state[5], state[6], state[7])
-#     end
+# @inline function apply_acc_funcs(state::Tuple, acc_funcs::T, ::Val{1}) where T
+#     acc_funcs[1](state[1], state[2], state[3], state[4], state[5], state[6], state[7])
 # end
 
-@inline function apply_acc_funcs(state::Tuple, acc_funcs::Tuple, ::Val{1})
-    acc_funcs[1](state[1], state[2], state[3], state[4], state[5], state[6], state[7])
-end
-
-@inline function apply_acc_funcs(state::Tuple, acc_funcs::T, ::Val{1}) where T
-    acc_funcs[1](state[1], state[2], state[3], state[4], state[5], state[6], state[7])
-end
-
-# function apply_acc_funcs(ai, aj, u, v, pair, t, p, acc_funcs::Tuple, ::Val{1})
-#     acc_funcs[1](ai, aj, u, v, pair, t, p)
-# end
+# # function apply_acc_funcs(ai, aj, u, v, pair, t, p, acc_funcs::Tuple, ::Val{1})
+# #     acc_funcs[1](ai, aj, u, v, pair, t, p)
+# # end
 
 
 
-# @unroll function apply_acc_funcs(ai, aj, u, v, pair, t, p, acc_funcs::Tuple)
-#     @unroll for i in 1:length(acc_funcs)
-#         # acc_funcs[i](state...)
-#         acc_funcs[i](ai, aj, u, v, pair, t, p)
-#     end
-# end
+# # @unroll function apply_acc_funcs(ai, aj, u, v, pair, t, p, acc_funcs::Tuple)
+# #     @unroll for i in 1:length(acc_funcs)
+# #         # acc_funcs[i](state...)
+# #         acc_funcs[i](ai, aj, u, v, pair, t, p)
+# #     end
+# # end
 
-# @unroll function apply_acc_funcs(ai, aj, u, v, pair, t, p, acc_funcs, ::Val{N}) where N
-#     @unroll for i in 1:N
-#         # acc_funcs[i](state...)
-#         acc_funcs[i](ai, aj, u, v, pair, t, p)
-#     end
-# end
-
-
-
-######################################## The new ODE solver #######################################
-
-
-#################################################################################################
+# # @unroll function apply_acc_funcs(ai, aj, u, v, pair, t, p, acc_funcs, ::Val{N}) where N
+# #     @unroll for i in 1:N
+# #         # acc_funcs[i](state...)
+# #         acc_funcs[i](ai, aj, u, v, pair, t, p)
+# #     end
+# # end
 
 
 
