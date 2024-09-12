@@ -207,6 +207,8 @@ function make_initial_conditions(us, vs, ss, spinvel, dtype::Union{Type{Float64}
     n = length(us)
     u0 = MMatrix{6, n, dtype}([reduce(hcat, us); reduce(hcat, ss)])
     v0 = MMatrix{6, n, dtype}([reduce(hcat, vs); reduce(hcat, spinvel)])
+    # u0 = MMatrix{3, n, dtype}(reduce(hcat, us))
+    # v0 = MMatrix{3, n, dtype}(reduce(hcat, vs))
 
     return u0, v0
 end
@@ -291,7 +293,7 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
     dtype = eltype(u0)
     dtype_0 = zero(dtype)
     function soode_system!(dv, v, u, p, t)
-
+        fill!(dv, dtype_0)
         @inbounds for pair in pairs
             i, j = pair
             fill!(ai, dtype_0)
@@ -299,8 +301,12 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
 
             smap!(o, w, ai, aj, u, v, pair, t, p)
 
-            dv[1:3, i] .= ai
-            dv[1:3, j] .= aj
+            @inbounds for k = 1:3
+                dv[k, i] += ai[k]
+                dv[k, j] += aj[k]
+            end
+
+            nothing
         end
 
         # if spin_precession
@@ -316,6 +322,11 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
     SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
 end
 
+function fill_dv!(dv, ai, aj, i, j)
+    dv[1:3, i] .+= ai
+    dv[1:3, j] .+= aj
+    nothing
+end
 
 
 ######################################################################################################
