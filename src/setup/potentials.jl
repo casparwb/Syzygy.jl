@@ -7,17 +7,6 @@ include("../physics/tides.jl")
 abstract type MultiBodyPotential end
 abstract type SimulationParams end
 
-# struct DefaultSimulationParams{RType, MType, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
-#     R::RType # radii
-#     M::MType # masses
-#     L::LType # luminosities
-#     S::SType # spins
-#     stellar_types::stpType 
-#     M_cores::cMType # core masses
-#     R_cores::cRType # core radii
-#     ages::ageType 
-# end
-
 struct DefaultSimulationParams{FloatVecType, IntVecType} <: SimulationParams
     R::FloatVecType # radii
     M::FloatVecType # masses
@@ -27,7 +16,6 @@ struct DefaultSimulationParams{FloatVecType, IntVecType} <: SimulationParams
     R_cores::FloatVecType # core radii
     ages::FloatVecType 
 end
-
 
 # struct PNSimulationParams{RType, MType, M2_type, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
 #     R::RType # radii
@@ -42,18 +30,9 @@ end
 # end
 
 
-struct PureGravitationalPotential{gType} <: MultiBodyPotential
-    G::gType
-    PureGravitationalPotential(G=upreferred(GRAVCONST).val) = new{typeof(G)}(G)
-end
+struct PureGravitationalPotential <: MultiBodyPotential end
 
-struct PureGravitationalPotential2{gType} <: MultiBodyPotential
-    G::gType
-    PureGravitationalPotential2(G=upreferred(GRAVCONST).val) = new{typeof(G)}(G)
-end
-
-struct DynamicalTidalPotential{gType <: Real, nType, fType <: Function} <: MultiBodyPotential
-    G::gType # Gravitational constant
+struct DynamicalTidalPotential{nType, fType <: Function} <: MultiBodyPotential
     nₜ::Int  # Tidal force power constant
     γ::nType # Polytropic index of each star
     tidal_factor::fType
@@ -70,53 +49,51 @@ Set up the dynamical tidal potential for a system.
 - `n`: tidal force power index
 - `γ`: vector of polytropic indices of each body in the system
 """
-function DynamicalTidalPotential(;G, n, γ)
+function DynamicalTidalPotential(;n, γ)
 
     if n == 4
         f = tidal_factor_n4
     elseif n == 10
         f = tidal_factor_n10
     else
+        @warn "Tidal factor for n ≠ (4, 10) is not defined."
         f = x -> x
     end
 
-    DynamicalTidalPotential(G, n, γ, f)
+    DynamicalTidalPotential(n, γ, f)
 end
 
-struct EquilibriumTidalPotential{gType <: Real} <: MultiBodyPotential
-    G::gType
-end
+struct EquilibriumTidalPotential <: MultiBodyPotential end
 
-struct StaticEquilibriumTidalPotential{gType <: Real, M_env_Type, R_env_Type} <: MultiBodyPotential
-    G::gType
+struct StaticEquilibriumTidalPotential{M_env_Type, R_env_Type} <: MultiBodyPotential
     M_env::M_env_Type
     R_env::R_env_Type
 end
 
-
-function StaticEquilibriumTidalPotential(system, G=ustrip(upreferred(GRAVCONST)); Z=0.02)
+function StaticEquilibriumTidalPotential(system; Z=0.02)
 
     age = system.time
     n_bodies = system.n
-    R_envs = typeof(1.0u"Rsun")[]
-    m_envs = typeof(1.0u"Msun")[]
+    R_envs = Float64[]
+    m_envs = Float64[]
 
     for i = 1:n_bodies
         
         particle = system.particles[i]
         envelope_radius, envelope_mass = if particle.structure.stellar_type isa Star && particle.structure.m < 1.25u"Msun"
-                                             envelope_structure(system.particles[i], age, Z)
+                                            envelope_structure(system.particles[i], age, Z)
                                          else
-                                            0.0u"Rsun", 0.0u"Msun"
+                                            0.0u"Rsun", 0.0u"Rsun"
                                          end
-        push!(R_envs, envelope_radius)
-        push!(m_envs, envelope_mass)
+
+        push!(R_envs, ustrip(envelope_radius))
+        push!(m_envs, ustrip(envelope_mass))
     end
     
     R_envs = SA[R_envs...]
     m_envs = SA[m_envs...]
 
-    StaticEquilibriumTidalPotential(G, m_envs, R_envs)
+    StaticEquilibriumTidalPotential(m_envs, R_envs)
 end
 
 """
@@ -242,6 +219,7 @@ Acceleration function from dynamical tides. This model is adapted from
 function dynamical_tidal_drag_force!(dvi,
                                      dvj,
                                      rs,
+                                     vs,
                                      pair::Tuple{Int, Int},
                                      params::SimulationParams,
                                      potential::DynamicalTidalPotential)
@@ -266,10 +244,6 @@ function dynamical_tidal_drag_force!(dvi,
 
     m₁, m₂ = ms[i], ms[j]
     M = m₁ + m₂
-
-    Rₜ = Rs[i]
-
-
     a = semi_major_axis(r, v^2, M, G)
     e = eccentricity(r̄, v̄, a, M, G)
     rₚ = a*(1 - e)
@@ -277,6 +251,7 @@ function dynamical_tidal_drag_force!(dvi,
     J = potential.tidal_factor(e)
 
     a₁ = let
+        Rₜ = Rs[i]
         ΔE = tidal_ΔE(m₁, Rₜ, m₂, rₚ, potential.γ[i], G)
 
         ΔE = ifelse(isinf(ΔE), 0.0, ΔE)
@@ -287,8 +262,9 @@ function dynamical_tidal_drag_force!(dvi,
     end
 
     a₂ = let
+        Rₜ = Rs[j]
         ΔE = tidal_ΔE(m₂, Rₜ, m₁, rₚ, potential.γ[j], G)
-
+        
         ΔE = ifelse(isinf(ΔE), 0.0, ΔE)
         ε = drag_force_coefficient(ΔE, J, a, e, M, potential.nₜ, G)
 
@@ -309,6 +285,7 @@ Acceleration function from equilibrium tides using the Hut 1981 prescription.
 function equilibrium_tidal_drag_force!(dvi,
                                        dvj,
                                        rs,
+                                       vs,
                                        pair::Tuple{Int, Int},
                                        params::SimulationParams,
                                        potential::EquilibriumTidalPotential) 
@@ -320,39 +297,30 @@ function equilibrium_tidal_drag_force!(dvi,
     r̄₂ = @SVector [rs[1, j], rs[2, j], rs[3, j]]
     v̄₂ = @SVector [vs[1, j], vs[2, j], vs[3, j]]
     
+    ms = params.M
+    Rs = params.R
+
+    m₁, m₂ = ms[i], ms[j]
     
     r̄ = r̄₁ - r̄₂
     v̄ = v̄₁ - v̄₂
-
+    
     r = norm(r̄)
     v = norm(v̄)
+    
+    r² = r^2
+    r_hat = r̄/r
 
     θ_dot = (r̄ × v̄)/r²
     θ_dot_norm = norm(θ_dot)
     θ_hat = θ_dot/θ_dot_norm
 
-    r² = r^2
-    r_hat = r̄/r
-
     a = semi_major_axis(r, v^2, m₂+m₁, G)
-    
-    ms = params.M
-    Rs = params.R
-
-    m₁, m₂ = ms[i], ms[j]
-
-    Rs = params.R
-    
-    m₁ = ms[i]
-    m₂ = ms[j]
-
-    Ω = norm(S̄₁)
 
      # tidal force on 1 by 2
     a₁ = let k = i
-        stp = params.stellar_types[k]
-
-        if !(stellar_types[stp] isa Star)
+        stellar_type = params.stellar_types[k]
+        if !(stellar_types[stellar_type] isa Star)
             SA[0.0, 0.0, 0.0]
         else
             S̄₁  = @SVector [rs[4, k], rs[5, k], rs[6, k]]
@@ -377,15 +345,15 @@ function equilibrium_tidal_drag_force!(dvi,
 
             kτ = R^3/(G*m₁)*k_T
 
-            @. -μ*3m₂/m₁*(R/r)^5*((k + 33v̄/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
+            @. -3μ*m₂/m₁*(R/r)^5*((k + 3v̄/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
         end
     end
 
     # tidal force on 2 by 1
     a₂ = let k = j
-        stp = params.stellar_types[k]
+        stellar_type = params.stellar_types[k]
 
-        if !(stellar_types[stp] isa Star)
+        if !(stellar_types[stellar_type] isa Star)
             SA[0.0, 0.0, 0.0]
         else
             S̄₂  = @SVector [rs[4, k], rs[5, k], rs[6, k]]
@@ -410,7 +378,7 @@ function equilibrium_tidal_drag_force!(dvi,
 
             kτ = R^3/(G*m₂)*k_T
 
-            @. -μ*m₁/m₂*(R/r)^5*((k + 33v̄/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
+            @. -3μ*m₁/m₂*(R/r)^5*((k + 3v̄/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
         end
     end
     
@@ -420,13 +388,13 @@ function equilibrium_tidal_drag_force!(dvi,
 end
 
 
-function equilibrium_tidal_drag_force!(dv,
-                               rs,
-                               vs,
-                               params::SimulationParams,
-                               i::Int,
-                               n::Int,
-                               potential::StaticEquilibriumTidalPotential) 
+function equilibrium_tidal_drag_force!(dvi,
+                                       dvj,
+                                       rs,
+                                       vs,
+                                       pair::Tuple{Int, Int},
+                                       params::SimulationParams,
+                                       potential::StaticEquilibriumTidalPotential) 
                                
 
     i, j = pair
@@ -436,35 +404,27 @@ function equilibrium_tidal_drag_force!(dv,
     r̄₂ = @SVector [rs[1, j], rs[2, j], rs[3, j]]
     v̄₂ = @SVector [vs[1, j], vs[2, j], vs[3, j]]
     
-    
     r̄ = r̄₁ - r̄₂
     v̄ = v̄₁ - v̄₂
 
     r = norm(r̄)
     v = norm(v̄)
-
-    θ_dot = (r̄ × v̄)/r²
-    θ_dot_norm = norm(θ_dot)
-    θ_hat = θ_dot/θ_dot_norm
-
+    
     r² = r^2
     r_hat = r̄/r
 
-    a = semi_major_axis(r, v^2, m₂+m₁, G)
-    
     ms = params.M
     Rs = params.R
 
     m₁, m₂ = ms[i], ms[j]
 
-    Rs = params.R
-    
-    m₁ = ms[i]
-    m₂ = ms[j]
+    θ_dot = (r̄ × v̄)/r²
+    θ_dot_norm = norm(θ_dot)
+    θ_hat = θ_dot/θ_dot_norm
 
-    Ω = norm(S̄₁)
+    a = semi_major_axis(r, v^2, m₂+m₁, G)
 
-     # tidal force on 1 by 2
+    # tidal force on 1 by 2
     a₁ = let k = i
         stellar_type = params.stellar_types[k]
 
@@ -493,15 +453,15 @@ function equilibrium_tidal_drag_force!(dv,
 
             kτ = R^3/(G*m₁)*k_T
 
-            @. -μ*3m₂/m₁*(R/r)^5*((k + 33v̄/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
+            @. -3μ*m₂/m₁*(R/r)^5*((k + 3v̄/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
         end
     end
 
     # tidal force on 2 by 1
     a₂ = let k = j
-        stp = params.stellar_types[k]
+        stellar_type = params.stellar_types[k]
 
-        if !(stellar_types[stp] isa Star)
+        if !(stellar_types[stellar_type] isa Star)
             SA[0.0, 0.0, 0.0]
         else
             S̄₂  = @SVector [rs[4, k], rs[5, k], rs[6, k]]
@@ -526,76 +486,13 @@ function equilibrium_tidal_drag_force!(dv,
 
             kτ = R^3/(G*m₂)*k_T
 
-            @. -μ*m₁/m₂*(R/r)^5*((k + 33v̄/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
+            @. -3μ*m₁/m₂*(R/r)^5*((k + 3v̄/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
         end
     end
     
     dvi .+= a₁
     dvj .+= a₂
     nothing
-
-    # stellar_type = ustrip(params.stellar_types[i]) |> Int
-    # accel = @SVector [0.0, 0.0, 0.0]
-
-    # if !(stellar_types[stellar_type] isa Star)
-    #     return
-    # end
-
-    # ri = @SVector [rs[1, i], rs[2, i], rs[3, i]]
-    # vi = @SVector [vs[1, i], vs[2, i], vs[3, i]]
-
-    # Rs = params.R
-    # ms = params.M
-    # S = params.S
-    
-    # M = ms[i]
-    # M_num = ustrip(M)
-    # R = Rs[i]
-    # R_num = ustrip(R)
-    # Ω = ustrip(S[i])
-    # G = unit(upreferred(GRAVCONST))*potential.G
-    # logg = log10(ustrip(u"cm/s^2", G*M/R^2))
-    # logm = log10(ustrip(u"Msun", M))
-    # k = asidal_motion_constant_interpolated(logm, logg)
-
-
-    # luminosity = params.L[i]    
-
-    # # tidal force on i by j
-    # @inbounds for j = 1:n
-    #     if j != i
-    #         rj = @SVector [rs[1, j], rs[2, j], rs[3, j]]
-    #         vj = @SVector [vs[1, j], vs[2, j], vs[3, j]]
-
-    #         rij = ri - rj
-    #         vij = vi - vj
-
-    #         r = norm(rij)
-    #         r² = r^2
-    #         r_hat = rij/r
-
-    #         θ_dot = (rij × vij)/r²# × rij
-    #         θ_dot_norm = norm(θ_dot)
-    #         θ_hat = θ_dot/θ_dot_norm
-
-    #         m = ms[j]
-    #         m_num = ustrip(m)
-
-    #         μ = potential.G*m_num/r²
-
-    #         a = semi_major_axis(r, norm(vij)^2, m_num+M_num, potential.G)
-    #         a_quant = a*upreferred(u"m")
-    #         k_T::Float64 = apsidal_motion_constant_over_tidal_timescale(M, R,
-    #                                                            envelope_mass, envelope_radius,
-    #                                                            stellar_type, luminosity, 
-    #                                                            m, a_quant) * upreferred(u"yr^-1").val
-
-    #         kτ = R_num^3/(potential.G*M_num)*k_T
-
-    #         accel += @. -μ*3m_num/M_num*(R_num/r)^5*((k + 33vij/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
-    #     end
-    # end
-    @. dv += accel
 end
 
 function PN1_acceleration!(dvi, 
@@ -1315,10 +1212,10 @@ function spin_precession!(dvi,
     ā = ā₁ - ā₂
     r̄ = r̄₁ - r̄₂
     v̄ = v̄₁ - v̄₂
-    rxv = r̄ × v̄
+    # rxv = r̄ × v̄
 
     rv = dot(r̄, v̄)
-    av = dot(ā, v̄)
+    # av = dot(ā, v̄)
 
     r = norm(r̄) # r₁₂
     v = norm(v̄) # v₁₂
@@ -1329,63 +1226,119 @@ function spin_precession!(dvi,
     # v² = v*v
     # v³ = v²*v
 
-    n = r̄/r
-    nv = dot(n, v)
-    nv₁ = dot(n, v₁)
-    nv₂ = dot(n, v₂)
-    nS₁ = dot(n, S̄₁)
+    n    = r̄/r
+    nv   = dot(n, v̄)
+    nv₁  = dot(n, v̄₁)
+    nv₂  = dot(n, v̄₂)
+    vv₂  = dot(v̄, v̄₂)
+    nS₁  = dot(n, S̄₁)
+    vS₁  = dot(v̄, S̄₁)
     v₁S₁ = dot(v̄₁, S̄₁)
     v₂S₁ = dot(v̄₂, S̄₁)
-    vv₂ = dot(v, v₂)
 
     nv₂² = nv₂^2
-
-    dn_dt = 
-    dnv_dt = 
-
-    dnv₁_dt =
-    dnv₂_dt = 
-
-    dnS₁_dt = 
-    dvS1_dt = 
-
-    dvv₂_dt = 
+    
+    dr_dt    = rv*r⁻¹
+    dn_dt    = r⁻¹*(v̄ - rv .* r⁻²*r̄)
+    dnv_dt   = n  .* ā   .+ v  .* dn_dt
+    dnv₁_dt  = n  .* ā₁  .+ v̄₁ .* dn_dt
+    dnv₂_dt  = n  .* ā₂  .+ v̄₂ .* dn_dt
+    dnS₁_dt  = n  .* dS̄₁ .+ S̄₁ .* dn_dt
+    dvS₁_dt  = v̄  .* dS̄₁ .+ S̄₁ .* ā
+    dv₁S₁_dt = v̄₁ .* dS̄₁ .+ S̄₁ .* ā₁
+    dv₂S₁_dt = v̄₂ .* dS̄₁ .+ S̄₁ .* ā₂
+    dvv₂_dt  = v̄  .* ā₂  .+ v̄₂ .* ā
 
     Gm₁ = G*m₁
     Gm₂ = G*m₂
 
     dT1PN_dt = @. -2*Gm₂*((v̄₁ - 2*v̄₂)*nS₁ + S̄₁*nv - 2*n*vS₁)*v*r⁻²*r⁻¹ + 
                          Gm₂*((v̄₁ - 2*v̄₂)*dnS₁_dt + (ā₁ - 2*ā₂)*nS₁ + 
-                         S̄₁*dnv_dt - 2*n*dvS1_dt + nv*dS̄₁ - 2*vS₁*dn_dt)*r⁻²
+                         S̄₁*dnv_dt - 2*n*dvS₁_dt + nv*dS̄₁ - 2*vS₁*dn_dt)*r⁻²
 
 
-    dT2PN_dt = @. -2*Gm₂*dr_dt*r⁻²*r⁻¹*((Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*r⁻¹ + 
-                                     2*Gm₂*nS₁*nv*r⁻¹ + (3*nv₂² + 2*vv₂)*vS₁)*n + 
-                                    (-5*G*δm*nS₁*r⁻¹ + (3*nv₂² + 2*vv₂)*nS₁ + 2*(v₁S₁ + v₂S₁)*nv)*v̄₂ - 
-                                    (-G*(6*δm)*nS₁*r⁻¹ + 3*nS₁*nv₂²/2 + nv₂*vS₁)*v̄₁ + 
-                                    (Gm₁*nv₁*r⁻¹ - Gm₂*nv*r⁻¹ - 3*nv*nv₂²/2 + nv₂*vv₂)*S̄₁
-                                    ) + 
-                Gm₂*r⁻²*((Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*r⁻¹ + 2*Gm₂*nS₁*nv*r⁻¹ + (3*nv₂² + 2*vv₂)*vS₁)*dn_dt + 
-                         (-5*G*δm*nS₁*r⁻¹ + (3*nv₂² + 2*vv₂)*nS₁ + 2*(v₁S₁ + v₂S₁)*nv)*dv₂_t - 
-                         (-G*(6*δm)*nS₁*r⁻¹ + 3*nS₁*nv₂²/2 + nv₂*vS₁)*dv̄₁_t + 
-                         (Gm₁*nv₁*r⁻¹ - Gm₂*nv*r⁻¹ -3*nv*nv₂²/2 + nv₂*vv₂)*dS̄₁_t + 
-                         (5*G*δm*nS₁*dr_t*r⁻² - 5*G*δm*dnS₁_dt*r⁻¹ + (6*nv₂*dnv₂_dt + 2*dvv₂_dt)*nS₁ + 
-                          (3*nv₂² + 2*vv₂)*dnS₁_dt + 2*(v₁S₁ + v₂S₁)*dnv_dt +2*(dv₁S₁_dt + dv₂S₁_t)*nv)*v̄₂ - 
-                         (G*(6*δm)*nS₁*dr_dt*r⁻² - G*(6*δm)*dnS₁_dt*r⁻¹ + 
-                          3*nS₁*nv₂*dnv₂_dt + 3*nv₂²*dnS₁_dt/2 + nv₂*dvS₁_dt + vS₁*dnv₂_dt)*v̄₁ + 
-                         (-Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*dr_dt*r⁻² + 
-                          Gm₁*(-16*nS₁*dnv_dt - 16*nv*dnS₁_dt + 
-                          3*dv₁S₁_dt - 7*dv₂S₁_dt)*r⁻¹ - 
-                          2*Gm₂*nS₁*nv*dr_dt*r⁻² + 2*Gm₂*nS₁*dnv_dt*r⁻¹ + 
-                          2*Gm₂*nv*dnS₁_dt*r⁻¹ + (6*nv₂*dnv₂_dt + 
-                          2*dvv₂_dt)*vS₁ + (3*nv₂² + 2*vv₂)*dvS₁_dt)*n + 
-                         (-Gm₁*nv₁*dr_dt*r⁻² + Gm₁*dnv₁_dt*r⁻¹ + 
-                          Gm₂*nv*dr_dt*r⁻² - Gm₂*dnv_dt*r⁻¹ - 
-                          3*nv*nv₂*dnv₂_dt - 3*nv₂²*dnv_dt/2 + 
-                          nv₂*dvv₂_dt + vv₂*dnv₂_dt)*S̄₁
-                        )
+    # dT2PN_dt = @. -2*Gm₂*dr_dt*r⁻²*r⁻¹*((Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*r⁻¹ + 
+    #                                  2*Gm₂*nS₁*nv*r⁻¹ + (3*nv₂² + 2*vv₂)*vS₁)*n + 
+    #                                 (-5*G*δm*nS₁*r⁻¹ + (3*nv₂² + 2*vv₂)*nS₁ + 2*(v₁S₁ + v₂S₁)*nv)*v̄₂ - 
+    #                                 (-G*(6*δm)*nS₁*r⁻¹ + 3*nS₁*nv₂²/2 + nv₂*vS₁)*v̄₁ + 
+    #                                 (Gm₁*nv₁*r⁻¹ - Gm₂*nv*r⁻¹ - 3*nv*nv₂²/2 + nv₂*vv₂)*S̄₁
+    #                                    ) + 
+    #             Gm₂*r⁻²*((Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*r⁻¹ + 2*Gm₂*nS₁*nv*r⁻¹ + (3*nv₂² + 2*vv₂)*vS₁)*dn_dt + 
+    #                      (-5*G*δm*nS₁*r⁻¹ + (3*nv₂² + 2*vv₂)*nS₁ + 2*(v₁S₁ + v₂S₁)*nv)*ā₂ - 
+    #                      (-G*(6*δm)*nS₁*r⁻¹ + 3*nS₁*nv₂²/2 + nv₂*vS₁)*ā₁ + 
+    #                      (Gm₁*nv₁*r⁻¹ - Gm₂*nv*r⁻¹ -3*nv*nv₂²/2 + nv₂*vv₂)*dS̄₁ + 
+    #                      (5*G*δm*nS₁*dr_dt*r⁻² - 5*G*δm*dnS₁_dt*r⁻¹ + (6*nv₂*dnv₂_dt + 2*dvv₂_dt)*nS₁ + 
+    #                       (3*nv₂² + 2*vv₂)*dnS₁_dt + 2*(v₁S₁ + v₂S₁)*dnv_dt +2*(dv₁S₁_dt + dv₂S₁_dt)*nv)*v̄₂ - 
+    #                      (G*(6*δm)*nS₁*dr_dt*r⁻² - G*(6*δm)*dnS₁_dt*r⁻¹ + 
+    #                       3*nS₁*nv₂*dnv₂_dt + 3*nv₂²*dnS₁_dt/2 + nv₂*dvS₁_dt + vS₁*dnv₂_dt)*v̄₁ + 
+    #                      (-Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*dr_dt*r⁻² + 
+    #                       Gm₁*(-16*nS₁*dnv_dt - 16*nv*dnS₁_dt + 
+    #                       3*dv₁S₁_dt - 7*dv₂S₁_dt)*r⁻¹ - 
+    #                       2*Gm₂*nS₁*nv*dr_dt*r⁻² + 2*Gm₂*nS₁*dnv_dt*r⁻¹ + 
+    #                       2*Gm₂*nv*dnS₁_dt*r⁻¹ + (6*nv₂*dnv₂_dt + 
+    #                       2*dvv₂_dt)*vS₁ + (3*nv₂² + 2*vv₂)*dvS₁_dt)*n + 
+    #                      (-Gm₁*nv₁*dr_dt*r⁻² + Gm₁*dnv₁_dt*r⁻¹ + 
+    #                       Gm₂*nv*dr_dt*r⁻² - Gm₂*dnv_dt*r⁻¹ - 
+    #                       3*nv*nv₂*dnv₂_dt - 3*nv₂²*dnv_dt/2 + 
+    #                       nv₂*dvv₂_dt + vv₂*dnv₂_dt)*S̄₁
+    #                     )
+
+    num = (Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*r⁻¹ + 2*Gm₂*nS₁*nv*r⁻¹ + (3*nv₂² + 2*vv₂)*vS₁)*n
+    num += (-5*G*δm*nS₁*r⁻¹ + (3*nv₂² + 2*vv₂)*nS₁ + 2*(v₁S₁ + v₂S₁)*nv)*v̄₂
+    num += -(-G*(6*δm)*nS₁*r⁻¹ + 3*nS₁*nv₂²/2 + nv₂*vS₁)*v̄₁
+    num += (Gm₁*nv₁*r⁻¹ - Gm₂*nv*r⁻¹ - 3*nv*nv₂²/2 + nv₂*vv₂)*S̄₁
+    num *= -2*Gm₂*dr_dt*r⁻²*r⁻¹
+
+    num += (Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*r⁻¹ + 2*Gm₂*nS₁*nv*r⁻¹ + (3*nv₂² + 2*vv₂)*vS₁)*dn_dt
+    num += (-5*G*δm*nS₁*r⁻¹ + (3*nv₂² + 2*vv₂)*nS₁ + 2*(v₁S₁ + v₂S₁)*nv)*ā₂ 
+    num += -(-G*(6*δm)*nS₁*r⁻¹ + 3*nS₁*nv₂²/2 + nv₂*vS₁)*ā₁ 
+    num += (Gm₁*nv₁*r⁻¹ - Gm₂*nv*r⁻¹ -3*nv*nv₂²/2 + nv₂*vv₂)*dS̄₁ 
+    num += (5*G*δm*nS₁*dr_dt*r⁻² - 5*G*δm*dnS₁_dt*r⁻¹ + (6*nv₂*dnv₂_dt + 2*dvv₂_dt)*nS₁ + 
+            (3*nv₂² + 2*vv₂)*dnS₁_dt + 2*(v₁S₁ + v₂S₁)*dnv_dt +2*(dv₁S₁_dt + dv₂S₁_dt)*nv)*v̄₂ 
+    num += -(G*(6*δm)*nS₁*dr_dt*r⁻² - G*(6*δm)*dnS₁_dt*r⁻¹ +
+            3*nS₁*nv₂*dnv₂_dt + 3*nv₂²*dnS₁_dt/2 + nv₂*dvS₁_dt + vS₁*dnv₂_dt)*v̄₁
+    num += (-Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*dr_dt*r⁻² +
+            Gm₁*(-16*nS₁*dnv_dt - 16*nv*dnS₁_dt + 
+                 3*dv₁S₁_dt - 7*dv₂S₁_dt)*r⁻¹ - 
+            2*Gm₂*nS₁*nv*dr_dt*r⁻² + 2*Gm₂*nS₁*dnv_dt*r⁻¹ + 
+            2*Gm₂*nv*dnS₁_dt*r⁻¹ + 
+            (6*nv₂*dnv₂_dt + 2*dvv₂_dt)*vS₁ + 
+            (3*nv₂² + 2*vv₂)*dvS₁_dt)*n
+    num += (-Gm₁*nv₁*dr_dt*r⁻² + Gm₁*dnv₁_dt*r⁻¹ + 
+            Gm₂*nv*dr_dt*r⁻² - Gm₂*dnv_dt*r⁻¹ - 
+            3*nv*nv₂*dnv₂_dt - 3*nv₂²*dnv_dt/2 + 
+            nv₂*dvv₂_dt + vv₂*dnv₂_dt)*S̄₁
+    num *= Gm₂*r⁻²
+
+        num = (Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*r⁻¹ + 2*Gm₂*nS₁*nv*r⁻¹ + (3*nv₂² + 2*vv₂)*vS₁)*n
+        num += (-5*G*δm*nS₁*r⁻¹ + (3*nv₂² + 2*vv₂)*nS₁ + 2*(v₁S₁ + v₂S₁)*nv)*v̄₂
+        num += -(-G*(6*δm)*nS₁*r⁻¹ + 3*nS₁*nv₂²/2 + nv₂*vS₁)*v̄₁
+        num += (Gm₁*nv₁*r⁻¹ - Gm₂*nv*r⁻¹ - 3*nv*nv₂²/2 + nv₂*vv₂)*S̄₁
+        num *= -2*Gm₂*dr_dt*r⁻²*r⁻¹
+    
+        num += (Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*r⁻¹ + 2*Gm₂*nS₁*nv*r⁻¹ + (3*nv₂² + 2*vv₂)*vS₁)*dn_dt
+        num += (-5*G*δm*nS₁*r⁻¹ + (3*nv₂² + 2*vv₂)*nS₁ + 2*(v₁S₁ + v₂S₁)*nv)*ā₂ 
+        num += -(-G*(6*δm)*nS₁*r⁻¹ + 3*nS₁*nv₂²/2 + nv₂*vS₁)*ā₁ 
+        num += (Gm₁*nv₁*r⁻¹ - Gm₂*nv*r⁻¹ -3*nv*nv₂²/2 + nv₂*vv₂)*dS̄₁ 
+        num += (5*G*δm*nS₁*dr_dt*r⁻² - 5*G*δm*dnS₁_dt*r⁻¹ + (6*nv₂*dnv₂_dt + 2*dvv₂_dt)*nS₁ + 
+                (3*nv₂² + 2*vv₂)*dnS₁_dt + 2*(v₁S₁ + v₂S₁)*dnv_dt +2*(dv₁S₁_dt + dv₂S₁_dt)*nv)*v̄₂ 
+        num += -(G*(6*δm)*nS₁*dr_dt*r⁻² - G*(6*δm)*dnS₁_dt*r⁻¹ +
+                3*nS₁*nv₂*dnv₂_dt + 3*nv₂²*dnS₁_dt/2 + nv₂*dvS₁_dt + vS₁*dnv₂_dt)*v̄₁
+        num += (-Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*dr_dt*r⁻² +
+                Gm₁*(-16*nS₁*dnv_dt - 16*nv*dnS₁_dt + 
+                     3*dv₁S₁_dt - 7*dv₂S₁_dt)*r⁻¹ - 
+                2*Gm₂*nS₁*nv*dr_dt*r⁻² + 2*Gm₂*nS₁*dnv_dt*r⁻¹ + 
+                2*Gm₂*nv*dnS₁_dt*r⁻¹ + 
+                (6*nv₂*dnv₂_dt + 2*dvv₂_dt)*vS₁ + 
+                (3*nv₂² + 2*vv₂)*dvS₁_dt)*n
+        num += (-Gm₁*nv₁*dr_dt*r⁻² + Gm₁*dnv₁_dt*r⁻¹ + 
+                Gm₂*nv*dr_dt*r⁻² - Gm₂*dnv_dt*r⁻¹ - 
+                3*nv*nv₂*dnv₂_dt - 3*nv₂²*dnv_dt/2 + 
+                nv₂*dvv₂_dt + vv₂*dnv₂_dt)*S̄₁
+        num *= Gm₂*r⁻²
 
     dvi .+= dT1PN_dt*c⁻² + dT2PN_dt*c⁻⁴ 
+    # dvj 
     nothing
 end
 
