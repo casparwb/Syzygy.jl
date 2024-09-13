@@ -1,4 +1,5 @@
-using Printf, Unitful, UnitfulAstro, DoubleFloats, ArbNumerics
+using Printf, Unitful, UnitfulAstro
+using DoubleFloats, ArbNumerics, MultiFloats
 
 function bodies(system::T where T <: MultiBodyInitialConditions, dtype=Float64)
 
@@ -328,16 +329,21 @@ function get_datatype_from_precision(precision)
         setworkingprecision(ArbFloat, precision)
         return ArbFloat
     elseif precision isa Symbol
-        if precision == :Float64
-            return Float64
-        elseif precision == :Float32
-            return Float32
-        elseif precision == :Double64
-            return Double64
-        elseif precision == :Double32
-            return Double32
-        else
-            @error "Datatype $precision not supported."
+        # if precision == :Float64
+        #     return Float64
+        # elseif precision == :Float32
+        #     return Float32
+        # elseif precision == :Double64
+        #     return Double64
+        # elseif precision == :Double32
+        #     return Double32
+        # else
+        #     @error "Datatype $precision not supported."
+        # end
+        try 
+            return eval(precision)
+        catch e
+            throw(e)
         end
     else
         @info "Precision should be either an integer for the number of bits, or a symbol."
