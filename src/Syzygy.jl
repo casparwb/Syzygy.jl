@@ -6,6 +6,10 @@ module Syzygy
 
     Unitful.preferunits(u"Rsun, Msun, yr"...)
 
+    # function __init__()
+    #     Unitful.register(Syzygy)
+    # end
+
     # include("units.jl")
     include("constants.jl")
     
