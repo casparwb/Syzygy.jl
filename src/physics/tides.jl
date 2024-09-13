@@ -8,7 +8,7 @@ using FastChebInterp
     tidal_ΔE(Mₜ, Rₜ, Mₚ, rₚ, γ, G)
 
 Energy dissipated in a tidal interaction between a tidal object with mass
-Mₜ and radius Rₜ and a perturber with mass Mₜ, where γ is the polytropic index
+Mₜ and radius Rₜ and a perturber with mass Mₚ where γ is the polytropic index
 of the tidal object.
 """
 function tidal_ΔE(Mₜ, Rₜ, Mₚ, rₚ, γ, G)
@@ -119,7 +119,7 @@ function apsidal_motion_constant_over_tidal_timescale(mass::Real, radius,
                                                       envelope_mass, envelope_radius,
                                                       stellar_type, luminosity, 
                                                       mass_perturber,
-                                                      semi_major_axis, Z=0.02)::Float64
+                                                      semi_major_axis; Z=0.02)::Float64
 
     if !(stellar_types[stellar_type] isa Star)
         return 0.0
