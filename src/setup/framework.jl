@@ -138,49 +138,48 @@ end
 #     (dvi, dvj, rs, vs, pair, time, params) -> pure_gravitational_acceleration!(dvi, dvj, rs, pair, params)
 # end
 
-function get_accelerating_function(potential::PureGravitationalPotential, n)
+function get_accelerating_function(potential::PureGravitationalPotential)
     (dvi, dvj, rs, vs, pair, time, params) -> pure_gravitational_acceleration!(dvi, dvj, rs, pair, params)
 end
 
-function get_accelerating_function(potential::DynamicalTidalPotential, n)
-    (dv, u, v, p, t, i) -> dynamical_tidal_drag_force!(dv, u, v, p, i, n, potential)
+function get_accelerating_function(potential::DynamicalTidalPotential)
+    (dvi, dvj, rs, vs, pair, time, params) -> dynamical_tidal_drag_force!(dvi, dvj, rs, vs, pair, params, potential)
 end
 
-function get_accelerating_function(potential::EquilibriumTidalPotential, n)
-    (dv, u, v, p, t, i) -> equilibrium_tidal_drag_force!(dv, u, v, p, i, n, potential)
+function get_accelerating_function(potential::EquilibriumTidalPotential)
+    (dvi, dvj, rs, vs, pair, time, params) -> equilibrium_tidal_drag_force!(dvi, dvj, rs, vs, pair, params, potential)
 end
 
-function get_accelerating_function(potential::StaticEquilibriumTidalPotential, n)
-    (dv, u, v, p, t, i) -> equilibrium_tidal_drag_force!(dv, u, v, p, i, n, potential)
+function get_accelerating_function(potential::StaticEquilibriumTidalPotential)
+    (dvi, dvj, rs, vs, pair, time, params) -> equilibrium_tidal_drag_force!(dvi, dvj, rs, vs, pair, params, potential)
 end
 
-function get_accelerating_function(potential::PN1Potential, n)
+function get_accelerating_function(potential::PN1Potential)
     (dvi, dvj, rs, vs, pair, time, params) -> PN1_acceleration!(dvi, dvj, rs, vs, pair, params)
 end
 
-function get_accelerating_function(potential::PN2Potential, n)
+function get_accelerating_function(potential::PN2Potential)
     (dvi, dvj, rs, vs, pair, time, params) -> PN2_acceleration!(dvi, dvj, rs, vs, pair, params)
 end
 
-
-function get_accelerating_function(potential::PN2_5Potential, n)
+function get_accelerating_function(potential::PN2_5Potential)
     (dvi, dvj, rs, vs, pair, time, params) -> PN2_5_acceleration!(dvi, dvj, rs, vs, pair, params)
 end
 
-function get_accelerating_function(potential::PN3Potential, n)
-    (dv, u, v, p, t, i) -> PN3_acceleration!(dv, u, v, p, i, n, potential)
-end
+# function get_accelerating_function(potential::PN3Potential)
+#     (dv, u, v, p, t, i) -> PN3_acceleration!(dv, u, v, p, i, n, potential)
+# end
 
-function get_accelerating_function(potential::PN3_5Potential, n)
-    (dv, u, v, p, t, i) -> PN3_5acceleration!(dv, u, v, p, i, n, potential)
-end
+# function get_accelerating_function(potential::PN3_5Potential)
+#     (dv, u, v, p, t, i) -> PN3_5acceleration!(dv, u, v, p, i, n, potential)
+# end
 
-function get_accelerating_function(potential::PNPotential, n)
+function get_accelerating_function(potential::PNPotential)
     (dvi, dvj, rs, vs, pair, time, params) -> PN_acceleration!(dvi, dvj, rs, vs, pair, params)
 end
 
-function get_accelerating_function(potential::SpinPrecessionPotential, n)
-    (dvi, dvj, rs, vs, pair, time, params) -> spin_precession!(dvi, dvj, rs, vs, pair, params)
+function get_accelerating_function(potential::SpinPrecessionPotential)
+    (dvi, dvj, dvs, rs, vs, pair, time, params) -> spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
 end
 
 
@@ -194,7 +193,8 @@ function gather_accelerations_for_potentials(simulation::MultiBodySimulation)
 
     n = simulation.ic.n
     for (potential, parameters) in simulation.potential
-        push!(acceleration_functions, get_accelerating_function(parameters, n))
+        potential == :SpinPrecessionPotential && continue
+        push!(acceleration_functions, get_accelerating_function(parameters))
     end
 
     # tuple(acceleration_functions...)
@@ -203,12 +203,10 @@ end
 
 ###################################### The in-place ODE solver ######################################
 
-function make_initial_conditions(us, vs, ss, spinvel, dtype::Union{Type{Float64}, Type{<:MultipartFloat}})
+function make_initial_conditions(us, vs, ss, spinvel, dtype::Type{<:AbstractFloat})
     n = length(us)
     u0 = MMatrix{6, n, dtype}([reduce(hcat, us); reduce(hcat, ss)])
     v0 = MMatrix{6, n, dtype}([reduce(hcat, vs); reduce(hcat, spinvel)])
-    # u0 = MMatrix{3, n, dtype}(reduce(hcat, us))
-    # v0 = MMatrix{3, n, dtype}(reduce(hcat, vs))
 
     return u0, v0
 end
@@ -226,22 +224,21 @@ function get_initial_conditions(simulation::MultiBodySimulation, dtype)
     bodies = simulation.bodies
     n = length(bodies)
 
-    spinvelocity = []
-    if :deSitterPotential in keys(simulation.potential)
+    spinvelocity = [zeros(eltype(b.spin), 3) for b in bodies]
+    if :SpinPrecessionPotential in keys(simulation.potential)
         system = simulation.ic
-        for i = 1:n
-            particle = system.particles[i]
-            parent_binary = system.binaries[particle.parent.i]
-            dS = deSitter_spin_velocity(particle, parent_binary)
-            push!(spinvelocity, ustrip.(upreferred(unit(dS[1])), dS))
+        for pair in system.pairs
+            i, j = pair
+            b1 = bodies[i]
+            b2 = bodies[j]
+            dS = spin_precession_velocity(b1, b2)
+            spinvelocity[i] += dS
         end
-    else
-        spinvelocity = [zeros(eltype(b.spin), 3) for b in bodies]
     end
 
     us = [b.position for b in bodies]
-    ss = [b.spin for b in bodies]
     vs = [b.velocity for b in bodies]
+    ss = [b.spin for b in bodies]
 
     u0, v0 = make_initial_conditions(us, vs, ss, spinvelocity, dtype)
 
@@ -251,10 +248,10 @@ end
 function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
                                           acc_funcs::AccelerationFunctions, 
                                           dtype::Type{ArbFloat})
+                                          
     u0, v0 = get_initial_conditions(simulation, dtype)
- 
-    ai = SizedVector{3, dtype}(zeros(dtype, 3)...)
-    aj = SizedVector{3, dtype}(zeros(dtype, 3)...)
+    ai     = SizedVector{3, dtype}(zeros(dtype, 3)...)
+    aj     = SizedVector{3, dtype}(zeros(dtype, 3)...)
     a_spin = SizedVector{3, dtype}(zeros(dtype, 3)...)
 
     SecondOrderODEProblem(simulation, acc_funcs, u0, v0, ai, aj, a_spin)
@@ -262,11 +259,11 @@ end
 
 function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
                                           acc_funcs::AccelerationFunctions, 
-                                          dtype::Union{Type{Float64}, Type{<:MultipartFloat}})
+                                          dtype::Type{<:AbstractFloat})
 
     u0, v0 = get_initial_conditions(simulation, dtype)
-    ai = MVector{3, dtype}(zeros(dtype, 3)...)
-    aj = MVector{3, dtype}(zeros(dtype, 3)...)
+    ai     = MVector{3, dtype}(zeros(dtype, 3)...)
+    aj     = MVector{3, dtype}(zeros(dtype, 3)...)
     a_spin = MVector{3, dtype}(zeros(dtype, 3)...)
 
     SecondOrderODEProblem(simulation, acc_funcs, u0, v0, ai, aj, a_spin)
@@ -280,10 +277,10 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
     spin_precession = false
     if :SpinPrecessionPotential in keys(simulation.potential)
         spin_precession = true
-        idx = findall(x -> x.parameters == SpinPrecessionPotential(), acc_funcs) |> only
-        d²Sdt²! = acc_funcs[idx]
-        acc_funcs = tuple([f for f in acc_funcs.fs if !(f.parameters == SpinPrecessionPotential())]...)
-        acc_funcs = AccelerationFunctions(SA[acc_funcs...], length(acc_funcs))
+        d²Sdt²! = get_accelerating_function(simulation.potential[:SpinPrecessionPotential])
+        # idx = findall(x -> x.parameters == SpinPrecessionPotential(), acc_funcs) |> only
+        # acc_funcs = tuple([f for f in acc_funcs.fs if !(f.parameters == SpinPrecessionPotential())]...)
+        # acc_funcs = AccelerationFunctions(SA[acc_funcs...], length(acc_funcs))
     end
 
     N = acc_funcs.N
@@ -309,14 +306,20 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
             nothing
         end
 
-        # if spin_precession
-        #     @inbounds for i = 1:n
-        #         fill!(a_spin, dtype_0)
-        #         d²Sdt²!(a_spin, dv, u, v, p, t, i)
+        if spin_precession
+            @inbounds for pair in pairs
+                i, j = pair
+                fill!(ai, dtype_0)
+                fill!(aj, dtype_0)
 
-        #         dv[4:6, i] = a_spin
-        #     end
-        # end
+                d²Sdt²!(ai, aj, dv, u, v, pair, t, p)
+
+                @inbounds for k = 1:3
+                    dv[k, i] += ai[k]
+                    dv[k, j] += aj[k]
+                end           
+            end 
+        end
     end
 
     SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
@@ -338,26 +341,24 @@ function get_initial_conditions_static(simulation::MultiBodySimulation)
     bodies = simulation.bodies;
     n = length(bodies)
 
-    spinvelocity = []
-    if :deSitterPotential in keys(simulation.potential)
+    spinvelocity = [zeros(eltype(b.spin), 3) for b in bodies]
+    if :SpinPrecessionPotential in keys(simulation.potential)
         system = simulation.ic
-        for i = 1:n
-            particle = system.particles[i]
-            parent_binary = system.binaries[particle.parent.i]
-            dS = deSitter_spin_velocity(particle, parent_binary)
-            push!(spinvelocity, ustrip.(upreferred(unit(dS[1])), dS))
+        for pair in system.pairs
+            i, j = pair
+            b1 = bodies[i]
+            b2 = bodies[j]
+            dS = spin_precession_velocity(b1, b2)
+            spinvelocity[i] += dS
         end
-    else
-        spinvelocity = [zeros(eltype(b.spin), 3) for b in bodies]
     end
 
     us = [b.position for b in bodies]
-    ss = [b.spin for b in bodies]
     vs = [b.velocity for b in bodies]
+    ss = [b.spin for b in bodies]
 
     u0 = SMatrix{6, n}([reduce(hcat, us); reduce(hcat, ss)])
     v0 = SMatrix{6, n}([reduce(hcat, vs); reduce(hcat, spinvelocity)])
-
 
     (u0, v0, n)
 end
@@ -368,22 +369,21 @@ function sodeprob_static(simulation::MultiBodySimulation, dtype::Type{ArbFloat})
     # dtype = eltype(u0)
     ai = SizedVector{3, dtype}(zeros(dtype, 3)...)
     aj = SizedVector{3, dtype}(zeros(dtype, 3)...)
-    a_spin = SizedVector{3, dtype}(zeros(dtype, 3)...)
     dv = SizedMatrix{6, n, dtype}(undef)
+    a_spin = SizedVector{3, dtype}(zeros(dtype, 3)...)
 
-
-    sodeprob_static(simulation::MultiBodySimulation, u0, v0, ai, aj, a_spin, dv)
+    sodeprob_static(simulation, u0, v0, ai, aj, a_spin, dv)
 end
 
-function sodeprob_static(simulation::MultiBodySimulation, dtype::Union{Type{Float64}, Type{<:MultipartFloat}})
+function sodeprob_static(simulation::MultiBodySimulation, dtype::Type{<:AbstractFloat})
     (u0, v0, n) = get_initial_conditions_static(simulation)
     
     ai = MVector{3, dtype}(zeros(dtype, 3)...)
     aj = MVector{3, dtype}(zeros(dtype, 3)...)
-    a_spin = MVector{3, dtype}(zeros(dtype, 3)...)
     dv = MMatrix{6, n, dtype}(undef)
+    a_spin = MVector{3, dtype}(zeros(dtype, 3)...)
 
-    sodeprob_static(simulation::MultiBodySimulation, u0, v0, ai, aj, a_spin, dv)
+    sodeprob_static(simulation, u0, v0, ai, aj, a_spin, dv)
 end
 
 function sodeprob_static(simulation::MultiBodySimulation, u0, v0, ai, aj, a_spin, dv)
@@ -393,9 +393,9 @@ function sodeprob_static(simulation::MultiBodySimulation, u0, v0, ai, aj, a_spin
     spin_precession = false
     if :SpinPrecessionPotential in keys(simulation.potential)
         spin_precession = true
-        idx = findall(x -> x.parameters == SpinPrecessionPotential(), acc_funcs) |> only
-        d²Sdt²! = acc_funcs[idx]
-        acc_funcs = tuple([f for f in acc_funcs if !(f.parameters == SpinPrecessionPotential())]...)
+        d²Sdt²! = get_accelerating_function(simulation.potential[:SpinPrecessionPotential])
+        # d²Sdt²! = acc_funcs[idx]
+        # acc_funcs = tuple([f for f in acc_funcs if !(f.parameters == SpinPrecessionPotential())]...)
     end
 
     N = acc_funcs.N
@@ -418,10 +418,14 @@ function sodeprob_static(simulation::MultiBodySimulation, u0, v0, ai, aj, a_spin
             end
 
             if spin_precession
-                @inbounds for i = 1:n
-                    fill!(a_spin, dtype_0)
-                    d²Sdt²!(a_spin, dv, u, v, p, t, i)
-                    dv[4:6, i] = a_spin
+                @inbounds for pair in pairs
+                    i, j = pair
+                    fill!(ai, dtype_0)
+                    fill!(aj, dtype_0)
+
+                    d²Sdt²!(ai, aj, dv, u, v, pair, t, p)
+                    dv[4:6, i] = ai
+                    dv[4:6, j] = aj
                 end
             end
 

@@ -717,3 +717,67 @@ function precession_vector(r1, r2, v1, v2, m1, m2)
 
     return Ω₁
 end
+
+function spin_precession_velocity(particle1::Particle, particle2::Particle)
+    S1 = particle1.structure.S
+    r1 = particle1.position
+    r2 = particle2.position
+    v1 = particle1.velocity
+    v2 = particle2.velocity
+
+    m1 = particle1.mass
+    m2 = particle2.mass
+    spin_precession_velocity(S1, r1, r2, v1, v2, m1, m2)
+end
+
+function spin_precession_velocity(body1::MassBody, body2::MassBody)
+    S1 = body1.spin
+    r1 = body1.position
+    r2 = body2.position
+    v1 = body1.velocity
+    v2 = body2.velocity
+
+    m1 = body1.mass
+    m2 = body2.mass
+    spin_precession_velocity(S1, r1, r2, v1, v2, m1, m2)
+end
+
+function spin_precession_velocity(S1, r1, r2, v1, v2, m1::Quantity, m2::Quantity)
+    T1PN, T2PN = spin_precession_velocity_factor(S1, r1, r2, v1, v2, m1, m2)
+    return GRAVCONST*(T1PN/c^2 + T2PN/c^4)
+end
+
+function spin_precession_velocity(S1, r1, r2, v1, v2, m1::AbstractFloat, m2::AbstractFloat)
+    T1PN, T2PN = spin_precession_velocity_factor(S1, r1, r2, v1, v2, m1, m2)
+    return G*(T1PN/c² + T2PN/c⁴)
+end
+
+function spin_precession_velocity_factor(S1, r1, r2, v1, v2, m1, m2)
+    
+    r̄ = r1 - r2
+    v̄ = v1 - v2
+
+    r = norm(r̄)
+
+    n = r̄/r
+    nS1 = dot(n, S1)
+    nv = dot(n, v̄)
+    nv1 = dot(n, v1)
+    nv2 = dot(n, v2)
+    vv2 = dot(v̄, v2)
+    vS1  = dot(v̄, S1)
+    v1S1 = dot(v1, S1)
+    v2S1 = dot(v2, S1)
+
+    T1PN = m2/r^2*((v1 - 2*v2)*nS1 + S1*nv - 2*n*vS1)
+
+    T2PN = m2/r^2*((G*m1*(-16*nS1*nv + 3*v1S1 - 7*v2S1)/r + 
+                      2*G*m2*nS1*nv/r + (3*nv2^2 + 2*vv2)*vS1)*n + 
+                     (-5*G*(m1 - m2)*nS1/r + (3*nv2^2 + 2*vv2)*nS1 + 
+                      2*(v1S1 + v2S1)*nv)*v2 - 
+                     (-G*(6*m1 - m2)*nS1/r + 3*nS1*nv2^2/2 + nv2*vS1)*v1 + 
+                     (G*m1*nv1/r - G*m2*nv/r - 3*nv*nv2^2/2 + nv2*vv2)*S1
+                    )
+
+    T1PN, T2PN
+end

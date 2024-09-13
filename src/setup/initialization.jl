@@ -49,22 +49,22 @@ julia> quadruple = multibodysystem([1.0, 1.0, 1.0, 1.0]u"Msun", hierarchy=[4, 2,
 ```
 """
 function multibodysystem(masses::Vector{<:Unitful.Mass}; R  = 1.0u"Rsun", 
-                                                     S      = 0.0u"1/yr", 
-                                                     L      = 1.0u"Lsun", 
-                                                     R_core = unit(R[1])*(0.0),
-                                                     m_core = unit(masses[1])*(0.0),
-                                                     R_env  = unit(R[1])*(0.0),
-                                                     m_env  = unit(masses[1])*(0.0),
-                                                     stellar_types  = 1, 
-                                                     a      = 1.0u"AU", 
-                                                     e      = 0.1, 
-                                                     ω      = 0.0u"rad", 
-                                                     i      = 0.0u"rad", 
-                                                     Ω      = 0.0u"rad", 
-                                                     ν      = (π)u"rad", 
-                                                     time::Quantity = 0.0u"s", 
-                                                     verbose::Bool = false, 
-                                                     hierarchy = [length(masses), repeat([1], length(masses)-1)...])
+                                                         S      = 0.0u"1/yr", 
+                                                         L      = 1.0u"Lsun", 
+                                                         R_core = unit(R[1])*(0.0),
+                                                         m_core = unit(masses[1])*(0.0),
+                                                         R_env  = unit(R[1])*(0.0),
+                                                         m_env  = unit(masses[1])*(0.0),
+                                                         stellar_types  = 1, 
+                                                         a      = 1.0u"AU", 
+                                                         e      = 0.1, 
+                                                         ω      = 0.0u"rad", 
+                                                         i      = 0.0u"rad", 
+                                                         Ω      = 0.0u"rad", 
+                                                         ν      = (π)u"rad", 
+                                                         time::Quantity = 0.0u"s", 
+                                                         verbose::Bool = false, 
+                                                         hierarchy = [length(masses), repeat([1], length(masses)-1)...])
     n_bodies = length(masses)
     n_bins = n_bodies - 1
 
@@ -103,7 +103,7 @@ end
 function multibodysystem(masses::Vector{<:Unitful.Mass}, 
                          R::Vector{<:Unitful.Length}, 
                          S::Vector{<:Union{<:Vector{<:Quantity}, <:Quantity}}, 
-                         L::Vector{<:Quantity}, 
+                         L::Vector{<:Unitful.Power}, 
                          stellar_types::Vector{Int}, 
                          R_core::Vector{<:Unitful.Length}, 
                          m_core::Vector{<:Unitful.Mass}, 
@@ -127,7 +127,7 @@ function multibodysystem(masses::Vector{<:Unitful.Mass},
 
     # if unit(masses)[1] != unit()
     structures = StellarStructure[]
-    for idx = 1:n_particles
+    for idx ∈ 1:n_particles
         stellar_type = stellar_type_from_index(stellar_types[idx])
         # push!(structures, StellarStructure(stellar_type, masses[idx], R[idx], S[idx], L[idx]))
         push!(structures, StellarStructure(stellar_type, masses[idx], R[idx], S[idx], L[idx],
