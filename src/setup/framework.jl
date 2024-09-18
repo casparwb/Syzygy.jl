@@ -275,17 +275,17 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
     pairs = simulation.ic.pairs
 
     spin_precession = false
-    if :SpinPrecessionPotential in keys(simulation.potential)
+    d²Sdt²! = if :SpinPrecessionPotential in keys(simulation.potential)
         spin_precession = true
-        d²Sdt²! = get_accelerating_function(simulation.potential[:SpinPrecessionPotential])
+        get_accelerating_function(simulation.potential[:SpinPrecessionPotential])
         # idx = findall(x -> x.parameters == SpinPrecessionPotential(), acc_funcs) |> only
         # acc_funcs = tuple([f for f in acc_funcs.fs if !(f.parameters == SpinPrecessionPotential())]...)
         # acc_funcs = AccelerationFunctions(SA[acc_funcs...], length(acc_funcs))
     end
 
     N = acc_funcs.N
-    w = FunctionWrangler(acc_funcs.fs)
-    o = Vector{Nothing}(undef, N)
+    accelerations = FunctionWrangler(acc_funcs.fs)
+    output = Vector{Nothing}(undef, N)
 
     dtype = eltype(u0)
     dtype_0 = zero(dtype)
@@ -296,14 +296,13 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
             fill!(ai, dtype_0)
             fill!(aj, dtype_0)
 
-            smap!(o, w, ai, aj, u, v, pair, t, p)
+            smap!(output, accelerations, ai, aj, u, v, pair, t, p)
 
             @inbounds for k = 1:3
                 dv[k, i] += ai[k]
                 dv[k, j] += aj[k]
             end
-
-            nothing
+            # @show dv
         end
 
         if spin_precession
@@ -314,7 +313,7 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
 
                 d²Sdt²!(ai, aj, dv, u, v, pair, t, p)
 
-                @inbounds for k = 1:3
+                @inbounds for k = 4:6
                     dv[k, i] += ai[k]
                     dv[k, j] += aj[k]
                 end           
@@ -323,12 +322,6 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
     end
 
     SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
-end
-
-function fill_dv!(dv, ai, aj, i, j)
-    dv[1:3, i] .+= ai
-    dv[1:3, j] .+= aj
-    nothing
 end
 
 
