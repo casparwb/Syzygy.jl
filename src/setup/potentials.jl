@@ -516,6 +516,7 @@ function PN1_5_spin_acceleration!(dvi,
     v̄ = v̄₁ - v̄₂
 
     r = norm(r̄) # r₁₂
+    v = norm(v̄)
 
     r⁻¹ = 1/r
     r⁻³ = r⁻¹/r^2   
@@ -524,16 +525,18 @@ function PN1_5_spin_acceleration!(dvi,
     nv = dot(n, v̄)
     nxv = n × v̄
 
+    # @show (n × S̄₂) (v̄ × S̄₁)
+
     G_r = G*r⁻¹
     G_r³ = G_r*r⁻³
 
     # PN-1.5 acceleration from spin contribution
-    ai = @. G_r³*m₂*( (6*dot(S̄₁, nxv)/m₁ + 6*dot(S̄₂, nxv)/m₂)*n + 3nv*(n × S̄₁)/m₁ + 
-                          6nv*(n × S̄₂)/m₂ - 3*(v̄ × S̄₁)/m₁ - 4*(v × S̄₂)/m₂
+    ai = G_r³*m₂*( (6*dot(S̄₁, nxv)/m₁+ 6*dot(S̄₂, nxv)/m₂)*n + 3nv*(n × S̄₁)/m₁ + 
+                          6nv*(n × S̄₂)/m₂ - 3*(v̄ × S̄₁)/m₁ - 4*(v̄ × S̄₂)/m₂
                          )
 
-    aj = @. G_r³*m₁*( (6*dot(S̄₂, nxv)/m₂ + 6*dot(S̄₁, nxv)/m₁)*n + 3nv*(n × S̄₂)/m₂ + 
-                          6nv*(n × S̄₁)/m₁ - 3*(v̄ × S̄₂)/m₂ - 4*(v × S̄₁)/m₁
+    aj = G_r³*m₁*( (6*dot(S̄₂, nxv)/m₂ + 6*dot(S̄₁, nxv)/m₁)*n + 3nv*(n × S̄₂)/m₂ + 
+                          6nv*(n × S̄₁)/m₁ - 3*(v̄ × S̄₂)/m₂ - 4*(v̄ × S̄₁)/m₁
                          )
     
     dvi .+= ai*c⁻³
@@ -669,6 +672,7 @@ function PN2_spin_acceleration!(dvi,
 
     n = r̄*r⁻¹
     S₁S₂ = dot(S̄₁, S̄₂)
+    S₂S₁ = S₁S₂
     nS₁  = dot(n, S̄₁)
     nS₂  = dot(n, S̄₂)
 
@@ -776,20 +780,42 @@ function PN2_5_spin_acceleration!(dvi,
 
     n = r̄*r⁻¹
     nv = dot(n, v̄)
-    nxv = n × v̄
+    nv₁ = dot(n, v̄₁)
+    nv₂ = dot(n, v̄₂)
+
+    vv₁ = dot(v̄, v̄₁)
+    vv₂ = dot(v̄, v̄₂)
+
+    nS₁ = dot(n, S̄₁)
+    nS₂ = dot(n, S̄₂)
+
+    nxv  = n × v̄
     nxv₁ = n × v̄₁
     nxv₂ = n × v̄₂
 
+    nxS₁ = n × S̄₁
+    nxS₂ = n × S̄₂
+
+    vxS₁ = v̄ × S̄₁
+    vxS₂ = v̄ × S̄₂
+
+    v₁S₁ = dot(v̄₁, S̄₁)
+    v₂S₂ = dot(v̄₂, S̄₂)
+
     nv₁v₂ = dot(n, v₁xv₂)
-    S₁nv = dot(S̄₁, nxv)
-    S₂nv = dot(S̄₁, nxv)
+    nv₂v₁ = dot(n, v₂xv₁)
+    S₁nv  = dot(S̄₁, nxv)
+    S₂nv  = dot(S̄₂, nxv)
     S₁nv₁ = dot(S̄₁, nxv₁)
     S₁nv₂ = dot(S̄₁, nxv₂)
     S₂nv₁ = dot(S̄₂, nxv₁)
     S₂nv₂ = dot(S̄₂, nxv₂)
 
     G_r = G*r⁻¹
-    G_r³ = G_r*r⁻³
+    G_r³ = G_r*r⁻¹*r⁻¹
+
+    Gm₁ = G*m₁
+    Gm₂ = G*m₂ 
 
     # PN-2.5 spin contribution
     # ai = G_r³*m₂*(n*(-6*nv₁v₂*(v₁S₁/m₁ + v₂S₂/m₂) - 
@@ -804,26 +830,25 @@ function PN2_5_spin_acceleration!(dvi,
     #               (v₁xv₂)*(3v₁S₁/m₁ + 4v₂S₂/m₂)  + 
     #               (n × S̄₁)/m₁*(-15/2*nv*nv₂^2 + 3nv₂*vv₂  - 
     #                            14Gm₁/r*nv - 9Gm₂/r*nv)  + 
-    #               (n × S̄₂)/m₂*(-15nv*nv₂^2 - 6nv₁*vv₂ + 12nv₂*vv₂ + Gm₁/r*(-35/2*nv₁ + 39/2*nv₂) - 16Gm₂/r*nv)  + 
-    #               (v̄ × S̄₁)/m₁*(-3nv₁*nv₂ + 15/2*nv₂^2 + G/r*(14m₁ + 9m₂) + 3vv₂) + 
-    #               (v̄ × S̄₂)/m₂*(6nv₂2 + 4vv₂ + 23/2*Gm₁/r + 12Gm₂/r)
+    #               nxS₂/m₂*(-15nv*nv₂^2 - 6nv₁*vv₂ + 12nv₂*vv₂ + Gm₁/r*(-35/2*nv₁ + 39/2*nv₂) - 16Gm₂/r*nv)  + 
+    #               (vxS₁)/m₁*(-3nv₁*nv₂ + 15/2*nv₂^2 + G/r*(14m₁ + 9m₂) + 3vv₂) + 
+    #               (vxS₂)/m₂*(6nv₂2 + 4vv₂ + 23/2*Gm₁/r + 12Gm₂/r)
     #              )
 
     ai = n*(-6*nv₁v₂*(v₁S₁/m₁ + v₂S₂/m₂) - 
             S₁nv/m₁*(15nv₂^2 + 6vv₂ + 26Gm₁/r + 18Gm₂/r)  - 
-            S₂nv/m₂*(15nv₂^2 + 6vv₂ + 49/2*Gm₁/r + 20Gm₂/r)
-            )
+            S₂nv/m₂*(15nv₂^2 + 6vv₂ + 49/2*Gm₁/r + 20Gm₂/r))
     ai += v̄₁*(-3*S₁nv₁/m₁*(nv₁ + nv₂) + 6nv₁*S₁nv₂/m₁ - 3*dot(S̄₁, v₁xv₂)/m₁  - 
               6nv₁*S₂nv₁/m₂ + S₂nv₂/m₂*(12nv₁ - 6nv₂)  - 4*dot(S̄₂, v₁xv₂)/m₂)
-    ai += v̄₂*(6nv₁*(S̄₁, nxv)/m₁ + 6nv₁*(S̄₂, nxv)/m₂)
-    ai -= (nxv₁)*(3nv*v₁S₁/m₁ + 4Gm₁/r*nS₂/m₂)  
-    ai -= (nxv₂)*(6nv*v₂S₂/m₂  - 4Gm₁/r*nS₂/m₂) 
-    ai += (v₁xv₂)*(3v₁S₁/m₁ + 4v₂S₂/m₂)  + 
-    ai += (n × S̄₁)/m₁*(-15/2*nv*nv₂^2 + 3nv₂*vv₂  - 
+    ai += v̄₂*(6nv₁*S₁nv/m₁ + 6nv₁*S₂nv/m₂)
+    ai -= nxv₁*(3nv*v₁S₁/m₁ + 4Gm₁/r*nS₂/m₂)  
+    ai -= nxv₂*(6nv*v₂S₂/m₂ - 4Gm₁/r*nS₂/m₂) 
+    ai += v₁xv₂*(3v₁S₁/m₁ + 4v₂S₂/m₂) 
+    ai += nxS₁/m₁*(-15/2*nv*nv₂^2 + 3nv₂*vv₂  - 
                        14Gm₁/r*nv - 9Gm₂/r*nv) 
-    ai += (n × S̄₂)/m₂*(-15nv*nv₂^2 - 6nv₁*vv₂ + 12nv₂*vv₂ + Gm₁/r*(-35/2*nv₁ + 39/2*nv₂) - 16Gm₂/r*nv)
-    ai += (v̄ × S̄₁)/m₁*(-3nv₁*nv₂ + 15/2*nv₂^2 + G/r*(14m₁ + 9m₂) + 3vv₂)
-    ai += (v̄ × S̄₂)/m₂*(6nv₂2 + 4vv₂ + 23/2*Gm₁/r + 12Gm₂/r)
+    ai += nxS₂/m₂*(-15nv*nv₂^2 - 6nv₁*vv₂ + 12nv₂*vv₂ + Gm₁/r*(-35/2*nv₁ + 39/2*nv₂) - 16Gm₂/r*nv)
+    ai += vxS₁/m₁*(-3nv₁*nv₂ + 15/2*nv₂^2 + G/r*(14m₁ + 9m₂) + 3vv₂)
+    ai += vxS₂/m₂*(6nv₂^2 + 4vv₂ + 23/2*Gm₁/r + 12Gm₂/r)
     ai *= G_r³*m₂
 
     # aj = G_r³*m₃*(n*(-6*nv₂v₁*(v₂S₂/m₂ + v₁S₁/m₁) - 
@@ -836,29 +861,55 @@ function PN2_5_spin_acceleration!(dvi,
     #             (nxv₂)*(3nv*v₂S₂/m₂ + 4Gm₂/r*nS₁/m₁)  - 
     #             (nxv₁)*(6nv*v₁S₁/m₁  - 4Gm₂/r*nS₁/m₁) + 
     #             (v₂xv₁)*(3v₂S₂/m₂ + 4v₁S₁/m₁)  + 
-    #             (n × S̄₂)/m₂*(-15/2*nv*nv₁^2 + 3nv₁*vv₁  - 
+    #             nxS₂/m₂*(-15/2*nv*nv₁^2 + 3nv₁*vv₁  - 
     #                         14Gm₂/r*nv - 9Gm₁/r*nv)  + 
-    #             (n × S̄₁)/m₁*(-15nv*nv₁^2 - 6nv₂*vv₁ + 12nv₁*vv₁ + Gm₂/r*(-35/2*nv₂ + 39/2*nv₁) - 16Gm₁/r*nv)  + 
+    #             nxS₁/m₁*(-15nv*nv₁^2 - 6nv₂*vv₁ + 12nv₁*vv₁ + Gm₂/r*(-35/2*nv₂ + 39/2*nv₁) - 16Gm₁/r*nv)  + 
     #             (v̄ × S̄₂)/m₂*(-3nv₂*nv₁ + 15/2*nv₁^2 + G/r*(14m₂ + 9m₁) + 3vv₁) + 
     #             (v̄ × S̄₁)/m₁*(6nv₁2 + 4vv₁ + 23/2*Gm₂/r + 12Gm₁/r)
     #             )
+    aj = let n = -n, v̄ = -v̄, r̄ = -r
 
-    aj = n*(-6*nv₂v₁*(v₂S₂/m₂ + v₁S₁/m₁) - 
-                    S₂nv/m₂*(15nv₁^2 + 6vv₁ + 26Gm₂/r + 18Gm₁/r)  - 
-                    S₁nv/m₁*(15nv₁^2 + 6vv₁ + 49/2*Gm₂/r + 20Gm₁/r)
-           )
-    aj += v̄₂*(-3*S₂nv₂/m₂*(nv₂ + nv₁) + 6nv₂*S₂nv₁/m₂ - 3*dot(S̄₂, v₂xv₁)/m₂  - 
-              6nv₂*S₁nv₂/m₁ + S₁nv₁/m₁*(12nv₂ - 6nv₁)  - 4*dot(S̄₁, v₂xv₁)/m₁)
-    aj += v̄₁*(6nv₂*(S̄₂, nxv)/m₂ + 6nv₂*(S̄₁, nxv)/m₁)  - 
-    aj -= (nxv₂)*(3nv*v₂S₂/m₂ + 4Gm₂/r*nS₁/m₁) 
-    aj -= (nxv₁)*(6nv*v₁S₁/m₁  - 4Gm₂/r*nS₁/m₁) 
-    aj += (v₂xv₁)*(3v₂S₂/m₂ + 4v₁S₁/m₁) 
-    aj += (n × S̄₂)/m₂*(-15/2*nv*nv₁^2 + 3nv₁*vv₁  - 
-                       14Gm₂/r*nv - 9Gm₁/r*nv) 
-    aj += (n × S̄₁)/m₁*(-15nv*nv₁^2 - 6nv₂*vv₁ + 12nv₁*vv₁ + Gm₂/r*(-35/2*nv₂ + 39/2*nv₁) - 16Gm₁/r*nv) 
-    aj += (v̄ × S̄₂)/m₂*(-3nv₂*nv₁ + 15/2*nv₁^2 + G/r*(14m₂ + 9m₁) + 3vv₁) 
-    aj += (v̄ × S̄₁)/m₁*(6nv₁2 + 4vv₁ + 23/2*Gm₂/r + 12Gm₁/r)
-    aj *= G_r³*m₁
+        nv₁ = -nv₁
+        nv₂ = -nv₂
+        vv₁ = -vv₁
+        nS₁ = -nS₁
+    
+        nxv₁ = -nxv₁
+        nxv₂ = -nxv₂
+    
+        nxS₁ = -nxS₁
+        nxS₂ = -nxS₂
+    
+        vxS₁ = -vxS₁
+        vxS₂ = -vxS₂
+    
+        nv₂v₁ = -nv₂v₁#dot(n, v₂xv₁)
+        # S₁nv  = dot(S̄₁, nxv)
+        # S₂nv  = dot(S̄₂, nxv)
+        S₁nv₁ = -S₁nv₁
+        S₁nv₂ = -S₁nv₂
+        S₂nv₁ = -S₂nv₁
+        S₂nv₂ = -S₂nv₂
+
+
+        a = n*(-6*nv₂v₁*(v₂S₂/m₂ + v₁S₁/m₁) - 
+                S₂nv/m₂*(15nv₁^2 + 6vv₁ + 26Gm₂/r + 18Gm₁/r)  - 
+                S₁nv/m₁*(15nv₁^2 + 6vv₁ + 49/2*Gm₂/r + 20Gm₁/r))
+        a += v̄₂*(-3*S₂nv₂/m₂*(nv₂ + nv₁) + 6nv₂*S₂nv₁/m₂ - 3*dot(S̄₂, v₂xv₁)/m₂  - 
+                6nv₂*S₁nv₂/m₁ + S₁nv₁/m₁*(12nv₂ - 6nv₁)  - 4*dot(S̄₁, v₂xv₁)/m₁)
+        a += v̄₁*(6nv₂*S₂nv/m₂ + 6nv₂*S₁nv/m₁) 
+        a -= nxv₂*(3nv*v₂S₂/m₂ + 4Gm₂/r*nS₁/m₁) 
+        a -= nxv₁*(6nv*v₁S₁/m₁  - 4Gm₂/r*nS₁/m₁) 
+        a += v₂xv₁*(3v₂S₂/m₂ + 4v₁S₁/m₁) 
+        a += nxS₂/m₂*(-15/2*nv*nv₁^2 + 3nv₁*vv₁  - 
+                        14Gm₂/r*nv - 9Gm₁/r*nv) 
+        a += nxS₁/m₁*(-15nv*nv₁^2 - 6nv₂*vv₁ + 12nv₁*vv₁ + Gm₂/r*(-35/2*nv₂ + 39/2*nv₁) - 16Gm₁/r*nv) 
+        a += vxS₂/m₂*(-3nv₂*nv₁ + 15/2*nv₁^2 + G/r*(14m₂ + 9m₁) + 3vv₁) 
+        a += vxS₁/m₁*(6nv₁^2 + 4vv₁ + 23/2*Gm₂/r + 12Gm₁/r)
+        a *= G_r³*m₁
+
+        a
+    end
     
     dvi .+= ai*c⁻⁵
     dvj .+= aj*c⁻⁵
