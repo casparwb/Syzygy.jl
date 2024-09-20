@@ -178,6 +178,18 @@ function get_accelerating_function(potential::PNPotential)
     (dvi, dvj, rs, vs, pair, time, params) -> PN_acceleration!(dvi, dvj, rs, vs, pair, params)
 end
 
+function get_accelerating_function(potential::PN1_5SpinPotential)
+    (dvi, dvj, rs, vs, pair, time, params) -> PN1_5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
+end
+
+function get_accelerating_function(potential::PN2SpinPotential)
+    (dvi, dvj, rs, vs, pair, time, params) -> PN2_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
+end
+
+function get_accelerating_function(potential::PN2_5SpinPotential)
+    (dvi, dvj, rs, vs, pair, time, params) -> PN2_5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
+end
+
 function get_accelerating_function(potential::SpinPrecessionPotential)
     (dvi, dvj, dvs, rs, vs, pair, time, params) -> spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
 end
@@ -233,6 +245,9 @@ function get_initial_conditions(simulation::MultiBodySimulation, dtype)
             b2 = bodies[j]
             dS = spin_precession_velocity(b1, b2)
             spinvelocity[i] += dS
+
+            dS = spin_precession_velocity(b2, b1)
+            spinvelocity[j] += dS
         end
     end
 
