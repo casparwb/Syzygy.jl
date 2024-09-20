@@ -132,7 +132,8 @@ function Base.show(io::IO, structure::StellarStructure)
         print(io, " $str: ")
         prop = getproperty(structure, str)
         if prop isa AbstractArray
-            show(io, prop)
+            # show(io, prop)
+            print("["*join(prop,",")*"]")
         elseif prop isa StellarType
             show(io, prop.index)
         else
