@@ -134,7 +134,7 @@ function total_energy(result::SimulationResult, time)
     masses = get_masses(result.simulation)
     idx = argmin(abs.(result.solution.t .- time))
 
-    total_energy([result.solution.u[idx].x[2][:,i] for i ∈ eachindex(masses)], 
-                 [result.solution.u[idx].x[1][:,i] for i ∈ eachindex(masses)],
+    total_energy([result.solution.u[idx].x[2][1:3,i] for i ∈ eachindex(masses)], 
+                 [result.solution.u[idx].x[1][1:3,i] for i ∈ eachindex(masses)],
                  masses)  
 end

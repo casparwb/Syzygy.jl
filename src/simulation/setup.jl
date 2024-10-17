@@ -1,5 +1,5 @@
 using Printf, Unitful, UnitfulAstro
-using DoubleFloats, ArbNumerics, MultiFloats
+using ArbNumerics, MultiFloats
 
 function bodies(system::T where T <: MultiBodyInitialConditions, dtype=Float64)
 
@@ -19,7 +19,6 @@ function bodies(system::T where T <: MultiBodyInitialConditions, dtype=Float64)
 end
 
 function bodies(positions, velocities, spins, masses, dtype=Float64)
-    n = length(masses)
 
     positions  = [dtype.(ustrip(upreferred(unit(p[1])), p)) for p in positions]
     velocities = [dtype.(ustrip(upreferred(unit(v[1])), v)) for v in velocities]

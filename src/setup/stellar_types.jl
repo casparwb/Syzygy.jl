@@ -1,10 +1,11 @@
 
 abstract type StellarType end
-abstract type Star             <: StellarType end
-abstract type CompactObject    <: StellarType end
-abstract type SubStellarObject <: StellarType end
-abstract type Other            <: StellarType end
-abstract type WhiteDwarf       <: CompactObject end
+abstract type Star             <: StellarType    end
+abstract type StellarRemnant   <: StellarType    end
+abstract type WhiteDwarf       <: StellarRemnant end
+abstract type CompactObject    <: StellarRemnant end
+abstract type SubStellarObject <: StellarType    end
+abstract type Other            <: StellarType    end
 
 """
 Deeply or fully convective low main sequence star with index 0. 

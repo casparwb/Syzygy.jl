@@ -89,9 +89,9 @@ function Base.show(io::IO, particle::Particle)
     println(io)
 
     # println(io,  " "^indent, "Particle structure: ")
-    printstyled(io,  " "^indent, "Particle ", color=:yellow)
-    print(io, "structure: ")
-    show(io, particle.structure)
+    # printstyled(io,  " "^indent, "Particle ", color=:yellow)
+    # print(io, "structure: ")
+    # show(io, particle.structure)
 
 end
 
@@ -126,7 +126,7 @@ function Base.show(io::IO, structure::StellarStructure)
     indent = get(io, :indent, 0) + 2
 
     str_names = propertynames(structure)
-    print(io, " "^indent, "|")
+    # print(io, " "^indent, "|")
     for str in str_names
         # str === :type && continue
         print(io, " $str: ")
@@ -140,7 +140,7 @@ function Base.show(io::IO, structure::StellarStructure)
             prop = prop isa Quantity ? round(prop.val, digits=2)*unit(prop) : round(prop, digits=2)
             show(io, prop)
         end
-        print(io, " | ")
+        println(io)#, " | ")
         # println(io)   
     end
     println(io)

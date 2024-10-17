@@ -1,6 +1,6 @@
 using DiffEqBase, StaticArrays
 using FunctionWranglers
-using DoubleFloats, ArbNumerics
+using ArbNumerics
 
 abstract type MultiBodyInitialConditions end
 abstract type AbstractBinary end
@@ -15,7 +15,6 @@ struct BinaryIndex
 end
 
 #################################### Multibody system setup #########################################
-
 struct OrbitalElements{aT, PT, eT, ωT, iT, ΩT, νT}
     a::aT # semi-major axis
     P::PT # orbital period
@@ -80,12 +79,10 @@ struct NonHierarchicalSystem{tT, T, pT} <: MultiBodyInitialConditions
     particles::T
     pairs::pT
 end
-
 ####################################################################################################
 
 
 ####################################### Simulation  setup ##########################################
-
 abstract type AbstractMassBody end
 
 struct MassBody{T} <: AbstractMassBody
@@ -162,8 +159,8 @@ function get_accelerating_function(potential::PN2Potential)
     (dvi, dvj, rs, vs, pair, time, params) -> PN2_acceleration!(dvi, dvj, rs, vs, pair, params)
 end
 
-function get_accelerating_function(potential::PN2_5Potential)
-    (dvi, dvj, rs, vs, pair, time, params) -> PN2_5_acceleration!(dvi, dvj, rs, vs, pair, params)
+function get_accelerating_function(potential::PN2p5Potential)
+    (dvi, dvj, rs, vs, pair, time, params) -> PN2p5_acceleration!(dvi, dvj, rs, vs, pair, params)
 end
 
 # function get_accelerating_function(potential::PN3Potential)
@@ -186,26 +183,33 @@ function get_accelerating_function(potential::PN2SpinPotential)
     (dvi, dvj, rs, vs, pair, time, params) -> PN2_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
 end
 
-function get_accelerating_function(potential::PN2_5SpinPotential)
-    (dvi, dvj, rs, vs, pair, time, params) -> PN2_5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
+function get_accelerating_function(potential::PN2p5SpinPotential)
+    (dvi, dvj, rs, vs, pair, time, params) -> PN2p5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
 end
 
 function get_accelerating_function(potential::SpinPrecessionPotential)
     (dvi, dvj, dvs, rs, vs, pair, time, params) -> spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
 end
 
+function get_accelerating_function(potential::PN1SpinPrecessionPotential)
+    (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN1_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+end
 
+function get_accelerating_function(potential::PN1p5SpinPrecessionPotential)
+    (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN1p5_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+end
+
+function get_accelerating_function(potential::PN2SpinPrecessionPotential)
+    (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN2_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+end
 ######################################################################################################
-
-
-
 
 function gather_accelerations_for_potentials(simulation::MultiBodySimulation)
     acceleration_functions = []
 
     n = simulation.ic.n
     for (potential, parameters) in simulation.potential
-        potential == :SpinPrecessionPotential && continue
+        potential == :PN1SpinPrecessionPotential && continue
         push!(acceleration_functions, get_accelerating_function(parameters))
     end
 
@@ -214,7 +218,6 @@ function gather_accelerations_for_potentials(simulation::MultiBodySimulation)
 end
 
 ###################################### The in-place ODE solver ######################################
-
 function make_initial_conditions(us, vs, ss, spinvel, dtype::Type{<:AbstractFloat})
     n = length(us)
     u0 = MMatrix{6, n, dtype}([reduce(hcat, us); reduce(hcat, ss)])
@@ -237,17 +240,19 @@ function get_initial_conditions(simulation::MultiBodySimulation, dtype)
     n = length(bodies)
 
     spinvelocity = [zeros(eltype(b.spin), 3) for b in bodies]
-    if :SpinPrecessionPotential in keys(simulation.potential)
-        system = simulation.ic
-        for pair in system.pairs
-            i, j = pair
-            b1 = bodies[i]
-            b2 = bodies[j]
-            dS = spin_precession_velocity(b1, b2)
-            spinvelocity[i] += dS
+    if any(x -> x isa SpinPotential, values(simulation.potential))
+        for pot in values(simulation.potential)
+            !(pot isa SpinPotential) && continue
 
-            dS = spin_precession_velocity(b2, b1)
-            spinvelocity[j] += dS
+            system = simulation.ic
+            for pair in system.pairs
+                i, j = pair
+                b1 = bodies[i]
+                b2 = bodies[j]
+                spinvelocity[i] += get_spin_precession_velocity(b1, b2, pot)
+
+                spinvelocity[j] += get_spin_precession_velocity(b2, b1, pot)
+            end
         end
     end
 
@@ -290,12 +295,10 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
     pairs = simulation.ic.pairs
 
     spin_precession = false
-    d²Sdt²! = if :SpinPrecessionPotential in keys(simulation.potential)
+    d²Sdt²! = if any(x -> x isa SpinPotential, values(simulation.potential))
         spin_precession = true
-        get_accelerating_function(simulation.potential[:SpinPrecessionPotential])
-        # idx = findall(x -> x.parameters == SpinPrecessionPotential(), acc_funcs) |> only
-        # acc_funcs = tuple([f for f in acc_funcs.fs if !(f.parameters == SpinPrecessionPotential())]...)
-        # acc_funcs = AccelerationFunctions(SA[acc_funcs...], length(acc_funcs))
+        spinpot = only([k for (k, v) in simulation.potential if v isa SpinPotential])
+        get_accelerating_function(simulation.potential[spinpot])
     end
 
     N = acc_funcs.N
@@ -338,8 +341,6 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
 
     SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
 end
-
-
 ######################################################################################################
 
 ######################################## The static ODE solver #######################################
@@ -350,7 +351,7 @@ function get_initial_conditions_static(simulation::MultiBodySimulation)
     n = length(bodies)
 
     spinvelocity = [zeros(eltype(b.spin), 3) for b in bodies]
-    if :SpinPrecessionPotential in keys(simulation.potential)
+    if any(x -> x isa SpinPotential, values(simulation.potential))
         system = simulation.ic
         for pair in system.pairs
             i, j = pair
@@ -399,12 +400,12 @@ function sodeprob_static(simulation::MultiBodySimulation, u0, v0, ai, aj, a_spin
     pairs = simulation.ic.pairs
     
     spin_precession = false
-    if :SpinPrecessionPotential in keys(simulation.potential)
+    d²Sdt²! = if any(x -> x isa SpinPotential, values(simulation.potential))
         spin_precession = true
-        d²Sdt²! = get_accelerating_function(simulation.potential[:SpinPrecessionPotential])
-        # d²Sdt²! = acc_funcs[idx]
-        # acc_funcs = tuple([f for f in acc_funcs if !(f.parameters == SpinPrecessionPotential())]...)
+        spinpot = only([k for (k, v) in simulation.potential if v isa SpinPotential])
+        get_accelerating_function(simulation.potential[spinpot])
     end
+
 
     N = acc_funcs.N
     fs = acc_funcs.fs
@@ -445,56 +446,6 @@ function sodeprob_static(simulation::MultiBodySimulation, u0, v0, ai, aj, a_spin
 end
 
 #################################################################################################
-
-# """
-#     apply_acc_funcs(state::Tuple, acc_funcs::Tuple)
-
-# Apply the acceleration functions to the given state using an unrolled loop.
-# Unrolling this loop makes it non-allocating when you have more than one acceleration
-# function.
-# """
-# # @unroll function apply_acc_funcs(state::sT, acc_funcs::aT) where {sT, aT}
-# #     @unroll for i in 1:length(acc_funcs)
-# #         # acc_funcs[i](state...)
-# #         acc_funcs[i](state[1], state[2], state[3], state[4], state[5], state[6], state[7])
-# #     end
-# # end
-
-# # @unroll function apply_acc_funcs(state::sT, acc_funcs::aT, ::Val{N}()) where {sT, aT, N}
-# #     @unroll for i in 1:N
-# #         # acc_funcs[i](state...)
-# #         acc_funcs[i](state[1], state[2], state[3], state[4], state[5], state[6], state[7])
-# #     end
-# # end
-
-# @inline function apply_acc_funcs(state::Tuple, acc_funcs::Tuple, ::Val{1})
-#     acc_funcs[1](state[1], state[2], state[3], state[4], state[5], state[6], state[7])
-# end
-
-# @inline function apply_acc_funcs(state::Tuple, acc_funcs::T, ::Val{1}) where T
-#     acc_funcs[1](state[1], state[2], state[3], state[4], state[5], state[6], state[7])
-# end
-
-# # function apply_acc_funcs(ai, aj, u, v, pair, t, p, acc_funcs::Tuple, ::Val{1})
-# #     acc_funcs[1](ai, aj, u, v, pair, t, p)
-# # end
-
-
-
-# # @unroll function apply_acc_funcs(ai, aj, u, v, pair, t, p, acc_funcs::Tuple)
-# #     @unroll for i in 1:length(acc_funcs)
-# #         # acc_funcs[i](state...)
-# #         acc_funcs[i](ai, aj, u, v, pair, t, p)
-# #     end
-# # end
-
-# # @unroll function apply_acc_funcs(ai, aj, u, v, pair, t, p, acc_funcs, ::Val{N}) where N
-# #     @unroll for i in 1:N
-# #         # acc_funcs[i](state...)
-# #         acc_funcs[i](ai, aj, u, v, pair, t, p)
-# #     end
-# # end
-
 
 
 ######################################## Helper functions #######################################
