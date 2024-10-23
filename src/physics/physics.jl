@@ -1,7 +1,22 @@
 using LinearAlgebra: norm, ×, ⋅
 using StaticArrays
 
+"""
+    centre_of_mass(positions, masses)
 
+Return the centre of mass position given a collection of `positions` and `masses`. 
+
+`positions` can either be a `Vector` of `Vector`s, or a `Matrix` in which each column
+represents the position of each body.
+
+# Examples
+```julia-repl
+julia> r = [rand(3) for i =1:3]
+julia> m = rand(3)
+
+julia> com = Syzygy.centre_of_mass(r, m)
+```
+"""
 function centre_of_mass(positions::AbstractVector, masses::AbstractVector)
     one_over_m = 1.0/sum(masses)
 
@@ -38,9 +53,28 @@ function centre_of_mass(positions::AbstractMatrix, masses::AbstractMatrix)
     return SVector(com*ustrip(one_over_m))
 end
 
+"""
+    centre_of_mass(sol::MultiBodySolution, 
+                   bodies=eachindex(sol.ic.particles); 
+                   tspan=extrema(sol.t))
 
-function centre_of_mass(sol::MultiBodySolution, bodies=eachindex(sol.ic.particles); 
-                        tspan=nothing)
+Return the centre of mass (COM) position given a `MultiBodySolution` object. 
+
+By default, the COM position calculated for each body for each time step in `sol` is returned.
+Specific bodies can be specified with their indices, and a specific time span can
+be set with a tuple of `(t_start, t_end)`.
+
+# Examples
+```julia-repl
+julia> com = Syzygy.centre_of_mass(sol)
+julia> com12 = Syzygy.centre_of_mass(sol, [1, 2])
+julia> # just get the COM position for the first two time steps:
+julia> com_tspan = Syzygy.centre_of_mass(sol, tspan=(sol.t[1], sol.t[2])) 
+```
+"""
+function centre_of_mass(sol::MultiBodySolution, 
+                        bodies=eachindex(sol.ic.particles); 
+                        tspan=extrema(sol.t))
     time = sol.t
     tspan = isnothing(tspan) ? extrema(time) : tspan
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
@@ -55,29 +89,11 @@ function centre_of_mass(sol::MultiBodySolution, bodies=eachindex(sol.ic.particle
     return com
 end
 
-function centre_of_mass_velocity(sol::MultiBodySolution, bodies=eachindex(sol.ic.particles); 
-                        tspan=nothing)
-    time = sol.t
-    tspan = isnothing(tspan) ? extrema(time) : tspan
-    indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
-    indices = indices[1]:indices[2]
-    com = Matrix{typeof(upreferred(1.0u"m/s"))}(undef, 3, length(indices))
-    
-    for (c, idx) in enumerate(indices)
-        v = [sol.v[:,body,idx] for body in bodies]
-        ms = [sol.structure.m[body,ifelse(idx == 1, 1, 2)] for body in bodies]
-        com[:,c] = centre_of_mass_velocity(v, ms)
-    end
-
-    return com
-end
-
 
 """
-Returns the center of mass velocity of the particles set.
-The center of mass velocity is defined as the average
-of the velocities of the particles, weighted by their masses.
+ centre_of_mass_velocity(velocities, masses)
 
+Return the center of mass velocity. See [`centre_of_mass`](@ref).
 """
 function centre_of_mass_velocity(velocities::AbstractVector, masses::AbstractVector)
     one_over_m = 1.0/sum(masses)
@@ -101,25 +117,41 @@ function centre_of_mass_velocity(velocities::AbstractMatrix, masses::AbstractVec
     return SVector(vel_com*ustrip(one_over_m))
 end
 
-function centre_of_mass_velocity(binary::Binary)
+function centre_of_mass_velocity(sol::MultiBodySolution, 
+                                 bodies=eachindex(sol.ic.particles); 
+                                 tspan=extrema(sol.t))
+    time = sol.t
+    tspan = isnothing(tspan) ? extrema(time) : tspan
+    indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
+    indices = indices[1]:indices[2]
+    com = Matrix{typeof(upreferred(1.0u"m/s"))}(undef, 3, length(indices))
+    
+    for (c, idx) in enumerate(indices)
+        v = [sol.v[:,body,idx] for body in bodies]
+        ms = [sol.structure.m[body,ifelse(idx == 1, 1, 2)] for body in bodies]
+        com[:,c] = centre_of_mass_velocity(v, ms)
+    end
 
-    particles = get_particles_recursive(binary)
-
-    velocities = [p.velocity for p in particles]
-    masses = [p.mass for p in particles]
-    centre_of_mass(velocities, masses)
+    return com
 end
 
-function distances(positions::AbstractMatrix)
-    [norm(r) for r in eachcol(positions)]
-end
+"""
+    potential_energy(positions, masses)
 
-function distances(pos1::AbstractMatrix, pos2::AbstractMatrix)
-    [norm(r) for r in eachcol(pos2 .- pos1)]
-end
+Return the total potential energy of bodies with `positions` and `masses`. 
 
-function potential_energy(positions::AbstractVector, masses::AbstractVector, G)
-    # U = 0.0u"J"
+`positions` can either be a `Vector` of `Vector`s, or a `Matrix` in which each column
+represents the position of each body.
+
+# Examples
+```julia-repl
+julia> r = [rand(3) for i =1:3]
+julia> m = rand(3)
+
+julia> com = Syzygy.potential_energy(r, m)
+```
+"""
+function potential_energy(positions::AbstractVector, masses::AbstractVector)
     U = zero((masses[1]*masses[2])/norm(positions[1] - positions[2]))
     n = length(positions)
     @inbounds for i in 1:n
@@ -130,7 +162,7 @@ function potential_energy(positions::AbstractVector, masses::AbstractVector, G)
         end
     end
 
-    U*ifelse(U isa Quantity, upreferred(G), ustrip(upreferred(G)))
+    U*ifelse(U isa Quantity, GRAVCONST, G)
 end
 
 function potential_energy(positions::AbstractMatrix, masses, G)
@@ -150,15 +182,25 @@ function potential_energy(positions::AbstractMatrix, masses, G)
     U*ifelse(U isa Quantity, upreferred(G), ustrip(upreferred(G)))
 end
 
-potential_energy(positions, masses) = potential_energy(positions, masses, GRAVCONST)
+"""
+    potential_energy(sol::MultiBodySolution, 
+                     bodies=eachindex(sol.ic.particles); 
+                     tspan=extrema(sol.t))
 
-function potential_energy(sol::MultiBodySolution)
+Return the total potential energy for the given `bodies` and `tspan`.
+"""
+function potential_energy(sol::MultiBodySolution, 
+                          bodies=eachindex(sol.ic.particles); 
+                          tspan=extrema(sol.t))
     masses = sol.structure.m
+
+    indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
+    indices = indices[1]:indices[2]
     
     pot_energy = zeros(typeof(1.0u"J"), length(sol.t))
-    @inbounds for i ∈ eachindex(sol.t)
+    for i ∈ indices
         m = ifelse(i > 1, masses[:,2], masses[:,1])
-        pe = potential_energy(sol.r[:,:,i], m)
+        pe = potential_energy(sol.r[:,bodies,i], m)
         pot_energy[i] = pe
     end
 
@@ -169,7 +211,7 @@ end
 """
     kinetic_energy(velocity::AbstractVector, mass::Number)
     
-Kinetic energy of a body with given velocity vector and mass.
+Return the kinetic energy of a body with given velocity vector and mass.
 """
 function kinetic_energy(velocity::AbstractVector, mass::Number)
     return 0.5*mass*norm(velocity)^2
@@ -178,8 +220,8 @@ end
 """
     kinetic_energy(velocity::AbstractVector{<:AbstractVector}, mass::Number)
     
-Total kinetic energy of a bodies with velocity vectors and masses, where
-velocities[1] is a Vector with the velocity components of particle 1. 
+Total kinetic energy of bodies with velocity vectors and `masses`, where
+`velocities[1]` is a `Vector` with the velocity components of particle 1. 
 """
 function kinetic_energy(velocities::AbstractVector{<:AbstractVector}, masses::AbstractVector)
     T = 0.5*sum(masses .* norm.(velocities).^2)
@@ -188,72 +230,138 @@ end
 """
     kinetic_energy(velocity::AbstractMatrix, mass::AbstractVector)
     
-Total kinetic energy of a bodies with velocity vectors and masses, where 
-each column of velocities corresponds to the velocity components of each particle. 
+`velocity` can also be a `Matrix` where each column represent the velocity vector of each body. 
 """
 function kinetic_energy(velocities::AbstractMatrix, masses::AbstractVector)
     T = 0.5*sum(masses .* norm.(eachcol(velocities)).^2)
 end
 
-function kinetic_energy(sol::MultiBodySolution)
+"""
+    kinetic_energy(sol::MultiBodySolution, 
+                   bodies=eachindex(sol.ic.particles); 
+                   tspan=extrema(sol.t))
+
+Return the total kinetic energy for the given `bodies` and `tspan` from a simulation solution.
+"""
+function kinetic_energy(sol::MultiBodySolution, 
+                        bodies=eachindex(sol.ic.particles); 
+                        tspan=extrema(sol.t))
 
     masses = sol.structure.m
+
+    indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
+    indices = indices[1]:indices[2]
     
     kin_energy = Vector{typeof(1.0u"J")}(undef, length(sol.t))
-    @inbounds for i ∈ eachindex(sol.t)
+    for i ∈ indices
         m = ifelse(i > 1, masses[:,2], masses[:,1])
-        te = kinetic_energy(sol.v[:,:,i], m)
+        te = kinetic_energy(sol.v[:,bodies,i], m)
         kin_energy[i] = te
     end
 
     kin_energy
 end
 
+"""
+    total_energy(positions, velocities, masses)
+    
+Total energy (kinetic + potential) of bodies with given `positions`, `velocities`, and `masses`.
 
+See [`potential_energy`](@ref), [`kinetic_energy`](@ref)
+"""
 function total_energy(positions, velocities, masses)
     return potential_energy(positions, masses) + kinetic_energy(velocities, masses)
 end
 
-
-function total_energy(sol::MultiBodySolution)
-    return potential_energy(sol) .+ kinetic_energy(sol)
+function total_energy(sol::MultiBodySolution, 
+                      bodies=eachindex(sol.ic.particles); 
+                      tspan=extrema(sol.t))
+    return potential_energy(sol, bodies, tspan=tspan) .+ kinetic_energy(sol, bodies, tspan=tspan)
 end
 
+"""
+    specific_orbital_energy(r, v², μ)
 
+Return the specific orbital energy of two orbiting bodies with relative position `r`, relative velocity squared `v²`, and reduced mass `μ`
+
+The specific orbital energy is sum of the mutual potential and kinetic energy divided by the reduced mass.
+"""
 function specific_orbital_energy(r, v², μ)
     return v²/2 - μ/r
 end
 
-function reduced_mass(m1, m2)
-    return (m1*m2)/(m1 + m2)
+@doc raw"""
+    reduced_mass(m₁, m₂)
+
+Return the reduced mass given the two masses `m₁` and `m₂`.
+
+The reduced mass is defined as
+
+```math
+\frac{m_1 m_2}{m_1 + m_2}
+```
+"""
+function reduced_mass(m₁, m₂)
+    return (m₁*m₂)/(m₁ + m₂)
 end
 
+"""
+    gravitational_radius(mass::Unitful.Mass)
+
+Return the gravitational radius of an object with the given `mass`.
+
+The gravitational radius is defined as GM/c².
+"""
 function gravitational_radius(mass::Unitful.Mass)
     GRAVCONST*mass/c^2
 end
 
+"""
+    gravitational_radius(mass::Real)
+"""
 function gravitational_radius(mass::Real)
     G*mass/c²
 end
 
+"""
+    schwarzschild_radius(mass::Unitful.Mass)
+
+Return the Schwarzschild radius of an object with the given `mass`.
+
+The Schwarzschild radius is defined as 2GM/c².
+"""
 function schwarzschild_radius(mass)
     return 2*gravitational_radius(mass)
 end
 
-function roche_radius(a, M₁, M₂)
-    return a*roche_radius_fraction(M₁, M₂)
+@doc raw"""
+    roche_radius(a, m₁, m₂)
+
+Return the volume-equivalent Eggleton Roche lobe radius of two bodies
+with masses `m₁` and `m₂`, and separation `a`, where `m₁ > m₂`.
+
+The volume-equivalent Eggleton Roche radius is defined as
+
+```math
+R_L = a \frac{0.49q^{2/3}}{0.6q^{2/3} + \ln{(1 + q^{1/3})}}
+```
+"""
+function roche_radius(a, m₁, m₂)
+    return a*roche_radius_fraction(m₁, m₂)
 end
 
+"""
+    roche_radius(a, q)
+
+The mass ratio `q` can also be given directly, where `q = m₁/m₂`.
+"""
 function roche_radius(a, q)
     return a*roche_radius_fraction(q)
 end
 
-function roche_radius_fraction(M₁, M₂)
-    q = M₁/M₂
-
-    q²³ = cbrt(q)^2
-
-    return 0.49q²³/(0.6q²³ + log(1 + q^(1/3)))
+function roche_radius_fraction(m₁, m₂)
+    q = m₁/m₂
+    return roche_radius_fraction(q)
 end
 
 function roche_radius_fraction(q::Real)
@@ -262,7 +370,7 @@ function roche_radius_fraction(q::Real)
 end
 
 """ 
-    stellar_spin(m::T, R::T)
+    stellar_spin(m::Unitful.Mass, R::Unitful.Length)
 
 Return the stellar rotation of a star with mass 'm [M⊙]' and radius 'R [R⊙]', as
 described by Hurley, Pols, & Tout 2000, eq 107-108.
@@ -271,275 +379,51 @@ function stellar_spin(m::Unitful.Mass, R::Unitful.Length)
     stellar_spin(ustrip(u"Msun", m), ustrip(u"Rsun", R))*upreferred(1.0u"1/yr")
 end
 
-
 function stellar_spin(m::T, R::T) where T <: Real
     vᵣₒₜ = 330m^3.3/(15 + m^3.45)
     Ω = (45.35vᵣₒₜ/R)
     return Ω
 end
 
-function envelope_structure(mass::Real, radius, core_mass, core_radius, stellar_type, age, Z=0.02)
-    tMS, tBGB = main_sequence_lifetime(mass, Z)
-    envelope_radius = convective_envelope_radius(mass, radius, core_radius, stellar_type, age, tMS, tBGB)
-    envelope_mass = convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
-
-    return envelope_radius, envelope_mass
-end
-
-function envelope_structure(mass::Unitful.Mass, radius, core_mass, core_radius, stellar_type, age, Z=0.02)
-    
-    mass = ustrip(u"Msun", mass)
-    radius = ustrip(u"Rsun", radius)
-    core_mass = ustrip(u"Msun", core_mass)
-    core_radius = ustrip(u"Rsun", core_radius)
-    # stellar_type = ustrip(u"stp", stellar_type)
-    age = ustrip(u"Myr", age)
-
-    R_env, M_env = envelope_structure(mass, radius, core_mass, core_radius, stellar_type, age, Z)
-    return R_env*u"Rsun", M_env*u"Msun"
-end
-
-
-function envelope_structure(star::Particle, age, Z=0.02)
-    @assert star.structure.stellar_type isa Star "Envelope structure only relevant for stars."
-
-    envelope_structure(star.structure.m, star.structure.R, 
-                       star.structure.m_core, star.structure.R_core, 
-                       star.structure.stellar_type.index, age)
-end
 
 
 """
-Radius of a zero-age main-sequence star. From Tout et al 1996.
-"""
-function zero_age_main_sequence_radius(M::Real)
-    θ = 1.71535900
-    ι = 6.59778800
-    κ = 10.08855000
-    λ = 1.01249500
-    μ = 0.07490166
-    ν = 0.01077422
-    ξ = 3.08223400
-    o = 17.84778000
-    Π = 0.00022582
-
-
-    (θ*M^2.5 + ι*M^6.5 + κ*M^11 + λ*M^19 + μ*M^19.5)/(ν + ξ*M^2 + o*M^8.5 + M^18.5 + Π*M^19.5)
-end
-
-function zero_age_main_sequence_radius(mass::Unitful.Mass)
-    zero_age_main_sequence_radius(ustrip(u"Msun", mass))
-end
-
-
-
-"""
-    main_sequence_radius_035_msun(τ, Z=0.02)
-
-Radius of a 0.35 M⊙ main-sequence star at a time τ = t/tMS.  
-"""
-function main_sequence_radius_035_msun(τ::Real, Z=0.02)
-    M = 0.35
-    ζ = log10(Z/0.02)
-    ζ² = ζ^2    
-    aₙ(α, β=0.0, γ=0.0, η=0.0, μ=0.0) = α + β*ζ + γ*ζ² + η*ζ^3 + μ*ζ²^2
-
-    a₁₈′ = aₙ(2.187715e-1, -2.154437e+0, -3.768678e+0, -1.975518e+0, -3.021475e-1)
-    a₁₉′ = aₙ(1.466440e+0, 1.839725e+0, 6.442199e+0, 4.023635e+0, 6.957529e-1)
-    a₂₀ = aₙ(2.652091e+1, 8.178458e+1, 1.156058e+2, 7.633811e+1, 1.950698e+1)
-
-    a₁₈ = a₁₈′*a₂₀
-    a₁₉ = a₁₉′*a₂₀
-    a₂₁ = aₙ(1.472103e+0, -2.947609e+0, -3.312828e+0, -9.945065e-1)
-    a₂₂ = aₙ(3.071048e+0, -5.679941e+0, -9.745523e+0, -3.594543e+0)
-
-    R_zams = zero_age_main_sequence_radius(M)
-    R_tms = (a₁₈ + a₁₉*M^a₂₁)/(a₂₀ + M^a₂₂) # Hurley et al 2000 eq. 9
-
-    Mhook = 1.0185 + 0.16015ζ + 0.0892ζ² 
-    @assert Mhook >= M "Only valid for M <= Mhook right now."
-
-
-    a₆₂ = aₙ(8.4300e-2, -4.7500e-2, -3.5200e-2)
-    a₇₆ = aₙ(1.192334e-2, 1.083057e-2, 1.230969e+0, 1.551656e+0)
-    a₇₇ = aₙ(-1.668868e-1, 5.818123e-1, -1.105027e+1, -1.668070e+1)
-    a₇₈ = aₙ(7.615495e-1, 1.068243e-1, -2.011333e-1, -9.371415e-2)
-    a₇₉ = aₙ(9.409838e+0, 1.522928e+0)
-
-    a₇₆ = max(a₇₆, -0.1015564 - 0.2161264*ζ - 0.05182516*ζ²) 
-    a₇₇ = max(-0.3868776 - 0.5457078*ζ - 0.1463472*ζ², min(0.0, a₇₇))
-    a₇₈ = max(0.0, min(a₇₈, 7.454 + 9.046*ζ)) 
-    a₇₉ = min(a₇₉, max(2.0, -13.3 - 18.6*ζ)) 
-
-    αR = a₆₂
-    βR = 1.06
-
-    γ = a₇₆ + a₇₇*(M - a₇₈)^a₇₉
-
-    logRMS_over_RZAMS = αR*τ + βR * τ^10 + γ*τ^40 + 
-                            (log10(R_tms/R_zams) - αR - βR - γ)*τ^3
-
-
-    10^logRMS_over_RZAMS*R_zams
-end
-
-
-"""
-    envelope_radius(mass, radius, core_radius, stellar_type)
-
-Calculate the radius of the envelope with given mass, radius, core radius, and stellar type.
-Quantities must be in units of solar mass and solar radii.
-Reference Hurley et al. 2002 - DOI: 10.1046/j.1365-8711.2002.05038.x
-"""
-function convective_envelope_radius(mass, radius, core_radius, stellar_type, age, tMS, tBGB)
-
-    if any(stellar_type .== (3, 5, 6, 8, 9)) # giant-like stars
-        return radius - core_radius
-    elseif any(stellar_type .== (1, 7))   # main sequence stars
-        τ = age/tMS 
-        
-        R_env₀ = if mass > 1.25
-                    0.0
-                elseif mass < 0.35
-                    radius
-                else
-
-                    R′ = main_sequence_radius_035_msun(τ)
-                    # R′ is the radius of a MS star with M = 0.35 M⊙ at τ
-                    return R′*sqrt(1.25 - mass)/0.9
-                end
-
-        return R_env₀*(1 - τ)^0.25
-    elseif any(stellar_type .== (2, 8)) # Hertzsprung gap stars
-        τ = (age - tMS)/(tBGB - tMS)
-        return sqrt(τ)*(radius - core_radius)
-    end
-
-end
-
-"""
-convective_envelope_mass(mass, radius, core_radius, stellar_type)
-
-Calculate the mass of the envelope with given stellar mass, core mass, stellar age, 
-stellar main sequence lifetime, stellar base giant branch (BHG) lifetime and stellar type.
-Quantities must be in units of solar mass and solar radii.
-Reference Hurley et al. 2000 - https://ui.adsabs.harvard.edu/abs/1981A&A....99..126H
-"""
-function convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
-    @assert stellar_types[stellar_type] isa Star "Only stars have envelopes."
-
-    if any(stellar_type .== (1, 7)) 
-        M_env₀ = if mass < 0.35
-                     mass
-                 elseif mass > 1.25
-                     0.0
-                 else
-                   ( 0.35*((1.25 - mass)/0.9)^2 )
-                 end
-        
-        τ = age/tMS
-        return M_env₀*(1 - τ)^0.25
-    elseif any(stellar_type .== (2, 8))
-        τ = (age - tMS)/(tBGB - tMS)
-        return τ*(mass - core_mass)
-    else 
-        return mass - core_mass
-    end
-end 
-
-"""
-
-main_sequence_lifetime(M::Real, Z)
-
-Return the main sequence lifetime of a star with mass M [M⊙] in Myr.
-Reference Hurley et al. 2000 - https://ui.adsabs.harvard.edu/abs/1981A&A....99..126H
-"""
-function main_sequence_lifetime(M::Real, Z=0.02)
-
-    ζ = log10(Z/0.02) # Hurley et al 2000 page 5
-
-    aₙ(α, β=0.0, γ=0.0, η=0.0, μ=0.0) = α + β*ζ + γ*ζ^2 + η*ζ^3 + μ*ζ^4
-
-    a₁ = aₙ(1.593890e3, 2.053038e3, 1.231226e3, 2.327785e2)
-    a₂ = aₙ(2.706708e3, 1.483131e3, 5.772723e2, 7.411230)
-    a₃ = aₙ(1.466143e2, -1.048442e2, -6.795374e1, -1.391127e1)
-    a₄ = aₙ(4.141960e-2, 4.564888e-2, 2.958542e-2, 5.571483e-3)
-    a₅ = aₙ(3.426349e-1)
-    a₆ = aₙ(1.949814e1, 1.758178, -6.008212, -4.470533)
-    a₇ = aₙ(4.903830)
-    a₈ = aₙ(5.212154e-2, 3.166411e-2, -2.750074e-3, -2.271549e-3)
-    a₉ = aₙ(1.312179, -3.294936e-1, 9.231860e-2, 2.610989e-2)
-    a₁₀ = aₙ(8.073972e-1)
-
-    M⁷ = M^7
-    μ = max(0.5, 1.0 - 0.01*max(a₆/M^a₇, a₈ + a₉/M^a₁₀))
-    x = max(0.95, min(0.95 - 0.03*(ζ + 0.30103), 0.99))
-
-    tBGB = (a₁ + a₂*M^4 + a₃*M^5.5 + M⁷)/(a₄*M^2 + a₅*M⁷)
-    t_hook = μ*tBGB
-
-    tMS = max(t_hook, x*tBGB)
-
-    return tMS, tBGB
-end
-
-main_sequence_lifetime(M::Unitful.Mass, Z=0.02) = main_sequence_lifetime(ustrip(u"Msun", M), Z)
-
-
-function mass_luminosity_relation(M)
-
-    # M = u"Msun"(M).val
-
-    local F, a
-    if 0.2u"Msun" < M <= 0.85u"Msun"
-        a = -141.7*M^4 + 232.4*M^3 - 129.1*M^2 + 33.29*M + 0.215
-        F = 1.0
-    elseif 0.85u"Msun" < M <= 2.0u"Msun"
-        a = 4
-        F = 1
-    elseif 2.0u"Msun" < M <= 55.0u"Msun"
-        a = 3.5
-        F = 1.4
-    elseif M > 55.0u"Msun"
-        a = 1
-        F = 32_000
-    end
-
-
-    return (F*M^a)u"Lsun"
-end
-
-
-"""
-    stability_criterion_ma01(m1, m2, m3, i, eout)
+    stability_criterion_ma01(m₂, m₂, m₃, i, eout)
 
 Return the critical semi-major axis ratio (a_out/a_in)_crit as defined in
-Mardling & Aarset 1999.
+Mardling & Aarset 1999, given a triple with masses `m₁`, `m₂`, `m₃`, mutual
+inclination `i`, and outer eccentricity `eout`.
 """
-function stability_criterion_ma01(m1, m2, m3, i, eout)
-    qout = m3/(m1 + m2)
+function stability_criterion_ma01(m₁, m₂, m₃, i, eout)
+    qout = m₃/(m₁ + m₂)
     return 2.8/(1 - eout)*(1 - 0.3i/π)*((1 + qout)*(1 + eout)/√(1 - eout))^(2/5)
 end
 
-function stability_criterion_ma01(p::MultiBodySystem)
-    @assert p.n == 3 "System must be a triple."
-    eₒ = p.binaries[2].elements.e
-    i = p.binaries[1].elements.i
+"""
+    stability_criterion_ma01(triple::MultiBodySystem)
 
-    m1, m2, m3 = [p.particles[i].mass for i = 1:3]
+The stability criterion can also be calculated for a triple system directly.
+"""
+function stability_criterion_ma01(triple::MultiBodySystem)
+    @assert triple.n == 3 "System must be a triple."
+    eₒ = triple.binaries[2].elements.e
+    i = triple.binaries[1].elements.i
 
-    return stability_criterion_ma01(m1, m2, m3, i, eₒ)    
+    m₁, m₂, m₃ = [triple.particles[i].mass for i = 1:3]
+
+    return stability_criterion_ma01(m₁, m₂, m₃, i, eₒ)    
 end
 
-function get_a_out_on_stability_limit(aᵢ, m₁, m₂, m₃, i, eₒ; ϵ=1e-4)
-    stability = stability_criterion_ma01(m₁, m₂, m₃, i, eₒ)
-    aₒ = stability*aᵢ*(1-ϵ)
-end
+"""
+    is_unstable(triple::MultiBodySystem)
 
+Check if a given `triple` is unstable, i.e. whether aout/ain < (aout/ain)_crit.
 
-function is_unstable(p::MultiBodySystem; criterion="ma01")
-    α_crit = stability_criterion_ma01(p)
-    α = p.binaries[2].elements.a / p.binaries[1].elements.a
+See [`stability_criterion_ma01`](@ref)
+"""
+function is_unstable(triple::MultiBodySystem; criterion="ma01")
+    α_crit = stability_criterion_ma01(triple)
+    α = triple.binaries[2].elements.a / triple.binaries[1].elements.a
     return α < α_crit
 end
 
@@ -549,10 +433,14 @@ function is_unstable(aₒ, aᵢ, m₁, m₂, m₃, i, eₒ; criterion="ma01")
     return α < α_crit
 end
 
-""" 
-Octupole term ϵₒ. Plays important role when 
+@doc raw""" 
+    octupole_parameter(triple::MultiBodySystem)
 
-`` |ϵₒ| ≥ {0.001, 0.01} `` 
+Return the octupole parameter ϵₒ for a given `triple`, defined as:
+
+```math
+\epsilon_\text{oct} = \frac{m_1 - m_2}{m_1 + m_2} \frac{a_\text{in}}{a_\text{out}}\frac{e_\text{out}}{1 - e_\text{out}^2}
+```
 """
 function octupole_parameter(triple::MultiBodySystem)
     @assert triple.n == 3 "Octupole parameter only valid for triple system."
@@ -564,12 +452,12 @@ function octupole_parameter(triple::MultiBodySystem)
     (m₁ - m₂)/(m₁ + m₂)*aᵢₙ/aₒᵤₜ*eₒᵤₜ/(1 - eₒᵤₜ^2)
 end
 
-function quadrupole_timescale(system::MultiBodySystem)
-    m = system.particles.mass .|> u"kg"
-    P_in = system.binaries[1].elements.P |> u"s"
-    P_out = system.binaries[2].elements.P |> u"s"
-    e_out = system.binaries[2].elements.e
-    return 16/30π*sum(m)/m[3]*P_out^2/P_in*cbrt(1 - e_out^2)^2
+function quadrupole_timescale(triple::MultiBodySystem)
+    m = triple.particles.mass 
+    P_in = triple.binaries[1].elements.P 
+    P_out = triple.binaries[2].elements.P
+    e_out = triple.binaries[2].elements.e
+    return 16/30π*sum(m)/m[3]*P_out^2/P_in*cbrt(1 - e_out^2)^2 |> u"yr"
 end
 
 # """
@@ -630,10 +518,16 @@ end
 # end
 
 ########################### All PN spin velocity terms ###########################
-get_spin_precession_velocity(object1, object2, potential::PN1SpinPrecessionPotential) = PN1_spin_precession_velocity(object1, object2)
+get_spin_precession_velocity(object1, object2, potential::PN1SpinPrecessionPotential)   = PN1_spin_precession_velocity(object1, object2)
 get_spin_precession_velocity(object1, object2, potential::PN1p5SpinPrecessionPotential) = PN1p5_spin_precession_velocity(object1, object2)
-get_spin_precession_velocity(object1, object2, potential::PN2SpinPrecessionPotential) = PN2_spin_precession_velocity(object1, object2)
+get_spin_precession_velocity(object1, object2, potential::PN2SpinPrecessionPotential)   = PN2_spin_precession_velocity(object1, object2)
+get_spin_precession_velocity(object1, object2, potential::SpinPrecessionPotential)      = spin_precession_velocity(object1, object2)
 
+"""
+    spin_precession_velocity(particle1::Particle, particle2::Particle)
+
+
+"""
 function spin_precession_velocity(particle1::Particle, particle2::Particle)
     S1 = particle1.structure.S
     S2 = particle2.structure.S
@@ -662,6 +556,7 @@ end
 
 function spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1::Quantity, m2::Quantity)
     T1PN = PN1_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
+    T1p5PN = PN1p5_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
     T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
     return GRAVCONST*(T1PN/c^2 + T1p5PN/c^3 + T2PN/c^4)
 end
