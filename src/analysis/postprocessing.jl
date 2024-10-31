@@ -79,6 +79,8 @@ function to_solution(result::SimulationResult)
     system = result.simulation.ic
     n_bodies = system.n
 
+    spin_precession = any(x -> x isa SpinPotential, result.simulation.potential)
+
     time = result.solution.t .* upreferred(u"s")
     
     n_steps = length(time)
@@ -87,28 +89,36 @@ function to_solution(result::SimulationResult)
 
     r = Array{typeof(upreferred(1.0u"m")), 3}(undef, 3, n_bodies, n_steps)
     v = similar(r, typeof(upreferred(1.0u"m/s")))
-    S = similar(r, typeof(upreferred(1.0*S_unit)))
-    Sv = similar(r, typeof(upreferred(1.0*S_unit/upreferred(u"yr"))))
-
-
+    
     r = AxisArray(r; dim=1:3, particle=1:n_bodies, time=time)
     v = AxisArray(v; dim=1:3, particle=1:n_bodies, time=time)
-    S = AxisArray(S; dim=1:3, particle=1:n_bodies, time=time)
-    Sv = AxisArray(Sv; dim=1:3, particle=1:n_bodies, time=time)
 
-    
+    S, Sv = if spin_precession
+            S = similar(r, typeof(upreferred(1.0*S_unit)))
+            Sv = similar(r, typeof(upreferred(1.0*S_unit/upreferred(u"yr"))))
+
+            S = AxisArray(S; dim=1:3, particle=1:n_bodies, time=time)
+            Sv = AxisArray(Sv; dim=1:3, particle=1:n_bodies, time=time)
+
+            S, Sv
+            else
+            nothing, nothing
+            end
+
     for idx in eachindex(time)
         pos = result.solution.u[idx].x[2][1:3,:] .* upreferred(u"m")
         vel = result.solution.u[idx].x[1][1:3,:] .* upreferred(u"m/s")
 
-        spin = result.solution.u[idx].x[2][4:6,:] .* upreferred(S_unit)
-        spin_vel = result.solution.u[idx].x[1][4:6,:] .* upreferred(S_unit/upreferred(u"yr"))
+        if spin_precession
+            spin = result.solution.u[idx].x[2][4:6,:] .* upreferred(S_unit)
+            spin_vel = result.solution.u[idx].x[1][4:6,:] .* upreferred(S_unit/upreferred(u"yr"))
+            S[:, :, idx] .= spin
+            Sv[:, :, idx] .= spin_vel
+        end
         
         r[:, :, idx] .= pos
         v[:, :, idx] .= vel
 
-        S[:, :, idx] .= spin
-        Sv[:, :, idx] .= spin_vel
     end
 
     ode_solution = Dict(:potential => result.simulation.potential |> values,
