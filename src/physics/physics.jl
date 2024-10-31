@@ -1,6 +1,8 @@
 using LinearAlgebra: norm, ×, ⋅
 using StaticArrays
 
+include("stellar_physics.jl")
+
 """
     centre_of_mass(positions, masses)
 
@@ -400,11 +402,11 @@ function stability_criterion_ma01(m₁, m₂, m₃, i, eout)
 end
 
 """
-    stability_criterion_ma01(triple::MultiBodySystem)
+    stability_criterion_ma01(triple::HierarchicalMultiple)
 
 The stability criterion can also be calculated for a triple system directly.
 """
-function stability_criterion_ma01(triple::MultiBodySystem)
+function stability_criterion_ma01(triple::HierarchicalMultiple)
     @assert triple.n == 3 "System must be a triple."
     eₒ = triple.binaries[2].elements.e
     i = triple.binaries[1].elements.i
@@ -415,13 +417,13 @@ function stability_criterion_ma01(triple::MultiBodySystem)
 end
 
 """
-    is_unstable(triple::MultiBodySystem)
+    is_unstable(triple::HierarchicalMultiple)
 
 Check if a given `triple` is unstable, i.e. whether aout/ain < (aout/ain)_crit.
 
 See [`stability_criterion_ma01`](@ref)
 """
-function is_unstable(triple::MultiBodySystem; criterion="ma01")
+function is_unstable(triple::HierarchicalMultiple; criterion="ma01")
     α_crit = stability_criterion_ma01(triple)
     α = triple.binaries[2].elements.a / triple.binaries[1].elements.a
     return α < α_crit
@@ -434,7 +436,7 @@ function is_unstable(aₒ, aᵢ, m₁, m₂, m₃, i, eₒ; criterion="ma01")
 end
 
 @doc raw""" 
-    octupole_parameter(triple::MultiBodySystem)
+    octupole_parameter(triple::HierarchicalMultiple)
 
 Return the octupole parameter ϵₒ for a given `triple`, defined as:
 
@@ -442,7 +444,7 @@ Return the octupole parameter ϵₒ for a given `triple`, defined as:
 \epsilon_\text{oct} = \frac{m_1 - m_2}{m_1 + m_2} \frac{a_\text{in}}{a_\text{out}}\frac{e_\text{out}}{1 - e_\text{out}^2}
 ```
 """
-function octupole_parameter(triple::MultiBodySystem)
+function octupole_parameter(triple::HierarchicalMultiple)
     @assert triple.n == 3 "Octupole parameter only valid for triple system."
     m₁, m₂ = [triple.particles[i].structure.m for i in 1:2]#[triple.mass[1], triple.mass[2]] |> sort |> reverse
     aᵢₙ  = triple.binaries[1].elements.a
@@ -452,7 +454,7 @@ function octupole_parameter(triple::MultiBodySystem)
     (m₁ - m₂)/(m₁ + m₂)*aᵢₙ/aₒᵤₜ*eₒᵤₜ/(1 - eₒᵤₜ^2)
 end
 
-function quadrupole_timescale(triple::MultiBodySystem)
+function quadrupole_timescale(triple::HierarchicalMultiple)
     m = triple.particles.mass 
     P_in = triple.binaries[1].elements.P 
     P_out = triple.binaries[2].elements.P
