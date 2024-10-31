@@ -129,12 +129,14 @@ To get the full list of callbacks, you can call `Syzygy.callbacks()`.
 
 `Syzygy.jl` has support for including/varying the potentials and corresponding acceleration functions in a simulation.  In this package, you can specify the acceleration functions to include by setting the `potentials` keyword argument when calling `simulate` or `simulation`. This argument accepts a `Vector{MultiBodyPotential}` where `MultiBodyPotential` is a supertype of all the potentials defined in the package, and for each of which there exists a unique acceleration function. The total acceleration of a particle at each time step is thus a sum of all the acceleration functions defined by the `potential` vector.
 
-Currently, there are 4 possible potentials, with post-newtonian acceleration currently being implemented. These are
+Currently, there are a number of possible potentials:
 
 - `PureGravitationalAcceleration`: Newtonian gravitational acceleration
-- `DynamicalTidalAcceleration`: energy dissipation from dynamical tidal, following the prescription of [Samsing et al. 2018](http://arxiv.org/abs/1803.08215).
-- `EquilbriumTidalAcceleration`: tidal drag force from equilibrium tides, as described by [Hurley at al. 2002](http://arxiv.org/abs/astro-ph/0201220)
-- `StaticEquilibriumTidalAcceleration`: same as above, but with the assumption that masses, radii, and other structural parameters of the particles do not change during the simulation. This is more efficient as it only calculated certain quantities once, and re-uses them throughout the simulation.
+- `DynamicalTidalAcceleration`: energy dissipation from dynamical tides, following the prescription of [Samsing et al. 2018](http://arxiv.org/abs/1803.08215).
+- `EquilbriumTidalAcceleration`: tidal drag force from equilibrium tides, as described by [Hurley at al. 2002](http://arxiv.org/abs/astro-ph/0201220), using the model of [Hut 1981](https://ui.adsabs.harvard.edu/abs/1981A&A....99..126H).
+- `StaticEquilibriumTidalAcceleration`: same as above, but with the assumption that masses, radii, and other structural parameters of the particles do not change during the simulation. This is more efficient as it only calculates certain quantities once, and re-uses them throughout the simulation.
+
+There are also potentials for various general relatistic effects via post-Newtonian expansion. See [section on post-Newtonian physics](#post-newtonian-physics)
 
 Each of these accepts a specific set of arguments related to the acceleration functions. To get an overview of these, enter the `help`-mode in the REPL with `?` and type any of the above names. 
 
@@ -148,6 +150,20 @@ grav_pot = PureGravitationalAcceleration()
 tidal_pot = DynamicalTidalAcceleration(;kwargs...)
 res = simulate(system, potential=[grav_pot, tidal_pot]) 
 ```
+
+## Post-Newtonian physics
+
+- `PN1Potential`
+- `PN2Potential`
+- `PN2p5Potential`
+- `PNPotential`
+- `PN1p5SpinPotential`
+- `PN2SpinPotential`
+- `PN2p5SpinPotential`
+- `PN1SpinPrecessionPotential`
+- `PN1p5SpinPrecessionPotential`
+- `PN2SpinPrecessionPotential`
+- `SpinPrecessionPotential`
 
 ## Running a simulation
 
@@ -182,11 +198,11 @@ orbitplot(sol, bodies=[1, 2], dims=[1, 2]) # plot only particles 1 and 2 in the 
 
 ## Arbitrary precision
 
-By default `Syzygy.jl` uses `Float64` datatypes for the variables of integration, which means that we can not set the error tolerances for the ODE solver lower than $\sim 10^{-14}$ (see [DiffEq docs](https://docs.sciml.ai/DiffEqDocs/stable/basics/faq/#How-to-get-to-zero-error)). While this is generally pretty good, for longer simulation times, this might not be enough. Therefore, `Syzygy.jl` supports arbitrary precision arithmetic, which means you can essentially get as small error as you want, as the cost of speed of course. You can still get pretty decent speed if you use the `Double64` type from (DoubleFloats.jl)[https://github.com/JuliaMath/DoubleFloats.jl]. These have twice as many bits as a standard `Float64`, while still being somewhat performant. If you need even higher precision, you can use the arbitrary precision floating point numbers from (ArbNumerics.jl)[https://github.com/JeffreySarnoff/ArbNumerics.jl]. However, using these will dramatically slow down the code (using Double64 gives a slowdown of $\sim 70\times$, while using ArbFloat with the same number of bits makes the code run over $2000\times$ slower.) To use this functionality, simply specify the `precision` keyword when calling either `simulation` or `simulate`. Fixed-bit types are specified with symbols, while arbitrary precision are specified with an integer, determining the number of bits to use. 
+By default `Syzygy.jl` uses `Float64` datatypes for the variables of integration, which means that we can not set the error tolerances for the ODE solver lower than $\sim 10^{-14}$ (see [DiffEq docs](https://docs.sciml.ai/DiffEqDocs/stable/basics/faq/#How-to-get-to-zero-error)). While this is generally pretty good, for longer simulation times, this might not be enough. Therefore, `Syzygy.jl` supports arbitrary precision arithmetic, which means you can essentially get as small error as you want, as the cost of speed of course. You can still get pretty decent speed if you use the `Float64x2` type from (MultiFloats.jl)[https://github.com/dzhang314/MultiFloats.jl]. These have twice as many bits as a standard `Float64`, while still being somewhat performant. If you need even higher precision, you can use the arbitrary precision floating point numbers from (ArbNumerics.jl)[https://github.com/JeffreySarnoff/ArbNumerics.jl]. However, using these will dramatically slow down the code (using Double64 gives a slowdown of $\sim 70\times$, while using ArbFloat with the same number of bits makes the code run over $2000\times$ slower.) To use this functionality, simply specify the `precision` keyword when calling either `simulation` or `simulate`. Fixed-bit types are specified with symbols, while arbitrary precision are specified with an integer, determining the number of bits to use. 
 
 ```julia
 binary = multibodysystem([2.0, 1.0]u"Msun", a=1.0u"AU")
-result = simulate(binary, t_sim=1, save_everystep=false, precision=:Double64) # will use Double64 precision (106 bits)
+result = simulate(binary, t_sim=1, save_everystep=false, precision=:Float64x2) # will use Double64 precision (106 bits)
 result = simulate(binary, t_sim=1, save_everystep=false, precision=254) # will use ArbFloat type with 254 bit precision
 ```
 
@@ -201,7 +217,7 @@ To define you own callback, simply set it up following the the [DiffEq docs](htt
 
 ## Adding another potential
 
-To add a new potential and acceleration function, you first need to define the acceleration function itself, which should be an in-place function that calculates the pairwise acceleration for two particles $(i, j)$ and adds it to an acceleration vectors (dvi and dvj). The function must return `nothing`. 
+To add a new potential and acceleration function, you first need to define the acceleration function itself, which should be an in-place function that calculates the pairwise acceleration for two particles $(i, j)$ and adds it to the acceleration vectors (dvi and dvj). The function must return `nothing`. 
 Example:
 
 ```julia
@@ -233,15 +249,22 @@ struct MyPotential{T1, T2} <: Syzygy.MultiBodyPotential
 end
 ```
 
-Finally, you add a method to the `Syzygy.get_accelerating_function` such that is returns a wrapper around your acceleration function. The wrapper has to have the following signature:
+Finally, you add a method to the `Syzygy.get_accelerating_function` such that it returns a wrapper around your acceleration function. The wrapper has to have the following signature:
 
 ```julia
-function Syzygy.get_accelerating_function(parameters::MyPotential, n)
+function Syzygy.get_accelerating_function(parameters::MyPotential)
     (dvi, dvj, rs, vs, pair, time, params)-> my_acceleration_function!(dvi, dvj, rs, vs, pair, params, potential)
 end
 ```
 
 To use this potential in a simulation, create an instance of your new `MyPotential` type, and include it in the `potential` vector as a keyword argument when initializing the simulation. 
+
+```julia-repl
+mypotential = MyPotential()
+
+res = simulate(system, potential=[PureGravitationalAcceleration(), MyPotential()])
+```
+
 
 
 
