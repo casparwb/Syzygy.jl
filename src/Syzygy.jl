@@ -32,6 +32,11 @@ module Syzygy
     include("analysis/visualization.jl")
     include("io.jl")
 
+    public centre_of_mass, centre_of_mass_velocity, potential_energy, 
+           kinetic_energy, specific_orbital_energy, reduced_mass, gravitational_radius,
+           schwarzschild_radius, roche_radius, octupole_parameter, is_unstable,
+           stability_criterion_ma01
+
     export multibodysystem
     export PureGravitationalPotential, DynamicalTidalPotential, 
            EquilibriumTidalPotential, StaticEquilibriumTidalPotential
