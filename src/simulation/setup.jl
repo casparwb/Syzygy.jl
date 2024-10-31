@@ -64,7 +64,7 @@ function parse_arguments!(kwargs::Dict)
                         :alg       => DPRKN8(), :saveat => [], :npoints => 0,
                         :maxiters  => Inf,
                         :abstol    => 1.0e-10, :reltol  => 1.0e-10,
-                        :potential => PureGravitationalPotential(),
+                        :potential => [PureGravitationalPotential()],
                         :callbacks => [CollisionCB()], :showprogress => false,
                         :verbose   => false, :max_cpu_time => Inf,
                         :precision => :Float64, :stellar_evolution => false,
@@ -132,6 +132,11 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     args[:dtype] = dtype
     particles = system.particles
 
+    
+    if any(x -> x isa SpinPotential, args[:potential])
+        check_spins(system.particles.S)
+    end
+
     # Setup time step (only used if using symplectic integrator)
     periods = if system isa NonHierarchicalSystem
         Rs = [norm(particles[ij[1]].position - particles[ij[2]].position) for ij in system.pairs]
@@ -139,6 +144,7 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     else
         [bin.elements.P |> upreferred for bin in values(system.binaries)]
     end
+
     P_in, P_out = extrema(periods)
     args[:dt] *= P_in.val # time step is multiple of inner period
 
@@ -164,71 +170,88 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     return simulation
 end
 
+# """
+#     simulation(masses, positions, velocities; multiple_system_args=(;), kwargs...)
 
-"""
-    simulation(masses, positions, velocities; multiple_system_args=(;), kwargs...)
+# Setup a simulation with just `masses`, `positions`, and `velocities`, and optionally any other argument
+# accepted by [`multibodysystem`](@ref). The state vectors should be arrays of length `n`, where `n` is the number
+# of bodie in the system, in which each element is the state of each component.
 
-Setup a simulation with just `masses`, `positions`, and `velocities`, and optionally any other argument
-accepted by [`multibodysystem`](@ref). The state vectors should be arrays of length `n`, where `n` is the number
-of bodie in the system, in which each element is the state of each component.
+# See [`simulation`](@ref) for a complete overview of simulation-specific arguments.
 
-See [`simulation`](@ref) for a complete overview of simulation-specific arguments.
+# # Example
+# ```jldoctest
+# julia> positions = [[1.5, 0.09, 0.0], [1.5, -0.09, 0.0], [-1.5, 0.00, 0.0]]u"AU"
+# julia> velocities = [[-22.2, 17.2, 0.0], [22.2, 17.2, 0.0], [0.0, -17.2, 0.0]]u"km/s"
+# julia> masses = [1.0, 1.0, 2.0]u"Msun"
+# julia> sim = simulation(masses, positions, velocities, t_sim=500u"kyr") # simulate for 500 kyr
+# julia> sim = simulation(masses, positions, velocities, multibodysystem_args = (;R = [1.0, 1.0, 5.0]u"Rsun")) # include stellar structure arguments
 
-# Example
-```jldoctest
-julia> positions = [[1.5, 0.09, 0.0], [1.5, -0.09, 0.0], [-1.5, 0.00, 0.0]]u"AU"
-julia> velocities = [[-22.2, 17.2, 0.0], [22.2, 17.2, 0.0], [0.0, -17.2, 0.0]]u"km/s"
-julia> masses = [1.0, 1.0, 2.0]u"Msun"
-julia> sim = simulation(masses, positions, velocities, t_sim=500u"kyr") # simulate for 500 kyr
-julia> sim = simulation(masses, positions, velocities, multibodysystem_args = (;R = [1.0, 1.0, 5.0]u"Rsun")) # include stellar structure arguments
+# ```
+# """
+# function simulation(masses, positions, velocities, spins=nothing; multibodysystem_args=(;), kwargs...)
 
-```
-"""
-function simulation(masses, positions, velocities, spins=nothing; multibodysystem_args=(;), kwargs...)
+#     kwargs = Dict{Symbol, Any}(kwargs)
+#     args = parse_arguments!(kwargs)
 
-    kwargs = Dict{Symbol, Any}(kwargs)
-    args = parse_arguments!(kwargs)
+#     dtype = get_datatype_from_precision(args[:precision])
 
-    dtype = get_datatype_from_precision(args[:precision])
+#     n = length(masses)
+#     multiple_system = multibodysystem(masses; multibodysystem_args...)
 
-    n = length(masses)
-    multiple_system = multibodysystem(masses; multibodysystem_args...)
+#     pos_body = [zeros(3) for i ∈ 1:n]
+#     vel_body = [zeros(3) for i ∈ 1:n]
+#     mass_body = ustrip(upreferred.(masses))
 
-    pos_body = [zeros(3) for i ∈ 1:n]
-    vel_body = [zeros(3) for i ∈ 1:n]
-    mass_body = ustrip(upreferred.(masses))
+#     for i ∈ 1:n
+#         pos_body[i] .= upreferred.(positions[i]) |> ustrip
+#         vel_body[i] .= upreferred.(velocities[i]) |> ustrip
+#     end
 
-    for i ∈ 1:n
-        pos_body[i] .= upreferred.(positions[i]) |> ustrip
-        vel_body[i] .= upreferred.(velocities[i]) |> ustrip
-    end
+#     periods = [bin.elements.P |> upreferred for bin in values(multiple_system.binaries)]
+#     P_in, P_out = extrema(periods)
 
-    periods = [bin.elements.P |> upreferred for bin in values(multiple_system.binaries)]
-    P_in, P_out = extrema(periods)
+#     if !(args[:dt] isa Quantity)
+#         args[:dt] *= P_in.val
+#     else
+#         args[:dt] = upreferred(args[:dt])
+#     end
 
-    if !(args[:dt] isa Quantity)
-        args[:dt] *= P_in.val
-    else
-        args[:dt] = upreferred(args[:dt])
-    end
+#     # Setup time span
+#     t0 = args[:t0]
+#     t0 = isnothing(t0) ? ustrip(upreferred(u"s"), multiple_system.time) : ustrip(upreferred(u"s"), t0)
+#     args[:t0] = t0
+#     t_sim = args[:t_sim]
 
-    # Setup time span
-    t0 = args[:t0]
-    t0 = isnothing(t0) ? ustrip(upreferred(u"s"), multiple_system.time) : ustrip(upreferred(u"s"), t0)
-    args[:t0] = t0
-    t_sim = args[:t_sim]
+#     tspan = setup_timespan(t0, t_sim, P_out, dtype)
+#     args[:tspan] = tspan
 
-    tspan = setup_timespan(t0, t_sim, P_out, dtype)
-    args[:tspan] = tspan
+#     if any(x -> x isa SpinPotential, kwargs[:potentials])
+#         check_spins(spins)
+#     end
 
-    spins = isnothing(spins) ? [zeros(dtype, 3)*upreferred(u"kg/m^2/s") for i = 1:n] : spins
+#     # spins = isnothing(spins) ? [zeros(dtype, 3)*upreferred(u"kg/m^2/s") for i = 1:n] : spins
 
-    mass_bodies = bodies(positions, velocities, spins, masses, dtype)
-    pot_dict = get_potential_dict(kwargs[:potential])
-    ode_params = setup_params(multiple_system.particles, multiple_system.time, dtype)
+#     mass_bodies = bodies(positions, velocities, spins, masses, dtype)
+#     pot_dict = get_potential_dict(kwargs[:potential])
+#     ode_params = setup_params(multiple_system.particles, multiple_system.time, dtype)
 
     
-    return MultiBodySimulation(multiple_system, mass_bodies, pot_dict, args[:tspan], ode_params, args, kwargs)
+#     return MultiBodySimulation(multiple_system, mass_bodies, pot_dict, args[:tspan], ode_params, args, kwargs)
+# end
+
+function check_spins(spins)
+    if isnothing(spins)
+        @error "Please give spins if using a spin potential."
+    elseif !(typeof(spins) <: AbstractVector{<:AbstractVector{<:Quantity}})
+        @error "Please give spins as a Vector of Vectors"
+    else
+        𝐋, 𝐌, 𝐓 = Unitful.𝐋, Unitful.𝐌, Unitful.𝐓
+        correct_dim = 𝐋^3*𝐌/𝐓^2
+        if dimension(eltype(first(spins))) != correct_dim
+            throw(DimensionMismatch("Given spins do not have correct dimensions. $(dimension(eltype(first(spins)))) was given, but must be $correct_dim"))
+        end
+    end
 end
 
 function setup_timespan(t0, t_sim, P_out, datatype=Float64)

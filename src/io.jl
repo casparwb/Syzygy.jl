@@ -1,4 +1,4 @@
-function Base.show(io::IO, system::T where T <: MultiBodySystem)
+function Base.show(io::IO, system::T where T <: HierarchicalMultiple)
     print(io, "\nN binaries: ")
     show(io, size(system.hierarchy, 1)-1)
     println(io)

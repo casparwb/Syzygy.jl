@@ -76,9 +76,9 @@ function multibodysystem(masses::Vector{<:Unitful.Mass}; R  = 1.0u"Rsun",
     m_env  = ifelse(m_env  isa Number, repeat([m_env ], n_bodies), m_env )
 
     S = if S isa Number 
-        Sv = [[S, zero(S), zero(S)] for i in 1:n_bodies]
+        [[S, zero(S), zero(S)] for i in 1:n_bodies]
     elseif S isa Vector{<:Number}
-        Sv = [[ss, zero(ss), zero(ss)] for ss in S]
+        [[ss, zero(ss), zero(ss)] for ss in S]
     else
         S
     end
@@ -332,7 +332,7 @@ function multibodysystem(masses::Vector, hierarchy::Vector,
         end
     end
 
-    MultiBodySystem(n_bodies, t, bodies, pairs, binaries, levels, root_bin, hierarchy)
+    HierarchicalMultiple(n_bodies, t, bodies, pairs, binaries, levels, root_bin, hierarchy)
 end
 
 function create_binary(positions, velocities, masses, structures, elements, 
@@ -410,7 +410,7 @@ function get_particles(binary::Binary, particles=Particle[])
     return particles
 end
 
-function get_particles(system::MultiBodySystem)
+function get_particles(system::HierarchicalMultiple)
     bins = values(system.binaries)
     particles = Particle[]
     for bin in bins
@@ -420,7 +420,7 @@ function get_particles(system::MultiBodySystem)
     return particles[sortperm([p.key.i for p in particles])]
 end
 
-function get_particle(system::MultiBodySystem, key::Int)
+function get_particle(system::HierarchicalMultiple, key::Int)
     system.particles[key]
 end
 
@@ -438,10 +438,7 @@ end
 """
     multibodysystem(masses, positions, velocities; kwargs...)
 
-Create a new MultiBodySystem from masses, positions, and velocities. The resulting object
-will not have a specific hierarchy, and therefore the binary fields should not be accessed.
-
-
+Create a NonHierarchicalSystem from masses, positions, and velocities. 
 # Examples
 ```jldoctest
 julia> masses = rand(3)u"kg"
@@ -536,47 +533,47 @@ function multibodysystem(masses, positions, velocities;
 end
 
 
-"""
-    multibodysystem(system::MultiBodySystem; new_params...)
+# """
+#     multibodysystem(system::HierarchicalMultiple; new_params...)
 
-Remake a given system with new parameters. 
-"""
-function multibodysystem(system::MultiBodySystem; new_params...)
+# Remake a given system with new parameters. 
+# """
+# function multibodysystem(system::HierarchicalMultiple; new_params...)
 
-    possible_kwargs = [:R, :S, :L, :stellar_types, :a, :e, :ω, :i, :Ω, :ν, 
-                       :hierarchy, :time, :verbose]
+#     possible_kwargs = [:R, :S, :L, :stellar_types, :a, :e, :ω, :i, :Ω, :ν, 
+#                        :hierarchy, :time, :verbose]
 
-    new_kwargs = Dict(new_params)
-    unchanched_kwargs = [kw for kw in possible_kwargs if (!in(kw, keys(new_kwargs)))]
-
-
-    particle_keys = collect(keys(system.particles)) |> sort
-    binary_keys = collect(keys(system.binaries)) |> sort
-    all_args = Dict{Symbol, Any}()
-    for arg in unchanched_kwargs
-        # @show arg
-        if any(arg .=== (:R, :S, :L))
-            quantity = [getproperty(system.particles[p].structure, arg) for p in particle_keys] |> Vector
-            all_args[arg] = quantity
-        elseif any(arg .=== (:a, :e, :ω, :i, :Ω, :ν))
-            element = [getproperty(system.binaries[p].elements, arg) for p in binary_keys] |> Vector
-            all_args[arg] = element
-        elseif arg === :hierarchy
-            all_args[arg] = system.hierarchy
-        elseif arg === :time
-            all_args[arg] = system.time
-        else
-            continue
-        end
-    end
+#     new_kwargs = Dict(new_params)
+#     unchanched_kwargs = [kw for kw in possible_kwargs if (!in(kw, keys(new_kwargs)))]
 
 
-    masses = pop!(new_kwargs, :masses, [system.particles[p].mass for p in particle_keys]) |> Vector
+#     particle_keys = collect(keys(system.particles)) |> sort
+#     binary_keys = collect(keys(system.binaries)) |> sort
+#     all_args = Dict{Symbol, Any}()
+#     for arg in unchanched_kwargs
+#         # @show arg
+#         if any(arg .=== (:R, :S, :L))
+#             quantity = [getproperty(system.particles[p].structure, arg) for p in particle_keys] |> Vector
+#             all_args[arg] = quantity
+#         elseif any(arg .=== (:a, :e, :ω, :i, :Ω, :ν))
+#             element = [getproperty(system.binaries[p].elements, arg) for p in binary_keys] |> Vector
+#             all_args[arg] = element
+#         elseif arg === :hierarchy
+#             all_args[arg] = system.hierarchy
+#         elseif arg === :time
+#             all_args[arg] = system.time
+#         else
+#             continue
+#         end
+#     end
 
-    args = merge(new_kwargs, all_args)
 
-    multibodysystem(masses; args...)
-end
+#     masses = pop!(new_kwargs, :masses, [system.particles[p].mass for p in particle_keys]) |> Vector
+
+#     args = merge(new_kwargs, all_args)
+
+#     multibodysystem(masses; args...)
+# end
 
 
 """
@@ -618,3 +615,35 @@ function multibodysystem(sol::MultiBodySolution, time)
 
 end
 
+function initialize_from_file(filepath)
+
+    if !(endswith(filepath, "jld2"))
+        @error "Only JLD2 files are currently supported."
+    end
+
+    data = JLD2.load(filepath)
+    datakeys = collect(keys(data))
+
+    if !(masses in datakeys)
+        @error "Datafile must contain masses"
+    end
+
+    data = if eltype(datakeys) == String
+        data_new = Dict{Symbol, Any}()
+        for (k, v) in data
+            data_new[Symbol(k)] = v
+        end
+        data_new
+    else
+        data
+    end
+
+    masses = pop!(data, "masses")
+
+    if "positions" in datakeys
+        positions, velocities = pop!(data, "positions"), pop!(data, "velocities")
+        return multibodysystem(masses, positions, velocities; data...)
+    else
+        return multibodysystem(masses; data...)
+    end
+end

@@ -199,7 +199,7 @@ using RecipesBase
 # end
 
 
-@recipe function plot(ic::MultiBodySystem; 
+@recipe function plot(ic::HierarchicalMultiple; 
                       bodies=collect(keys(ic.particles)), dims=[1,2])
 
     particles = [ic.particles[body] for body in sort(bodies)]
@@ -296,7 +296,7 @@ end
 
     @assert length(bodies) <= sol.ic.n "Number of bodies to plot is greater than bodies in system."
     
-    if sol.ic isa MultiBodySystem && all(isone, sol.ic.hierarchy[2:end]) 
+    if sol.ic isa HierarchicalMultiple && all(isone, sol.ic.hierarchy[2:end]) 
         labels = hierarchy_labels#[bodies]
     else
         labels = ["Partcle $i" for i in bodies]

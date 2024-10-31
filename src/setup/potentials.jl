@@ -122,7 +122,7 @@ struct PNPotential             <: MultiBodyPotential end
 
 ##########################################################
 
-struct PN1_5SpinPotential         <: SpinPotential end
+struct PN1p5SpinPotential         <: SpinPotential end
 
 struct PN2SpinPotential           <: SpinPotential end
 
@@ -512,7 +512,7 @@ function PN1_acceleration!(dvi,
     nothing
 end
 
-function PN1_5_spin_acceleration!(dvi, 
+function PN1p5_spin_acceleration!(dvi, 
                                  dvj,
                                  rs,
                                  vs,
@@ -582,7 +582,6 @@ function PN2_acceleration!(dvi,
     v₂ = norm(v̄₂)
     v₂² = v₂^2
 
-    
     m₁ = params.M[i]
     m₂ = params.M[j]
     
@@ -597,7 +596,6 @@ function PN2_acceleration!(dvi,
     r⁻¹ = 1/r
 
     r² = r^2
-    r³ = r²*r
 
     n = r̄*r⁻¹
 
@@ -609,9 +607,6 @@ function PN2_acceleration!(dvi,
 
     nv₁² = nv₁^2
     nv₂² = nv₂^2
-
-    # nv₁³ = nv₁^3
-    nv₂³ = nv₂^3
 
     nv₁⁴ = nv₁^4
     nv₂⁴ = nv₂^4
@@ -835,24 +830,6 @@ function PN2p5_spin_acceleration!(dvi,
     Gm₁ = G*m₁
     Gm₂ = G*m₂ 
 
-    # PN-2.5 spin contribution
-    # ai = G_r³*m₂*(n*(-6*nv₁v₂*(v₁S₁/m₁ + v₂S₂/m₂) - 
-    #                  S₁nv/m₁*(15nv₂^2 + 6vv₂ + 26Gm₁/r + 18Gm₂/r)  - 
-    #                  S₂nv/m₂*(15nv₂^2 + 6vv₂ + 49/2*Gm₁/r + 20Gm₂/r)
-    #                  )  + 
-    #               v̄₁*(-3*S₁nv₁/m₁*(nv₁ + nv₂) + 6nv₁*S₁nv₂/m₁ - 3*dot(S̄₁, v₁xv₂)/m₁  - 
-    #                   6nv₁*S₂nv₁/m₂ + S₂nv₂/m₂*(12nv₁ - 6nv₂)  - 4*dot(S̄₂, v₁xv₂)/m₂) +  
-    #               v̄₂*(6nv₁*(S̄₁, nxv)/m₁ + 6nv₁*(S̄₂, nxv)/m₂)  - 
-    #               (nxv₁)*(3nv*v₁S₁/m₁ + 4Gm₁/r*nS₂/m₂)  - 
-    #               (nxv₂)*(6nv*v₂S₂/m₂  - 4Gm₁/r*nS₂/m₂) + 
-    #               (v₁xv₂)*(3v₁S₁/m₁ + 4v₂S₂/m₂)  + 
-    #               (n × S̄₁)/m₁*(-15/2*nv*nv₂^2 + 3nv₂*vv₂  - 
-    #                            14Gm₁/r*nv - 9Gm₂/r*nv)  + 
-    #               nxS₂/m₂*(-15nv*nv₂^2 - 6nv₁*vv₂ + 12nv₂*vv₂ + Gm₁/r*(-35/2*nv₁ + 39/2*nv₂) - 16Gm₂/r*nv)  + 
-    #               (vxS₁)/m₁*(-3nv₁*nv₂ + 15/2*nv₂^2 + G/r*(14m₁ + 9m₂) + 3vv₂) + 
-    #               (vxS₂)/m₂*(6nv₂2 + 4vv₂ + 23/2*Gm₁/r + 12Gm₂/r)
-    #              )
-
     ai = n*(-6*nv₁v₂*(v₁S₁/m₁ + v₂S₂/m₂) - 
             S₁nv/m₁*(15nv₂^2 + 6vv₂ + 26Gm₁/r + 18Gm₂/r)  - 
             S₂nv/m₂*(15nv₂^2 + 6vv₂ + 49/2*Gm₁/r + 20Gm₂/r))
@@ -869,23 +846,7 @@ function PN2p5_spin_acceleration!(dvi,
     ai += vxS₂/m₂*(6nv₂^2 + 4vv₂ + 23/2*Gm₁/r + 12Gm₂/r)
     ai *= G_r³*m₂
 
-    # aj = G_r³*m₃*(n*(-6*nv₂v₁*(v₂S₂/m₂ + v₁S₁/m₁) - 
-    #                 S₂nv/m₂*(15nv₁^2 + 6vv₁ + 26Gm₂/r + 18Gm₁/r)  - 
-    #                 S₁nv/m₁*(15nv₁^2 + 6vv₁ + 49/2*Gm₂/r + 20Gm₁/r)
-    #                 )  + 
-    #             v̄₂*(-3*S₂nv₂/m₂*(nv₂ + nv₁) + 6nv₂*S₂nv₁/m₂ - 3*dot(S̄₂, v₂xv₁)/m₂  - 
-    #                 6nv₂*S₁nv₂/m₁ + S₁nv₁/m₁*(12nv₂ - 6nv₁)  - 4*dot(S̄₁, v₂xv₁)/m₁) +  
-    #             v̄₁*(6nv₂*(S̄₂, nxv)/m₂ + 6nv₂*(S̄₁, nxv)/m₁)  - 
-    #             (nxv₂)*(3nv*v₂S₂/m₂ + 4Gm₂/r*nS₁/m₁)  - 
-    #             (nxv₁)*(6nv*v₁S₁/m₁  - 4Gm₂/r*nS₁/m₁) + 
-    #             (v₂xv₁)*(3v₂S₂/m₂ + 4v₁S₁/m₁)  + 
-    #             nxS₂/m₂*(-15/2*nv*nv₁^2 + 3nv₁*vv₁  - 
-    #                         14Gm₂/r*nv - 9Gm₁/r*nv)  + 
-    #             nxS₁/m₁*(-15nv*nv₁^2 - 6nv₂*vv₁ + 12nv₁*vv₁ + Gm₂/r*(-35/2*nv₂ + 39/2*nv₁) - 16Gm₁/r*nv)  + 
-    #             (v̄ × S̄₂)/m₂*(-3nv₂*nv₁ + 15/2*nv₁^2 + G/r*(14m₂ + 9m₁) + 3vv₁) + 
-    #             (v̄ × S̄₁)/m₁*(6nv₁2 + 4vv₁ + 23/2*Gm₂/r + 12Gm₁/r)
-    #             )
-    aj = let n = -n, v̄ = -v̄, r̄ = -r
+    aj = let n = -n
 
         nv₁ = -nv₁
         nv₂ = -nv₂
@@ -901,14 +862,11 @@ function PN2p5_spin_acceleration!(dvi,
         vxS₁ = -vxS₁
         vxS₂ = -vxS₂
     
-        nv₂v₁ = -nv₂v₁#dot(n, v₂xv₁)
-        # S₁nv  = dot(S̄₁, nxv)
-        # S₂nv  = dot(S̄₂, nxv)
+        nv₂v₁ = -nv₂v₁
         S₁nv₁ = -S₁nv₁
         S₁nv₂ = -S₁nv₂
         S₂nv₁ = -S₂nv₁
         S₂nv₂ = -S₂nv₂
-
 
         a = n*(-6*nv₂v₁*(v₂S₂/m₂ + v₁S₁/m₁) - 
                 S₂nv/m₂*(15nv₁^2 + 6vv₁ + 26Gm₂/r + 18Gm₁/r)  - 
@@ -965,10 +923,6 @@ function PN1_to_2p5_acceleration!(dvi,
     r⁻¹ = 1/r
 
     r² = r^2
-    r³ = r²*r
-    # r⁴ = r³*r
-    # r⁵ = r⁴*r
-    # r⁶ = r⁵*r
     
     v² = v^2
 
@@ -978,23 +932,17 @@ function PN1_to_2p5_acceleration!(dvi,
     nv₁ = dot(n, v̄₁)
     nv₂ = dot(n, v̄₂)
     nv = dot(n, v̄)
-    # nv² = nv^2
 
     v₁v₂² = v₁v₂^2 
 
     nv₁² = nv₁^2
     nv₂² = nv₂^2
 
-    # nv₁³ = nv₁^3
-    nv₂³ = nv₂^3
-
-    # nv₁⁴ = nv₁^4
     nv₂⁴ = nv₂^4
 
     m₁m₂ = m₁*m₂
     m₁²m₂ = m₁^2*m₂
     m₁m₂² = m₁*m₂^2
-    # m₁²m₂² = m₁^2*m₂^2
 
     G_r = G*r⁻¹
     G_r² = G_r*r⁻¹
@@ -1002,10 +950,10 @@ function PN1_to_2p5_acceleration!(dvi,
     G³_r⁴ = G³*r⁻¹^4
 
     ################## PN-1 acceleration ##################
-    ai = @. n*(G_r²*m₂)*(5*G_r*m₁ + 4*G_r*m₂ + 3/2*nv₂^2 - v₁² + 4*v₁v₂ - 2*v₂²) +
+    ai = n*(G_r²*m₂)*(5*G_r*m₁ + 4*G_r*m₂ + 3/2*nv₂^2 - v₁² + 4*v₁v₂ - 2*v₂²) +
             (4*nv₁ - 3*nv₂)*v̄
 
-    aj = @. (-n)*(G_r²*m₁)*(5*G_r*m₂ + 4*G_r*m₁ + 3/2*nv₁^2 - v₂² + 4*v₁v₂ - 2*v₁²) +
+    aj = (-n)*(G_r²*m₁)*(5*G_r*m₂ + 4*G_r*m₁ + 3/2*nv₁^2 - v₂² + 4*v₁v₂ - 2*v₁²) +
             (4*(-nv₂) - 3*(-nv₁))*(-v̄)
     
     dvi .+= ai*c⁻²
@@ -1203,8 +1151,8 @@ function PN1p5_spin_precession!(dvi,
         nS₂     = dot(n, S̄₂)
         dnS₂_dt = dot(n,  dS̄₂) + dot(S̄₂, dn_dt)
 
-        F1p5PN = S̄₂ - 3nS₂*n
-        dF1p5PN_dt = dS̄₂ - 3dnS₂_dt - 3nS₂*dn_dt
+        F1p5PN = S̄₂ .- 3nS₂*n
+        dF1p5PN_dt = dS̄₂ .- 3dnS₂_dt .- 3nS₂*dn_dt
 
         dGr⁻³_dt*F1p5PN - Gr⁻³*((dF1p5PN_dt × S̄₁) + (F1p5PN × dS̄₁))
     end
@@ -1215,8 +1163,8 @@ function PN1p5_spin_precession!(dvi,
         nS₁     = dot(n, S̄₁)
         dnS₁_dt = dot(n,  dS̄₁) + dot(S̄₁, dn_dt)
 
-        F1p5PN = S̄₁ - 3nS₁*n
-        dF1p5PN_dt = dS̄₁ - 3dnS₁_dt - 3nS₁*dn_dt
+        F1p5PN = S̄₁ .- 3nS₁*n
+        dF1p5PN_dt = dS̄₁ .- 3dnS₁_dt .- 3nS₁*dn_dt
 
         dGr⁻³_dt*F1p5PN - Gr⁻³*((dF1p5PN_dt × S̄₂) + (F1p5PN × dS̄₂))
     end
@@ -1250,21 +1198,13 @@ function PN2_spin_precession!(dvi,
     S̄₂  = @SVector [rs[4, j], rs[5, j], rs[6, j]]
     dS̄₂ = @SVector [vs[4, j], vs[5, j], vs[6, j]]
     
-    # v₁  = norm(v̄₁)
-    # v₁² = v₁^2
-    
     m₁ = params.M[i]
     m₂ = params.M[j]
-    δm = m₁ - m₂
-    M = m₁ + m₂
-    
-    # add @fastmath?
+    δm = m₁ - m₂    
 
-    # v₂ = norm(v̄₂)
     ā = ā₁ - ā₂
     r̄ = r̄₁ - r̄₂
     v̄ = v̄₁ - v̄₂
-    # rxv = r̄ × v̄
     r = norm(r̄) # r₁₂
 
     r² = r*r
@@ -1401,9 +1341,9 @@ function spin_precession!(dvi,
     r̄₁  = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     v̄₁  = @SVector [vs[1, i], vs[2, i], vs[3, i]]
 
-    ā₂ = @SVector [dvs[1, j], dvs[2, j], dvs[3, j]]
-    r̄₂ = @SVector [rs[1,  j], rs[2,  j], rs[3,  j]]
-    v̄₂ = @SVector [vs[1,  j], vs[2,  j], vs[3,  j]]
+    ā₂  = @SVector [dvs[1, j], dvs[2, j], dvs[3, j]]
+    r̄₂  = @SVector [rs[1,  j], rs[2,  j], rs[3,  j]]
+    v̄₂  = @SVector [vs[1,  j], vs[2,  j], vs[3,  j]]
 
     S̄₁  = @SVector [rs[4, i], rs[5, i], rs[6, i]]
     dS̄₁ = @SVector [vs[4, i], vs[5, i], vs[6, i]]
@@ -1411,26 +1351,16 @@ function spin_precession!(dvi,
     S̄₂  = @SVector [rs[4, j], rs[5, j], rs[6, j]]
     dS̄₂ = @SVector [vs[4, j], vs[5, j], vs[6, j]]
     
-    # v₁  = norm(v̄₁)
-    # v₁² = v₁^2
-    
+
     m₁ = params.M[i]
     m₂ = params.M[j]
     δm = m₁ - m₂
-    M = m₁ + m₂
-    
-    # add @fastmath?
 
-    # v₂ = norm(v̄₂)
     ā = ā₁ - ā₂
     r̄ = r̄₁ - r̄₂
     v̄ = v̄₁ - v̄₂
-    # rxv = r̄ × v̄
-
-    rv = dot(r̄, v̄)
 
     r = norm(r̄) # r₁₂
-    v = norm(v̄) # v₁₂
 
     r² = r*r
     r⁻¹ = 1/r
@@ -1441,70 +1371,39 @@ function spin_precession!(dvi,
     nv₁  = dot(n, v̄₁)
     nv₂  = dot(n, v̄₂)
 
-    dr_dt = nv#rv*r⁻¹
-    # dn_dt = r⁻¹*(v̄ - (rv*r⁻²*r̄))
+    nS₁  = dot(n, S̄₁)
+    nS₂  = dot(n, S̄₂)
+
+    dr_dt = nv
     dn_dt = (r*v̄ - r̄*dr_dt)*r⁻²
     
     Gm₁ = G*m₁
     Gm₂ = G*m₂
 
-    # dT2PN_dt = @. -2*Gm₂*dr_dt*r⁻²*r⁻¹*((Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*r⁻¹ + 
-    #                                  2*Gm₂*nS₁*nv*r⁻¹ + (3*nv₂² + 2*vv₂)*vS₁)*n + 
-    #                                 (-5*G*δm*nS₁*r⁻¹ + (3*nv₂² + 2*vv₂)*nS₁ + 2*(v₁S₁ + v₂S₁)*nv)*v̄₂ - 
-    #                                 (-G*(6*δm)*nS₁*r⁻¹ + 3*nS₁*nv₂²/2 + nv₂*vS₁)*v̄₁ + 
-    #                                 (Gm₁*nv₁*r⁻¹ - Gm₂*nv*r⁻¹ - 3*nv*nv₂²/2 + nv₂*vv₂)*S̄₁
-    #                                    ) + 
-    #             Gm₂*r⁻²*((Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*r⁻¹ + 2*Gm₂*nS₁*nv*r⁻¹ + (3*nv₂² + 2*vv₂)*vS₁)*dn_dt + 
-    #                      (-5*G*δm*nS₁*r⁻¹ + (3*nv₂² + 2*vv₂)*nS₁ + 2*(v₁S₁ + v₂S₁)*nv)*ā₂ - 
-    #                      (-G*(6*δm)*nS₁*r⁻¹ + 3*nS₁*nv₂²/2 + nv₂*vS₁)*ā₁ + 
-    #                      (Gm₁*nv₁*r⁻¹ - Gm₂*nv*r⁻¹ -3*nv*nv₂²/2 + nv₂*vv₂)*dS̄₁ + 
-    #                      (5*G*δm*nS₁*dr_dt*r⁻² - 5*G*δm*dnS₁_dt*r⁻¹ + (6*nv₂*dnv₂_dt + 2*dvv₂_dt)*nS₁ + 
-    #                       (3*nv₂² + 2*vv₂)*dnS₁_dt + 2*(v₁S₁ + v₂S₁)*dnv_dt +2*(dv₁S₁_dt + dv₂S₁_dt)*nv)*v̄₂ - 
-    #                      (G*(6*δm)*nS₁*dr_dt*r⁻² - G*(6*δm)*dnS₁_dt*r⁻¹ + 
-    #                       3*nS₁*nv₂*dnv₂_dt + 3*nv₂²*dnS₁_dt/2 + nv₂*dvS₁_dt + vS₁*dnv₂_dt)*v̄₁ + 
-    #                      (-Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*dr_dt*r⁻² + 
-    #                       Gm₁*(-16*nS₁*dnv_dt - 16*nv*dnS₁_dt + 
-    #                       3*dv₁S₁_dt - 7*dv₂S₁_dt)*r⁻¹ - 
-    #                       2*Gm₂*nS₁*nv*dr_dt*r⁻² + 2*Gm₂*nS₁*dnv_dt*r⁻¹ + 
-    #                       2*Gm₂*nv*dnS₁_dt*r⁻¹ + (6*nv₂*dnv₂_dt + 
-    #                       2*dvv₂_dt)*vS₁ + (3*nv₂² + 2*vv₂)*dvS₁_dt)*n + 
-    #                      (-Gm₁*nv₁*dr_dt*r⁻² + Gm₁*dnv₁_dt*r⁻¹ + 
-    #                       Gm₂*nv*dr_dt*r⁻² - Gm₂*dnv_dt*r⁻¹ - 
-    #                       3*nv*nv₂*dnv₂_dt - 3*nv₂²*dnv_dt/2 + 
-    #                       nv₂*dvv₂_dt + vv₂*dnv₂_dt)*S̄₁
-    #                     )
 
-    dT1PN_dt₁, dT2PN_dt₁ = let 
+    Gr⁻³ = G*r⁻²*r⁻¹
+    dGr⁻³_dt = 3*dr_dt*Gr⁻³*r⁻¹
 
-        # nv   = dot(n, v̄)
+    dT1PN_dt₁, dT1p5PN₁, dT2PN_dt₁ = let 
+
         vv₂  = dot(v̄, v̄₂)
-        nS₁  = dot(n, S̄₁)
         vS₁  = dot(v̄, S̄₁)
         v₁S₁ = dot(v̄₁, S̄₁)
         v₂S₁ = dot(v̄₂, S̄₁)
 
+        dnv_dt   = dot(n,  ā)   + dot(v̄,  dn_dt)
+        dnv₁_dt  = dot(n,  ā₁)  + dot(v̄₁, dn_dt)
+        dnv₂_dt  = dot(n,  ā₂)  + dot(v̄₂, dn_dt)
         dnS₁_dt  = dot(n,  dS̄₁) + dot(S̄₁, dn_dt)
+        dnS₂_dt  = dot(n,  dS̄₂) + dot(S̄₂, dn_dt)        
         dvS₁_dt  = dot(v̄,  dS̄₁) + dot(S̄₁, ā)
         dv₁S₁_dt = dot(v̄₁, dS̄₁) + dot(S̄₁, ā₁)
         dv₂S₁_dt = dot(v̄₂, dS̄₁) + dot(S̄₁, ā₂)
         dvv₂_dt  = dot(v̄,  ā₂)  + dot(v̄₂, ā)
-        dnv_dt   = dot(n,  ā)   + dot(v̄,  dn_dt)
-        dnv₁_dt  = dot(n,  ā₁)  + dot(v̄₁, dn_dt)
-        dnv₂_dt  = dot(n,  ā₂)  + dot(v̄₂, dn_dt)
-
-        # L = r̄ × v̄
-        # dL_dt = r̄ × ā
-        # dLxS₁_dt = (dL_dt × S̄₁) + (dS̄₁ × L)
-        # η = m₁*m₂/M^2
-        # dS_dt = G*η*M/r^3*(L × S̄₁)*(2 + 3/2*m₂/m₁)
-        # d²S_dt² = (2 + 3/2*m₂/m₁)*((-3*G*η*M*dr_dt/r^4)*dS_dt + G*η*M/r^3*dLxS₁_dt)
-
 
         nv₂² = nv₂^2
 
-        # dT1PN = -2*Gm₂*((v̄₁ - 2*v̄₂)*nS₁ + S̄₁*nv - 2*n*vS₁)*v*r⁻²*r⁻¹ + 
-        #            Gm₂*((v̄₁ - 2*v̄₂)*dnS₁_dt + (ā₁ - 2*ā₂)*nS₁ + 
-        #            S̄₁*dnv_dt - 2*n*dvS₁_dt + nv*dS̄₁ - 2*vS₁*dn_dt)*r⁻²
+        ######################## PN-1 ########################
         Gm₂r⁻² = Gm₂*r⁻²
         dGm₂r⁻²_dt = -2*Gm₂*dr_dt*r⁻¹*r⁻²
         fac = (v̄₁ - 2*v̄₂)*nS₁ + S̄₁*nv - 2*n*vS₁
@@ -1512,10 +1411,16 @@ function spin_precession!(dvi,
                   S̄₁*dnv_dt + nv*dS̄₁ - 
                   2*n*dvS₁_dt - 2*vS₁*dn_dt
         dT1PN = fac*dGm₂r⁻²_dt + Gm₂r⁻²*dfac_dt
+        #######################################################
+
+        ####################### PN-1.5 ########################
+        F1p5PN = S̄₂ .- 3nS₂*n
+        dF1p5PN_dt = dS̄₂ .- 3*n*dnS₂_dt .- 3nS₂*dn_dt
+        dT1p5PN = dGr⁻³_dt*F1p5PN - Gr⁻³*((dF1p5PN_dt × S̄₁) + (F1p5PN × dS̄₁))
+        #######################################################
 
 
-        # dT15PN = 3*nS₂*dnxS₁_dt + 3*nxS₁*dnS₂_dt - dS₂xS₁
-
+        ######################## PN-2 #########################
         num = (Gm₁*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁)*r⁻¹ + 2*Gm₂*nS₁*nv*r⁻¹ + (3*nv₂² + 2*vv₂)*vS₁)*n
         num += (-5*G*δm*nS₁*r⁻¹ + (3*nv₂² + 2*vv₂)*nS₁ + 2*(v₁S₁ + v₂S₁)*nv)*v̄₂
         num += -(-G*(6*δm)*nS₁*r⁻¹ + 3*nS₁*nv₂²/2 + nv₂*vS₁)*v̄₁
@@ -1542,18 +1447,20 @@ function spin_precession!(dvi,
                 nv₂*dvv₂_dt + vv₂*dnv₂_dt)*S̄₁
         num *= Gm₂*r⁻²
         dT2PN = num *  Gm₂*r⁻²
+        #######################################################
         
-        dT1PN, dT2PN
-        # d²S_dt², dT2PN
+        dT1PN, dT1p5PN, dT2PN
     end
 
-    dT1PN_dt₂, dT2PN_dt₂ = let n = -n, v̄ = -v̄, r̄ = -r̄, ā = -ā, δm = -δm
+    dT1PN_dt₂, dT1p5PN₂, dT2PN_dt₂ = let n = -n, v̄ = -v̄, ā = -ā, δm = -δm
 
         dn_dt = -dn_dt
         nv₁  = -nv₁
         nv₂  = -nv₂
+        nS₁  = -nS₁
+        nS₂  = -nS₂
+
         vv₁  = dot(v̄, v̄₁)
-        nS₂  = dot(n, S̄₂)
         vS₂  = dot(v̄, S̄₂)
         v₂S₂ = dot(v̄₂, S̄₂)
         v₁S₂ = dot(v̄₁, S̄₂)        
@@ -1561,24 +1468,17 @@ function spin_precession!(dvi,
         dnv_dt   = dot(n,  ā)     + dot(v̄, dn_dt)
         dnv₁_dt  = dot(n,  ā₁)    + dot(v̄₁, dn_dt)
         dnv₂_dt  = dot(n,  ā₂)    + dot(v̄₂, dn_dt)
+        dnS₁_dt  = dot(n,  dS̄₁)   + dot(S̄₁, dn_dt)
         dnS₂_dt  = dot(n,  dS̄₂)   + dot(S̄₂, dn_dt)
         dvS₂_dt  = dot(v̄,  dS̄₂)   + dot(S̄₂, ā)
         dv₂S₂_dt = dot(v̄₂, dS̄₂)   + dot(S̄₂, ā₂)
         dv₁S₂_dt = dot(v̄₁, dS̄₂)   + dot(S̄₂, ā₁)
         dvv₁_dt  = dot(v̄,   ā₁)   + dot(v̄₁, ā)
 
-        # L = r̄ × v̄
-        # dL_dt = r̄ × ā
-        # dLxS₂_dt = (dL_dt × S̄₂) + (dS̄₂ × L)
-        # η = m₁*m₂/M^2
-        # dS_dt = G*η*M/r^3*(L × S̄₁)*(2 + 3/2*m₁/m₂)
-        # d²S_dt² = (2 + 3/2*m₁/m₂)*((-3*G*η*M*dr_dt/r^4)*dS_dt + G*η*M/r^3*dLxS₂_dt) 
 
         nv₁² = nv₁^2
 
-        # dT1PN = -2*Gm₁*((v̄₂ - 2*v̄₁)*nS₂ + S̄₂*nv - 2*n*vS₂)*v*r⁻²*r⁻¹ + 
-        #            Gm₁*((v̄₂ - 2*v̄₁)*dnS₂_dt + (ā₂ - 2*ā₁)*nS₂ + 
-        #            S̄₂*dnv_dt - 2*n*dvS₂_dt + nv*dS̄₂ - 2*vS₂*dn_dt)*r⁻²
+        ######################## PN-1 ########################
         Gm₁r⁻² = Gm₁*r⁻²
         dGm₁r⁻²_dt = -2*Gm₁*dr_dt*r⁻¹*r⁻²
         fac = (v̄₂ - 2*v̄₁)*nS₂ + S̄₂*nv - 2*n*vS₂
@@ -1586,7 +1486,16 @@ function spin_precession!(dvi,
                    S̄₂*dnv_dt + nv*dS̄₂ - 
                    2*n*dvS₂_dt - 2*vS₂*dn_dt
         dT1PN = fac*dGm₁r⁻²_dt + Gm₁r⁻²*dfac_dt
+        #######################################################
 
+        ###################### PN-1.5 #########################
+        F1p5PN = S̄₁ .- 3nS₁*n
+        dF1p5PN_dt = dS̄₁ - 3*n*dnS₁_dt - 3nS₁*dn_dt
+        dT1p5PN = dGr⁻³_dt*F1p5PN - Gr⁻³*((dF1p5PN_dt × S̄₂) + (F1p5PN × dS̄₂))
+        #######################################################
+
+
+        ###################### PN-2 #########################
         num =  (Gm₂*(-16*nS₂*nv + 3*v₂S₂ - 7*v₁S₂)*r⁻¹ + 2*Gm₁*nS₂*nv*r⁻¹ + (3*nv₁² + 2*vv₁)*vS₂)*n
         num += (-5*G*δm*nS₂*r⁻¹ + (3*nv₁² + 2*vv₁)*nS₂ + 2*(v₂S₂ + v₁S₂)*nv)*v̄₁
         num += -(-G*(6*δm)*nS₂*r⁻¹ + 3*nS₂*nv₁²/2 + nv₁*vS₂)*v̄₂
@@ -1613,13 +1522,13 @@ function spin_precession!(dvi,
                 nv₁*dvv₁_dt + vv₁*dnv₁_dt)*S̄₂
         num *= Gm₁*r⁻²
         dT2PN = num *  Gm₁*r⁻²
+        #######################################################
 
-        dT1PN, dT2PN
-        # d²S_dt²,dT2PN
+        dT1PN, dT1p5PN, dT2PN
     end
     
-    dvi .+= dT1PN_dt₁*c⁻² #+ dT2PN_dt₁*c⁻⁴ 
-    dvj .+= dT1PN_dt₂*c⁻² #+ dT2PN_dt₂*c⁻⁴ 
+    dvi .+= dT1PN_dt₁*c⁻² + dT1p5PN₁*c⁻³ + dT2PN_dt₁*c⁻⁴ 
+    dvj .+= dT1PN_dt₂*c⁻² + dT1p5PN₂*c⁻³ + dT2PN_dt₂*c⁻⁴ 
     nothing
 end
 
