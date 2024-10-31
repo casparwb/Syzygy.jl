@@ -129,7 +129,7 @@
         vs = [v1 v2]
 
         pair = (1, 2)
-        Syzygy.PN2_5_acceleration!(dv1, dv2, rs, vs, pair, params)
+        Syzygy.PN2p5_acceleration!(dv1, dv2, rs, vs, pair, params)
 
         @test abs.(dv1) ≈ abs.(dv2)
 
@@ -138,7 +138,7 @@
     @testset "PN-1.5 spin contribution" begin
 
         masses = 10.0*ones(2)
-        radii = Syzygy.gravitational_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
+        radii = Syzygy.schwarzschild_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
         luminosities = zeros(2)
         stellar_types = [14, 14]
         M_cores = zeros(2)
@@ -150,11 +150,11 @@
         Χ = 0.5 # dimensionless spin paramter (1 = maximum spinning)
         dir = rand(3)
         dir = dir/norm(dir)
-        S1 = GRAVCONST*Χ*dir/Syzygy.c .|> upreferred .|> ustrip
+        S1 = GRAVCONST*Χ*dir*m1^2 .|> upreferred .|> ustrip
     
         # dir = rand(3)
         # dir = dir/norm(dir)
-        S2 = GRAVCONST*Χ*dir/Syzygy.c .|> upreferred .|> ustrip
+        S2 = GRAVCONST*Χ*dir*m2^2 .|> upreferred .|> ustrip
 
         params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
                                                 stellar_types, M_cores, R_cores, ages)
@@ -167,8 +167,8 @@
         v2 = [0.0, 100.0, 0.0]#u"Rsun"
         vs = [v1 v2]
 
-        dS1 = Syzygy.spin_precession_velocity(S1, r1, r2, v1, v2, m1, m2)
-        dS2 = Syzygy.spin_precession_velocity(S2, r2, r1, v2, v1, m2, m1)
+        dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
+        dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
         
         @test abs.(dS1) ≈ abs.(dS2)
 
@@ -184,7 +184,7 @@
         # @show dv1 dv2
 
         dvs = [dv1 dv2]
-        Syzygy.PN1_5_spin_acceleration!(dv1, dv2, rs, vs, pair, params)
+        Syzygy.PN1p5_spin_acceleration!(dv1, dv2, rs, vs, pair, params)
 
         @test abs.(dv1) ≈ abs.(dv2)
 
@@ -193,7 +193,7 @@
     @testset "PN-2 spin contribution" begin
 
         masses = 10.0*ones(2)
-        radii = Syzygy.gravitational_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
+        radii = Syzygy.schwarzschild_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
         luminosities = zeros(2)
         stellar_types = [14, 14]
         M_cores = zeros(2)
@@ -205,11 +205,11 @@
         Χ = 0.5 # dimensionless spin paramter (1 = maximum spinning)
         dir = rand(3)
         dir = dir/norm(dir)
-        S1 = GRAVCONST*Χ*dir/Syzygy.c .|> upreferred .|> ustrip
+        S1 = GRAVCONST*Χ*dir*m1^2 .|> upreferred .|> ustrip
     
         # dir = rand(3)
         # dir = dir/norm(dir)
-        S2 = GRAVCONST*Χ*dir/Syzygy.c .|> upreferred .|> ustrip
+        S2 = GRAVCONST*Χ*dir*m2^2 .|> upreferred .|> ustrip
 
         params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
                                                 stellar_types, M_cores, R_cores, ages)
@@ -222,8 +222,8 @@
         v2 = [0.0, 100.0, 0.0]#u"Rsun"
         vs = [v1 v2]
 
-        dS1 = Syzygy.spin_precession_velocity(S1, r1, r2, v1, v2, m1, m2)
-        dS2 = Syzygy.spin_precession_velocity(S2, r2, r1, v2, v1, m2, m1)
+        dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
+        dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
         
         @test abs.(dS1) ≈ abs.(dS2)
 
@@ -234,9 +234,6 @@
 
         dv1 = zeros(3)
         dv2 = zeros(3)
-
-        # Syzygy.pure_gravitational_acceleration!(dv1, dv2, rs, pair, params)
-        # @show dv1 dv2
 
         dvs = [dv1 dv2]
         Syzygy.PN2_spin_acceleration!(dv1, dv2, rs, vs, pair, params)
@@ -248,7 +245,7 @@
     @testset "PN-2.5 spin contribution" begin
 
         masses = 10.0*ones(2)
-        radii = Syzygy.gravitational_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
+        radii = Syzygy.schwarzschild_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
         luminosities = zeros(2)
         stellar_types = [14, 14]
         M_cores = zeros(2)
@@ -260,11 +257,11 @@
         Χ = 0.5 # dimensionless spin paramter (1 = maximum spinning)
         dir = rand(3)
         dir = dir/norm(dir)
-        S1 = GRAVCONST*Χ*dir/Syzygy.c .|> upreferred .|> ustrip
+        S1 = GRAVCONST*Χ*dir*m1^2 .|> upreferred .|> ustrip
     
         # dir = rand(3)
         # dir = dir/norm(dir)
-        S2 = GRAVCONST*Χ*dir/Syzygy.c .|> upreferred .|> ustrip
+        S2 = GRAVCONST*Χ*dir*m2^2 .|> upreferred .|> ustrip
 
         params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
                                                 stellar_types, M_cores, R_cores, ages)
@@ -277,8 +274,8 @@
         v2 = [0.0, 100.0, 0.0]#u"Rsun"
         vs = [v1 v2]
 
-        dS1 = Syzygy.spin_precession_velocity(S1, r1, r2, v1, v2, m1, m2)
-        dS2 = Syzygy.spin_precession_velocity(S2, r2, r1, v2, v1, m2, m1)
+        dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
+        dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
         
         @test abs.(dS1) ≈ abs.(dS2)
 
@@ -294,7 +291,7 @@
         # @show dv1 dv2
 
         dvs = [dv1 dv2]
-        Syzygy.PN2_5_spin_acceleration!(dv1, dv2, rs, vs, pair, params)
+        Syzygy.PN2p5_spin_acceleration!(dv1, dv2, rs, vs, pair, params)
 
         @test abs.(dv1) ≈ abs.(dv2)
 
@@ -303,7 +300,7 @@
     @testset "Spin precession" begin
 
         masses = 10.0*ones(2)
-        radii = Syzygy.gravitational_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
+        radii = Syzygy.schwarzschild_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
         luminosities = zeros(2)
         stellar_types = [14, 14]
         M_cores = zeros(2)
@@ -315,11 +312,11 @@
         Χ = 0.5 # dimensionless spin paramter (1 = maximum spinning)
         dir = rand(3)
         dir = dir/norm(dir)
-        S1 = GRAVCONST*Χ*dir/Syzygy.c .|> upreferred .|> ustrip
+        S1 = GRAVCONST*Χ*dir*m1^2 .|> upreferred .|> ustrip
     
         # dir = rand(3)
         # dir = dir/norm(dir)
-        S2 = GRAVCONST*Χ*dir/Syzygy.c .|> upreferred .|> ustrip
+        S2 = GRAVCONST*Χ*dir*m2^2 .|> upreferred .|> ustrip
 
         params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
                                                 stellar_types, M_cores, R_cores, ages)
@@ -332,14 +329,13 @@
         v2 = [0.0, 100.0, 0.0]#u"Rsun"
         vs = [v1 v2]
 
-        dS1 = Syzygy.spin_precession_velocity(S1, r1, r2, v1, v2, m1, m2)
-        dS2 = Syzygy.spin_precession_velocity(S2, r2, r1, v2, v1, m2, m1)
+        dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
+        dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
         
         @test abs.(dS1) ≈ abs.(dS2)
 
         rs = cat(rs, [S1 S2], dims=1)
         vs = cat(vs, [dS1 dS2], dims=1)
-
         pair = (1, 2)
 
         dv1 = zeros(3)
@@ -355,7 +351,7 @@
 
     end
 
-    @testset "Static equilibrium tides" begin
+    @testset "Equilibrium tides" begin
 
         masses = 1.0*ones(2)u"Msun"
         radii = 1.0*ones(2)u"Rsun"#5.0*ones(2)u"Rsun"

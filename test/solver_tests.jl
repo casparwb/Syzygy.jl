@@ -64,7 +64,14 @@
             @test res.retcode[:Collision][1] == [1,2]
         end
 
+    end
+
         
+    @testset "Arbitrary precision" begin
+
+        binary = multibodysystem(ones(2)u"Msun")
+
+        res = simulate(binary, t_sim=1)
 
     end
 
