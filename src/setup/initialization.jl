@@ -638,12 +638,33 @@ function initialize_from_file(filepath)
         data
     end
 
-    masses = pop!(data, "masses")
+    masses = try
+        pop!(data, :masses)
+    catch e
+        pop!(data, :m)
+    end
 
     if "positions" in datakeys
         positions, velocities = pop!(data, "positions"), pop!(data, "velocities")
         return multibodysystem(masses, positions, velocities; data...)
     else
         return multibodysystem(masses; data...)
+    end
+end
+
+function initialize_from_dict(d::Dict)
+
+    d = copy(d)
+    masses = if haskey(d, :masses)
+        pop!(d, :masses)
+    else
+        pop!(d, :m)
+    end
+
+    if "positions" in keys(d)
+        positions, velocities = pop!(d, "positions"), pop!(d, "velocities")
+        return multibodysystem(masses, positions, velocities; d...)
+    else
+        return multibodysystem(masses; d...)
     end
 end
