@@ -11,7 +11,7 @@ abstract type AbstractSyzygyCallback end
 struct CollisionCB{T}         <: AbstractSyzygyCallback 
     check_every::Int
     grav_rad_multiple::T
-    CollisionCB(check_every=1, grav_rad_multiple=1000) = new{typeof(grav_rad_multiple)}(check_every)
+    CollisionCB(check_every=1, grav_rad_multiple=1000) = new{typeof(grav_rad_multiple)}(check_every, grav_rad_multiple)
 end
 
 struct EscapeCB{T}         <: AbstractSyzygyCallback 
@@ -226,16 +226,16 @@ function collision_callback!(integrator, n, retcode, grav_rad_multiple)
     end
 end
 
-function collision_check(d, R1, R2, M1, M2, stellar_type1::Int, stellar_type2::Int, grav_rad_multiple)
+function collision_check(d, R1, R2, m1, m2, stellar_type1::Int, stellar_type2::Int, grav_rad_multiple)
     
     if (0 <= stellar_type1 <= 9) && (0 <= stellar_type2 <= 9) # two stars
         return collision_check_stars(d, R1, R2)
     elseif  (0 <= stellar_type1 <= 9) && (10 <= stellar_type2 <= 14) # one star, one CO
-        return collision_check_star_compact_object(d, R1, M2, M1)
+        return collision_check_star_compact_object(d, R1, m2, m1)
     elseif (10 <= stellar_type1 <= 14) && (0 <= stellar_type2 <= 9) # one star, one CO
-        collision_check_star_compact_object(d, R2, M1, M2)
+        collision_check_star_compact_object(d, R2, m1, m2)
     elseif (10 <= stellar_type1 <= 14) && (10 <= stellar_type2 <= 14) # two COs
-        return collision_check_compact_objects(d, M1, M2, grav_rad_multiple)
+        return collision_check_compact_objects(d, m1, m2, grav_rad_multiple)
     end
 end
 
@@ -247,8 +247,8 @@ function collision_check_stars(d, R1, R2)
     end
 end
 
-function collision_check_star_compact_object(d, R2, M1, M2)
-    tidal_disruption_radius = R2*cbrt(M1/M2) |> ustrip
+function collision_check_star_compact_object(d, R2, m1, m2)
+    tidal_disruption_radius = R2*cbrt(m1/m2) |> ustrip
     if d < (tidal_disruption_radius + ustrip(R2))
         return true
     else
@@ -256,8 +256,8 @@ function collision_check_star_compact_object(d, R2, M1, M2)
     end
 end
 
-function collision_check_compact_objects(d, M1, M2, grav_rad_multiple) 
-    rg = GRAVCONST*(M1 + M2)/c² # mutual gravitational radius
+function collision_check_compact_objects(d, m1, m2, grav_rad_multiple) 
+    rg = GRAVCONST*(m1 + m2)/c² # mutual gravitational radius
     if d <= grav_rad_multiple*upreferred(rg).val
         return true
     else
@@ -265,7 +265,7 @@ function collision_check_compact_objects(d, M1, M2, grav_rad_multiple)
     end
 end
 
-# function collision_check(d, R1, R2, M1, M2, stellar_type1::T, stellar_type2::T) where {T}
+# function collision_check(d, R1, R2, m1, m2, stellar_type1::T, stellar_type2::T) where {T}
 #     if isless(d, ustrip(R1 + R2))
 #         return true
 #     else
@@ -273,8 +273,8 @@ end
 #     end
 # end
 
-# function collision_check(d, R1, R2, M1, M2, stellar_type1::TCO, stellar_type2::TS) where {TCO <: CompactObject, TS <: Star}
-#     tidal_disruption_radius = R2*cbrt(M1/M2) |> ustrip
+# function collision_check(d, R1, R2, m1, m2, stellar_type1::TCO, stellar_type2::TS) where {TCO <: CompactObject, TS <: Star}
+#     tidal_disruption_radius = R2*cbrt(m1/m2) |> ustrip
 #     if d < (tidal_disruption_radius + ustrip(R2))
 #         return true
 #     else
@@ -282,8 +282,8 @@ end
 #     end
 # end
 
-# function collision_check(d, R1, R2, M1, M2, stellar_type1::T1, stellar_type2::T2) where {T1 <: CompactObject, T2 <: CompactObject}
-#     rg = GRAVCONST*(M1 + M2)/c² # mutual gravitational radius
+# function collision_check(d, R1, R2, m1, m2, stellar_type1::T1, stellar_type2::T2) where {T1 <: CompactObject, T2 <: CompactObject}
+#     rg = GRAVCONST*(m1 + m2)/c² # mutual gravitational radius
 #     if d <= 100*upreferred(rg).val
 #         return true
 #     else
@@ -291,8 +291,8 @@ end
 #     end
 # end
 
-# function collision_check(d, R1, R2, M1, M2, stellar_type1::TS, stellar_type2::TCO)  where {TS <: Star, TCO <: CompactObject}
-#     return collision_check(d, R2, R1, M2, M1, stellar_type2, stellar_type1)  
+# function collision_check(d, R1, R2, m1, m2, stellar_type1::TS, stellar_type2::TCO)  where {TS <: Star, TCO <: CompactObject}
+#     return collision_check(d, R2, R1, m2, m1, stellar_type2, stellar_type1)  
 # end
 
 @inline function get_masses(masses, sibling_ids::SVector{N, Int}) where N
@@ -631,8 +631,8 @@ function democratic_check_callback_hyperbolic(integrator, retcode, system)
     v1 = SA[u.x[1][1,1], u.x[1][2,1], u.x[1][3,1]]
     v2 = SA[u.x[1][1,2], u.x[1][2,2], u.x[1][3,2]]
 
-    M1, M2 = ustrip(integrator.p.M[1]), ustrip(integrator.p.M[2])
-    M12 = M1 + M2
+    m1, m2 = ustrip(integrator.p.M[1]), ustrip(integrator.p.M[2])
+    m12 = m1 + m2
 
     r_rel = r2 - r1
     v_rel = v2 - v1
@@ -640,9 +640,9 @@ function democratic_check_callback_hyperbolic(integrator, retcode, system)
     d = norm(r_rel)
     v² = norm(v_rel)^2
 
-    a = semi_major_axis(d, v², M12, upreferred(GRAVCONST).val)
+    a = semi_major_axis(d, v², m12, upreferred(GRAVCONST).val)
     
-    e = eccentricity(r_rel, v_rel, a, M12, upreferred(GRAVCONST).val)
+    e = eccentricity(r_rel, v_rel, a, m12, upreferred(GRAVCONST).val)
     if e >= 1
         retcode[:Democratic_ecc] = (true, integrator.t)
     end
