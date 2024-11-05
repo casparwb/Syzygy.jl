@@ -168,7 +168,7 @@ end
 # end
 
 function get_accelerating_function(potential::PNPotential)
-    (dvi, dvj, rs, vs, pair, time, params) -> PN_acceleration!(dvi, dvj, rs, vs, pair, params)
+    (dvi, dvj, rs, vs, pair, time, params) -> PN1_to_2p5_acceleration!(dvi, dvj, rs, vs, pair, params)
 end
 
 function get_accelerating_function(potential::PN1p5SpinPotential)
@@ -361,11 +361,6 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
             fill!(aj, dtype_0)
 
             smap!(output, accelerations, ai, aj, u, v, pair, t, p)
-
-            # @inbounds for k = 1:3
-            #     dv[k, i] += ai[k]
-            #     dv[k, j] += aj[k]
-            # end
 
             dv[1, i] += ai[1]
             dv[1, j] += aj[1]
