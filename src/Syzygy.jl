@@ -1,13 +1,13 @@
-# __precompile__(false)
+__precompile__(false)
 
 module Syzygy
     using PrecompileTools, Reexport 
     @reexport using Unitful, UnitfulAstro
 
+    Unitful.preferunits(u"Rsun, Msun, yr"...)
     Unitful.register(Syzygy)
-    function __init__()
-       Unitful.preferunits(u"Rsun, Msun, yr"...)
-    end
+#     function __init__()
+#     end
 
 
     # include("units.jl")
