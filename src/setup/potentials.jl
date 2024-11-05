@@ -938,6 +938,7 @@ function PN1_to_2p5_acceleration!(dvi,
     nv₁² = nv₁^2
     nv₂² = nv₂^2
 
+    nv₁⁴ = nv₁^4
     nv₂⁴ = nv₂^4
 
     m₁m₂ = m₁*m₂
@@ -951,10 +952,10 @@ function PN1_to_2p5_acceleration!(dvi,
 
     ################## PN-1 acceleration ##################
     ai = n*(G_r²*m₂)*(5*G_r*m₁ + 4*G_r*m₂ + 3/2*nv₂^2 - v₁² + 4*v₁v₂ - 2*v₂²) +
-            (4*nv₁ - 3*nv₂)*v̄
+         (4*nv₁ - 3*nv₂)*v̄
 
     aj = (-n)*(G_r²*m₁)*(5*G_r*m₂ + 4*G_r*m₁ + 3/2*nv₁^2 - v₂² + 4*v₁v₂ - 2*v₁²) +
-            (4*(-nv₂) - 3*(-nv₁))*(-v̄)
+         (4*(-nv₂) - 3*(-nv₁))*(-v̄)
     
     dvi .+= ai*c⁻²
     dvj .+= aj*c⁻²
@@ -1014,6 +1015,8 @@ function PN1_to_2p5_acceleration!(dvi,
     dvi .+= ai*c⁻⁵
     dvj .+= aj*c⁻⁵
     #########################################################
+
+    nothing
 end
 
 function PN1_spin_precession!(dvi,

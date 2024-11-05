@@ -1,3 +1,6 @@
+using LinearAlgebra: norm
+using Test
+
 @testset "Potentials" begin
 
     @testset "Pure gravity" begin
@@ -134,6 +137,52 @@
         @test abs.(dv1) ≈ abs.(dv2)
 
     end
+
+    @testset "PN1 to 2.5" begin
+
+        masses = 10.0*ones(2)
+        radii = zeros(2)#5.0*ones(2)u"Rsun"
+        luminosities = zeros(2)
+        stellar_types = [14, 14]
+        M_cores = zeros(2)
+        R_cores = zeros(2)
+
+        ages = zeros(2)
+
+        params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
+                                                stellar_types, M_cores, R_cores, ages)
+
+        dv1 = zeros(3)
+        dv2 = zeros(3)
+
+        r1 = [-1.0, 0.0, 0.0]#u"Rsun"
+        r2 = [1.0, 0.0, 0.0]#u"Rsun"
+        rs = [r1 r2]
+
+        v1 = [0.0, -100.0, 0.0]#u"Rsun"
+        v2 = [1.0, 100.0, 0.0]#u"Rsun"
+        vs = [v1 v2]
+
+        pair = (1, 2)
+        Syzygy.PN1_to_2p5_acceleration!(dv1, dv2, rs, vs, pair, params)
+
+        @test abs.(dv1) ≈ abs.(dv2)
+
+
+        @testset "PN1_to_2p5_acceleration! equal PN1+PN2+PN2.5" begin
+            dv1_2 = zeros(3)
+            dv2_2 = zeros(3)
+
+            Syzygy.PN1_acceleration!(dv1_2, dv2_2, rs, vs, pair, params)
+            Syzygy.PN2_acceleration!(dv1_2, dv2_2, rs, vs, pair, params)
+            Syzygy.PN2p5_acceleration!(dv1_2, dv2_2, rs, vs, pair, params)
+
+
+            @test dv1 ≈ dv1_2
+            @test dv2 ≈ dv2_2
+        end
+    end
+
 
     @testset "PN-1.5 spin contribution" begin
 
