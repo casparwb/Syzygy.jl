@@ -31,18 +31,41 @@ function orbital_period(a, M, G)
     2π*√(abs(a)^3/(G*M))
 end
 
-orbital_period(a, M) = orbital_period(a, M, GRAVCONST)
+orbital_period(a, M::Unitful.Mass) = orbital_period(a, M, GRAVCONST)
 
+"""
+    eccentricity_vector(r, d, v, μ)
 
+Eccentricity vector of binary orbit with relative position vector `r`, separation `d`, relative
+velocity `v`, and standard gravitational parameter `μ`, where `μ ≡ G(m₁ + m₂)`.
+
+```math
+    \\vec{e} = \\frac{\\vec{v} \\times (\\vec{r} \\times \\vec{v})}{\\mu} - \\frac{\\vec{r}}{d} 
+```
+"""
 function eccentricity_vector(r, d, v, μ)
-    e = (v × (r × v))/μ - r/d
+    (v × (r × v))/μ - r/d
 end
 
-function eccentricity_vector(r, d, v, m, G)
+function eccentricity_vector(r, d, v, m::AbstractVector, G=GRAVCONST)
     μ = G*(m[1] + m[2])
     eccentricity_vector(r, d, v, μ)
 end
 
+function eccentricity_vector(r, d, v, M::Number, G=GRAVCONST)
+    μ = G*M
+    eccentricity_vector(r, d, v, μ)
+end
+
+function eccentricity(r, d, v, m::AbstractVector, G=GRAVCONST)
+    μ = G*(m[1] + m[2])
+    return norm(eccentricity_vector(r, d, v, μ))
+end
+
+function eccentricity(r, d, v, M::Number, G=GRAVCONST)
+    μ = G*M
+    return norm(eccentricity_vector(r, d, v, μ))
+end
 
 """
     eccentricity(r, v, a, M)
@@ -52,13 +75,13 @@ relative positions `r`, and relative velocities `v`.
 
 ``e = \\sqrt{1 - \\frac{|r×v|²}{GMa}}`` 
 """
-function eccentricity(r, v, a, M, G)
+function eccentricity_old(r, v, a, M, G)
     e² = 1 - sum(abs2, r × v)/(G*M*a)
     e² < 0 && return 1e-4
     return sqrt(e²)
 end
 
-eccentricity(r, v, a, M) = eccentricity(r, v, a, M, GRAVCONST)
+eccentricity_old(r, v, a, M) = eccentricity(r, v, a, M, GRAVCONST)
 
 function angular_momentum(r, v)
     r×v
