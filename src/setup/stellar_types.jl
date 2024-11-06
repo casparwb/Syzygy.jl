@@ -1,11 +1,11 @@
 
 abstract type StellarType end
-abstract type Star             <: StellarType    end
-abstract type StellarRemnant   <: StellarType    end
+abstract type Star                 <: StellarType end
+abstract type StellarRemnant       <: StellarType end
+abstract type SubStellarObject     <: StellarType end
+abstract type Other                <: StellarType end
 abstract type WhiteDwarf       <: StellarRemnant end
 abstract type CompactObject    <: StellarRemnant end
-abstract type SubStellarObject <: StellarType    end
-abstract type Other            <: StellarType    end
 
 """
 Deeply or fully convective low main sequence star with index 0. 
@@ -167,7 +167,7 @@ struct BrownDwarf <: SubStellarObject
     BrownDwarf() = new(19)
 end
 
-const  stellar_types = Dict(
+const  stellar_types = Dict{Int, StellarType}(
                                 0  => DeeplyOrFullyConvectiveLowMassMainSequence(),
                                 1  => MainSequence(),
                                 2  => HertzsprungGap(),
