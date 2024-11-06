@@ -18,23 +18,20 @@ end
 
 semi_major_axis(d, v², M) = semi_major_axis(d, v², M, GRAVCONST)
 
-# function semi_major_axis(P, M, G)
-#     return cbrt(P^2/(4π^2)*(G*M))
-# end
-
 """
     orbital_period(a, M, G)
 
 Get the orbital period of binary with semi-major axis `a` and total mass `M`.
 """
 function orbital_period(a, M, G)
+    a < zero(a) && @warn "Given semi-major axis is negative: " a
     2π*√(abs(a)^3/(G*M))
 end
 
 orbital_period(a, M::Unitful.Mass) = orbital_period(a, M, GRAVCONST)
 
 """
-    eccentricity_vector(r, d, v, μ)
+    eccentricity_vector(r, v, d, μ)
 
 Eccentricity vector of binary orbit with relative position vector `r`, separation `d`, relative
 velocity `v`, and standard gravitational parameter `μ`, where `μ ≡ G(m₁ + m₂)`.
@@ -43,28 +40,31 @@ velocity `v`, and standard gravitational parameter `μ`, where `μ ≡ G(m₁ + 
     \\vec{e} = \\frac{\\vec{v} \\times (\\vec{r} \\times \\vec{v})}{\\mu} - \\frac{\\vec{r}}{d} 
 ```
 """
-function eccentricity_vector(r, d, v, μ)
+function eccentricity_vector(r, v, d, μ)
     (v × (r × v))/μ - r/d
 end
 
-function eccentricity_vector(r, d, v, m::AbstractVector, G=GRAVCONST)
+"""
+    eccentricity_vector(r, v, d, m::AbstractVector, G=GRAVCONST)
+"""
+function eccentricity_vector(r, v, d, masses::AbstractVector, G=GRAVCONST)
+    μ = G*(masses[1] + masses[2])
+    eccentricity_vector(r, v, d, μ)
+end
+
+# function eccentricity_vector(r, v, d, M::Number, G=GRAVCONST)
+#     μ = G*M
+#     eccentricity_vector(r, v, d, μ)
+# end
+
+function eccentricity(r, v, d, m::AbstractVector, G=GRAVCONST)
     μ = G*(m[1] + m[2])
-    eccentricity_vector(r, d, v, μ)
+    return norm(eccentricity_vector(r, v, d, μ))
 end
 
-function eccentricity_vector(r, d, v, M::Number, G=GRAVCONST)
+function eccentricity(r, v, d, M::Number, G=GRAVCONST)
     μ = G*M
-    eccentricity_vector(r, d, v, μ)
-end
-
-function eccentricity(r, d, v, m::AbstractVector, G=GRAVCONST)
-    μ = G*(m[1] + m[2])
-    return norm(eccentricity_vector(r, d, v, μ))
-end
-
-function eccentricity(r, d, v, M::Number, G=GRAVCONST)
-    μ = G*M
-    return norm(eccentricity_vector(r, d, v, μ))
+    return norm(eccentricity_vector(r, v, d, μ))
 end
 
 """
@@ -224,36 +224,29 @@ function binary_elements(positions, velocities, masses)
 
     v1 = velocities[1]
     v2 = velocities[2]
-
-    h1 = angular_momentum(r1, v1)
-
+    
     M1, M2 = masses
-
+    
     r_rel = r2 - r1
     v_rel = v2 - v1
+    h = angular_momentum(r_rel, v_rel)
 
     d = norm(r_rel)
     v = norm(v_rel)
-    M = sum(masses)
+    M = M1 + M2
 
     a = semi_major_axis(d, v^2, M, GRAVCONST) |> u"Rsun"
-    e = eccentricity(r_rel, v_rel, a, M, GRAVCONST) 
-
-    # sqrt_1_min_e² = sqrt(1.0 - e^2)
-    # E = atan(sqrt_1_min_e²*sin(ν), e + cos(ν))
-
-    # β = e/(1 + sqrt_1_min_e²)
-    # ν = E + 2atan(β*sin(E)/(1 - β*cos(E)))
+    e = eccentricity(r_rel, v_rel, d, M, GRAVCONST) 
 
     P = orbital_period(a, M, GRAVCONST) |> u"d"
     h = angular_momentum(r_rel, v_rel)
-    ω = argument_of_periapsis(r1, v1, h1, M1, GRAVCONST) 
+    ω = argument_of_periapsis(r_rel, v_rel, h, M, GRAVCONST) 
     i = inclination(h)
     Ω = longitude_of_ascending_node(h)
     ν = true_anomaly(r_rel, v_rel, h, M, GRAVCONST)
     # ν = true_anomaly(r1, v1, h1, M1, GRAVCONST)
-    println(ν)
-    els = OrbitalElements(a, P, e, ω, i, Ω, ν)
+
+    OrbitalElements(a, P, e, ω, i, Ω, ν)
 end
 
 """
@@ -286,21 +279,3 @@ end
 function is_binary(positions::AbstractMatrix, velocities::AbstractMatrix, masses)
     return is_binary(eachcol(positions), eachcol(velocities), masses)
 end
-
-    # r_rel = positions[:, 2] .- positions[:, 1]
-    # v_rel = velocities[:, 2] .- velocities[:, 1]
-
-    # d = norm(r_rel)
-    # v = norm(v_rel)
-    # M = sum(masses)
-
-    # a = semi_major_axis(d, v^2, M, GRAVCONST) |> u"Rsun"
-    # e = eccentricity(r_rel, v_rel, a, M, GRAVCONST) 
-    # P = orbital_period(a, M, GRAVCONST) |> u"d"
-    # h = angular_momentum(r_rel, v_rel)
-    # ω = argument_of_periapsis(r_rel, v_rel, h, M, GRAVCONST) 
-    # i = inclination(h)
-    # Ω = longitude_of_ascending_node(h)
-    # ν = true_anomaly(r_rel, v_rel, h, M, GRAVCONST)
-
-    # els = OrbitalElements(a, P, e, ω, i, Ω, ν)
