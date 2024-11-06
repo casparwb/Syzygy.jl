@@ -262,7 +262,6 @@ function make_initial_conditions(us, vs, dtype::Type{ArbFloat})
     n = length(us)
     u0 = SizedMatrix{3, n, dtype}(reduce(hcat, us))
     v0 = SizedMatrix{3, n, dtype}(reduce(hcat, vs))
-
     return u0, v0
 end
 
@@ -336,7 +335,6 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
     u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
     ai     = SizedVector{3, dtype}(zeros(dtype, 3)...)
     aj     = SizedVector{3, dtype}(zeros(dtype, 3)...)
-
     SecondOrderODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0, ai, aj)
 end
 
@@ -348,7 +346,6 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
     u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
     ai     = MVector{3, dtype}(zeros(dtype, 3)...)
     aj     = MVector{3, dtype}(zeros(dtype, 3)...)
-
     SecondOrderODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0, ai, aj)
 end
 
@@ -400,7 +397,7 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
 
     spin_accelerations = FunctionWrangler(spin_acc_funcs.fs)
     spin_out = Vector{Nothing}(undef, spin_acc_funcs.N)
- 
+
 
     dtype = eltype(u0)
     dtype_0 = zero(dtype)
@@ -555,7 +552,8 @@ end
 ######################################## Helper functions #######################################
 
 const alternative_stellar_property_names = Dict{Symbol, Symbol}(:m => :mass, :R => :radius, :L => :luminosity, :m_core => :core_mass,
-                                                                :R_core => :core_radius, :m_env => :envelope_mass, :R_env => :envelope_radius)
+                                                                :R_core => :core_radius, :m_env => :envelope_mass, :R_env => :envelope_radius,
+                                                                :S => :spin)
 
 const alternative_orbital_element_names = Dict{Symbol, Symbol}(:semimajor_axis => :a, :semi_major_axis => :a, :sma => :a,
                                                                :eccentricity => :e, :ecc => :a,
@@ -586,6 +584,11 @@ function Base.getproperty(particle::Particle, sym::Symbol)
     else
         getfield(particle, sym)
     end
+end
+
+function Base.getproperty(structure::StellarStructure, sym::Symbol)
+    sym = get(alternative_stellar_property_names, sym, sym)
+    getfield(structure, sym)
 end
 
 function Base.getproperty(binaries::Dict{Int, Syzygy.Binary}, sym::Symbol)
