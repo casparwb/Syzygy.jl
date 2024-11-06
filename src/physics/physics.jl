@@ -25,8 +25,12 @@ function centre_of_mass(positions::AbstractVector, masses::AbstractVector)
     com = @MVector zeros(eltype(positions[1]), 3)
 
     f = oneunit(one_over_m)
-    @inbounds for (m, pos) in zip(masses, positions)
-        com .+= m .* pos .* f
+    @inbounds for i in eachindex(masses)
+        m = masses[i]
+        pos = positions[i]
+        for k = 1:3
+            com[k] += m*pos[k]*f
+        end
     end
     return SVector(com*ustrip(one_over_m))
 end
@@ -37,8 +41,10 @@ function centre_of_mass(positions::AbstractMatrix, masses::AbstractVector)
     com = @MVector zeros(eltype(positions), 3)
     
     f = oneunit(one_over_m)
-    @inbounds for (m, pos) in zip(masses, eachcol(positions))
-        com .+= m .* pos .* f
+    @inbounds for i in eachindex(masses)# in zip(masses, eachcol(positions))
+        for k = 1:3
+            com[k] += masses[i]*positions[k,i]*f
+        end
     end
     return SVector(com*ustrip(one_over_m))
 end
@@ -50,7 +56,9 @@ function centre_of_mass(positions::AbstractMatrix, masses::AbstractMatrix)
 
     f = oneunit(one_over_m)    
     @inbounds for i ∈ axes(masses, 2)
-        com .+= masses[:,i] .* positions[:,i] .* f
+        for k = 1:3
+            com[k] += masses[k,i]*positions[k,i]*f
+        end
     end
     return SVector(com*ustrip(one_over_m))
 end
