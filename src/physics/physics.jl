@@ -63,6 +63,10 @@ function centre_of_mass(positions::AbstractMatrix, masses::AbstractMatrix)
     return SVector(com*ustrip(one_over_m))
 end
 
+function center_of_mass(positions, masses)
+    return centre_of_mass(positions, masses)
+end
+
 """
     centre_of_mass(sol::MultiBodySolution, 
                    bodies=eachindex(sol.ic.particles); 
