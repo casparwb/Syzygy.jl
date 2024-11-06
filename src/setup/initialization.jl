@@ -265,7 +265,7 @@ function multibodysystem(masses::Vector, hierarchy::Vector,
                     child1 = last(binaries)
                     parent_key = iszero(level) ? -1 : child1.parent + 1#hierarchy[level] + 1
                     child_2_idx = last(findall(idx))
-                    child2 = Particle(ParticleIndex(tot_bodies+1), BinaryIndex(binary_key), child1.key, masses[child_2_idx],
+                    child2 = Particle(ParticleIndex(tot_bodies+1), BinaryIndex(binary_key), child1.key,
                                       positions[:,child_2_idx], 
                                       velocities[:, child_2_idx], 
                                       structures[child_2_idx])
@@ -282,7 +282,7 @@ function multibodysystem(masses::Vector, hierarchy::Vector,
                     # level -= 1
                     verbose && println("Double binary on level $level")
                     child1 = binaries[end-1]
-                    parent_key = iszero(level) ? -1 : child1.parent + 1#iszero(level) ? -1 : hierarchy[level] + 1  
+                    parent_key = iszero(level) ? -1 : child1.parent.i + 1#iszero(level) ? -1 : hierarchy[level] + 1  
                     child2 = binaries[end]
                     binary = create_binary(child1, child2, binary_elements, level, binary_key, parent_key, binary_key)
                     push!(binaries, binary)
@@ -295,7 +295,7 @@ function multibodysystem(masses::Vector, hierarchy::Vector,
                     child1 = last(binaries)
                     parent_key = iszero(level) ? -1 : child1.parent.i + 1#hierarchy[level] + 1
                     child_2_idx = last(findall(idx))
-                    child2 = Particle(ParticleIndex(tot_bodies+1), BinaryIndex(binary_key), child1.key, masses[child_2_idx],
+                    child2 = Particle(ParticleIndex(tot_bodies+1), BinaryIndex(binary_key), child1.key,
                                       positions[:,child_2_idx], 
                                       velocities[:, child_2_idx], 
                                       structures[child_2_idx])
@@ -343,8 +343,7 @@ function create_binary(positions, velocities, masses, structures, elements,
         sibling_key = findall(particle_keys .!= particle_keys[i])[1]
         child = Particle(ParticleIndex(particle_keys[i]), 
                          BinaryIndex(binary_key), 
-                         ParticleIndex(sibling_key),
-                         masses[i], SA[positions[:,i]...], 
+                         ParticleIndex(sibling_key), SA[positions[:,i]...], 
                          SA[velocities[:,i]...], 
                          structures[i])
         push!(children, child)
@@ -500,7 +499,6 @@ function multibodysystem(masses, positions, velocities;
 
         p = Particle(ParticleIndex(particle_keys[idx]), 
                      BinaryIndex(-1), -1, 
-                     masses[idx], 
                      positions[idx], 
                      velocities[idx], 
                      structure)
@@ -533,47 +531,66 @@ function multibodysystem(masses, positions, velocities;
 end
 
 
-# """
-#     multibodysystem(system::HierarchicalMultiple; new_params...)
+"""
+    multibodysystem(system::HierarchicalMultiple; new_params...)
 
-# Remake a given system with new parameters. 
-# """
-# function multibodysystem(system::HierarchicalMultiple; new_params...)
+Remake a given system with new parameters. 
+"""
+function multibodysystem(system::HierarchicalMultiple; new_params...)
 
-#     possible_kwargs = [:R, :S, :L, :stellar_types, :a, :e, :ω, :i, :Ω, :ν, 
-#                        :hierarchy, :time, :verbose]
+    possible_kwargs = [:R, :S, :L, :R_core, :m_core, :R_env, :m_env, 
+                       :stellar_types, :a, :e, :ω, :i, :Ω, :ν, 
+                       :hierarchy, :time, :verbose]
 
-#     new_kwargs = Dict(new_params)
-#     unchanched_kwargs = [kw for kw in possible_kwargs if (!in(kw, keys(new_kwargs)))]
+                    #    R  = 1.0u"Rsun", 
+                    #                                      S      = 0.0u"1/yr", 
+                    #                                      L      = 1.0u"Lsun", 
+                    #                                      R_core = unit(R[1])*(0.0),
+                    #                                      m_core = unit(masses[1])*(0.0),
+                    #                                      R_env  = unit(R[1])*(0.0),
+                    #                                      m_env  = unit(masses[1])*(0.0),
+                    #                                      stellar_types  = 1, 
+                    #                                      a      = 1.0u"AU", 
+                    #                                      e      = 0.1, 
+                    #                                      ω      = 0.0u"rad", 
+                    #                                      i      = 0.0u"rad", 
+                    #                                      Ω      = 0.0u"rad", 
+                    #                                      ν      = (π)u"rad", 
+                    #                                      time::Quantity = 0.0u"s", 
+                    #                                      verbose::Bool = false, 
+                    #                                      hierarchy = [length(masses), repeat([1], length(masses)-1)...]
 
-
-#     particle_keys = collect(keys(system.particles)) |> sort
-#     binary_keys = collect(keys(system.binaries)) |> sort
-#     all_args = Dict{Symbol, Any}()
-#     for arg in unchanched_kwargs
-#         # @show arg
-#         if any(arg .=== (:R, :S, :L))
-#             quantity = [getproperty(system.particles[p].structure, arg) for p in particle_keys] |> Vector
-#             all_args[arg] = quantity
-#         elseif any(arg .=== (:a, :e, :ω, :i, :Ω, :ν))
-#             element = [getproperty(system.binaries[p].elements, arg) for p in binary_keys] |> Vector
-#             all_args[arg] = element
-#         elseif arg === :hierarchy
-#             all_args[arg] = system.hierarchy
-#         elseif arg === :time
-#             all_args[arg] = system.time
-#         else
-#             continue
-#         end
-#     end
+    new_kwargs = Dict(new_params)
+    unchanched_kwargs = [kw for kw in possible_kwargs if (!in(kw, keys(new_kwargs)))]
 
 
-#     masses = pop!(new_kwargs, :masses, [system.particles[p].mass for p in particle_keys]) |> Vector
+    particle_keys = collect(keys(system.particles)) |> sort
+    binary_keys = collect(keys(system.binaries)) |> sort
+    all_args = Dict{Symbol, Any}()
+    for arg in unchanched_kwargs
+        # @show arg
+        if any(arg .=== (:R, :S, :L, :R_core, :m_core, :R_env, :m_env))
+            quantity = [getproperty(system.particles[p].structure, arg) for p in particle_keys] |> Vector
+            all_args[arg] = quantity
+        elseif any(arg .=== (:a, :e, :ω, :i, :Ω, :ν))
+            element = [getproperty(system.binaries[p].elements, arg) for p in binary_keys] |> Vector
+            all_args[arg] = element
+        elseif arg === :hierarchy
+            all_args[arg] = system.hierarchy
+        elseif arg === :time
+            all_args[arg] = system.time
+        else
+            continue
+        end
+    end
 
-#     args = merge(new_kwargs, all_args)
 
-#     multibodysystem(masses; args...)
-# end
+    masses = pop!(new_kwargs, :masses, [system.particles[p].mass for p in particle_keys]) |> Vector
+
+    args = merge(new_kwargs, all_args)
+
+    multibodysystem(masses; args...)
+end
 
 
 """
