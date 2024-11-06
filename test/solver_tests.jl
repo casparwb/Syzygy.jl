@@ -44,24 +44,37 @@
     
     @testset "Callbacks" begin
 
-        @testset "Collision" begin
+        callbacks = [EscapeCB(), CollisionCB(), RocheLobeOverflowCB(), DemocraticCheckCB(), CPUTimeCB(), HubbleTimeCB(), CentreOfMassCB(), IonizationCB()]
 
+        
+        @testset "Collision" begin
+            
             a = 5.0u"Rsun"
             e = 0.6
             ν = (π/2)u"rad"
-
             rp = a*(1 - e)
-
             R = [rp/2, rp/2] .* 1.01
-            
             masses = [2.0, 1.0]u"Msun"
+            binary = multibodysystem(masses, a=a, e=e, R = R)
 
-            triple = multibodysystem(masses, a=a, e=e, R = R)
-
-            res = simulate(triple, t_sim=1.0, callbacks=[CollisionCB()])
+            res = simulate(binary, t_sim=1.0, callbacks=[CollisionCB()])
 
             @test :Collision in keys(res.retcode)
             @test res.retcode[:Collision][1] == [1,2]
+        end
+
+        @testset "Running with callbacks" begin
+            a = [1.0, 5.0]u"AU"
+            e = [0.6, 0.1]
+            ν = (π/2)u"rad"
+
+            masses = [2.0, 0.5, 1.0]u"Msun"
+            triple = multibodysystem(masses, a=a, e=e)
+
+            @testset "$cb" for cb in callbacks
+                res = simulate(triple, t_sim=1, save_everystep=false, callbacks=[cb])
+            end
+
         end
 
     end
