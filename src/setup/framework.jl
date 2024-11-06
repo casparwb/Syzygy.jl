@@ -27,23 +27,34 @@ end
 
 OrbitalElements(;a=0.0u"AU", P=0.0u"d", e=0.0, ω=0.0u"°", i=0.0u"°", Ω=0.0u"°", ν=0.0u"°") = OrbitalElements(a, P, e, ω, i, Ω, ν)
 
+# struct StellarStructure{tT, mT, RT, ST, LT}
+#     stellar_type::tT   
+#     m::mT      # total mass
+#     R::RT      # total radius
+#     S::ST      # total spin
+#     L::LT      # total luminosity
+#     R_core::RT # core radius
+#     m_core::mT # core mass
+#     R_env::RT  # envelope radius
+#     m_env::mT  # envelope mass
+# end
+
 struct StellarStructure{tT, mT, RT, ST, LT}
     stellar_type::tT   
-    m::mT      # total mass
-    R::RT      # total radius
-    S::ST      # total spin
-    L::LT      # total luminosity
-    R_core::RT # core radius
-    m_core::mT # core mass
-    R_env::RT  # envelope radius
-    m_env::mT  # envelope mass
+    mass::mT             # total mass
+    radius::RT           # total radius
+    spin::ST             # spin
+    luminosity::LT       # total luminosity
+    core_radius::RT      # core radius
+    core_mass::mT        # core mass
+    envelope_radius::RT  # envelope radius
+    envelope_mass::mT    # envelope mass
 end
 
-struct Particle{siblingType, massType, posType, velType, structType} <: AbstractParticle
+struct Particle{siblingType, posType, velType, structType} <: AbstractParticle
     key::ParticleIndex
     parent::BinaryIndex
     sibling::siblingType
-    mass::massType
     position::posType
     velocity::velType
     structure::structType
@@ -542,7 +553,20 @@ end
 
 
 ######################################## Helper functions #######################################
+
+const alternative_stellar_property_names = Dict{Symbol, Symbol}(:m => :mass, :R => :radius, :L => :luminosity, :m_core => :core_mass,
+                                                                :R_core => :core_radius, :m_env => :envelope_mass, :R_env => :envelope_radius)
+
+const alternative_orbital_element_names = Dict{Symbol, Symbol}(:semimajor_axis => :a, :semi_major_axis => :a, :sma => :a,
+                                                               :eccentricity => :e, :ecc => :a,
+                                                               :period => :P, 
+                                                               :aop => :ω, :argument_of_periapsis => :ω, :argument_of_pericenter => :ω,
+                                                               :inclination => :i, :mutual_inclination => :i, :i_mut => :i,
+                                                               :loan => :Ω, :longitude_of_ascending_node => :Ω,
+                                                               :true_anomaly => :ν)
+
 function Base.getproperty(particles::Dict{Int, Syzygy.Particle}, sym::Symbol)
+    sym = get(alternative_stellar_property_names, sym, sym)
     if sym in fieldnames(Particle)
         return [getfield(particles[i], sym) for i in keys(sort(particles))]
     elseif sym in fieldnames(StellarStructure)
@@ -550,17 +574,40 @@ function Base.getproperty(particles::Dict{Int, Syzygy.Particle}, sym::Symbol)
     else
         getfield(particles, sym)
     end
+end 
 
+
+function Base.getproperty(particle::Particle, sym::Symbol)
+    sym = get(alternative_stellar_property_names, sym, sym)
+    if sym in fieldnames(Particle)
+        return getfield(particle, sym)
+    elseif sym in fieldnames(StellarStructure)
+        return getfield(particle.structure, sym)
+    else
+        getfield(particle, sym)
+    end
 end
 
 function Base.getproperty(binaries::Dict{Int, Syzygy.Binary}, sym::Symbol)
-    if sym in fieldnames(Binary)
+    sym = get(alternative_orbital_element_names, sym, sym)
+    if sym in fieldnames(Particle)
         return [getfield(binaries[i], sym) for i in keys(sort(binaries))]
     elseif sym in fieldnames(OrbitalElements)
         return [getfield(binaries[i].elements, sym) for i in keys(sort(binaries))]
     else
         getfield(binaries, sym)
     end
+end 
 
+
+function Base.getproperty(binary::Binary, sym::Symbol)
+    sym = get(alternative_orbital_element_names, sym, sym)
+    if sym in fieldnames(Particle)
+        return getfield(binary, sym)
+    elseif sym in fieldnames(OrbitalElements)
+        return getfield(binary.elements, sym)
+    else
+        getfield(binary, sym)
+    end
 end
 #################################################################################################
