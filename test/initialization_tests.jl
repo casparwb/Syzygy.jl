@@ -137,13 +137,14 @@
             v_in = GRAVCONST*sum(min)*(2/d12 - 1/ain) |> sqrt
             v_out = GRAVCONST*sum(masses)*(2/d312 - 1/aout) |> sqrt
 
+
             @test v_in ≈ norm(vin[2] - vin[1])
             @test v_out ≈ norm(vout[2] - vout[1])
         end
 
-        @testset "Initialize with state vectors" begin
+        # @testset "Initialize with state vectors" begin
 
-        end
+        # end
 
     end
 
