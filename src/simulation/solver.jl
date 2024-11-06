@@ -20,13 +20,15 @@ function simulate(simulation::MultiBodySimulation)
     diffeq_args = simulation.diffeq_args
 
     retcodes = Dict{Symbol, Any}(:Success => false)
+
     start_time = time()
+
     if !isinf(args[:max_cpu_time])
         push!(args[:callbacks], "max_cpu_time")
     end
     
     cbs = setup_callbacks(args[:callbacks], simulation.ic, simulation.params, 
-                          retcodes, G, args, start_time=start_time)
+                          retcodes, args)
     callbacks = isnothing(cbs) ? nothing : CallbackSet(cbs...)
 
 
@@ -35,8 +37,7 @@ function simulate(simulation::MultiBodySimulation)
     # ##############################################################################################################
     let
         ode_prob_static = sodeprob_static(simulation, args[:dtype])
-        integrator_static = OrdinaryDiffEqRKN.init(ode_prob_static, args[:alg], saveat=args[:saveat], 
-                                                callback=callbacks, maxiters=args[:maxiters], 
+        integrator_static = OrdinaryDiffEqRKN.init(ode_prob_static, args[:alg], saveat=args[:saveat], maxiters=args[:maxiters], 
                                                 abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                                 diffeq_args...)
         step!(integrator_static)
@@ -61,7 +62,7 @@ function simulate(simulation::MultiBodySimulation)
                                      callback=callbacks, maxiters=args[:maxiters], 
                                      abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                      diffeq_args...)
-
+    # return integrator
     prog = ProgressUnknown("Evolving system:", showspeed=true, spinner=true, enabled=args[:showprogress])
     maxtime = simulation.tspan[end]
     try
@@ -82,9 +83,8 @@ function simulate(simulation::MultiBodySimulation)
             @info "Stopped at t = $(u"kyr"(integrator.t * u"s"))"
             
         else
-            throw(e)
             retcodes[:DiffEq] = integrator.sol.retcode
-            # retcode = []
+            throw(e)
         end
     end
 
