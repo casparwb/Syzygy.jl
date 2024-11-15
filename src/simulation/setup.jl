@@ -1,5 +1,5 @@
 using Printf, Unitful, UnitfulAstro
-using ArbNumerics, MultiFloats
+using ArbNumerics, DoubleFloats
 
 function bodies(system::T where T <: MultiBodyInitialConditions, dtype=Float64)
 
@@ -65,7 +65,8 @@ function parse_arguments!(kwargs::Dict)
                         :maxiters  => Inf,
                         :abstol    => 1.0e-10, :reltol  => 1.0e-10,
                         :potential => [PureGravitationalPotential()],
-                        :callbacks => [CollisionCB()], :showprogress => false,
+                        :callbacks => AbstractSyzygyCallback[CollisionCB()], 
+                        :showprogress => false,
                         :verbose   => false, :max_cpu_time => Inf,
                         :precision => :Float64, :stellar_evolution => false,
                         )
@@ -137,7 +138,7 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
         check_spins(system.particles.S)
     end
 
-    # Setup time step (only used if using symplectic integrator)
+    # setup time step (only used if using symplectic integrator)
     periods = if system isa NonHierarchicalSystem
         Rs = [norm(particles[ij[1]].position - particles[ij[2]].position) for ij in system.pairs]
         2π/(GRAVCONST*sum(particles.mass)) .* (Rs ./ 2) .^ (3/2)
@@ -256,7 +257,7 @@ end
 
 function setup_timespan(t0, t_sim, P_out, datatype=Float64)
     if t_sim isa Quantity
-        t_sim *= 1.0
+        t_sim *= one(t_sim)
         t_sim = ustrip(upreferred(u"s"), t_sim) + t0
         tspan = (t0, t_sim)
     else
@@ -289,11 +290,17 @@ function setup_params(particles, time, datatype=Float64, stellar_evolution=false
 
     particle_keys = keys(particles) |> collect |> sort
 
+    luminosity_unit = if upreferred(u"kg") == u"Msun"
+        u"Lsun"
+    else
+        upreferred(u"Lsun")
+    end
+
     for i in particle_keys
         p = particles[i]
         
         mass         = p.structure.m      |> upreferred |> ustrip 
-        luminosity   = p.structure.L      |> upreferred |> ustrip
+        luminosity   = p.structure.L      |> luminosity_unit |> ustrip
         radius       = p.structure.R      |> upreferred |> ustrip 
         core_mass    = p.structure.m_core |> upreferred |> ustrip
         core_radius  = p.structure.R_core |> upreferred |> ustrip
