@@ -19,16 +19,17 @@ function simulate(simulation::MultiBodySimulation)
     args        = simulation.args
     diffeq_args = simulation.diffeq_args
 
-    retcodes = Dict{Symbol, Any}(:Success => false)
+    retcodes = Dict{Symbol, Any}()#(:Success => false)
 
-    start_time = time()
-
-    if !isinf(args[:max_cpu_time])
-        push!(args[:callbacks], "max_cpu_time")
+    if !isinf(args[:max_cpu_time]) && !(CPUTimeCB in typeof.(args[:callbacks]))
+        push!(args[:callbacks], CPUTimeCB())
     end
-    
-    cbs = setup_callbacks(args[:callbacks], simulation.ic, simulation.params, 
+
+    cbs = setup_callbacks(args[:callbacks], 
+                          simulation.ic, 
+                          simulation.params, 
                           retcodes, args)
+
     callbacks = isnothing(cbs) ? nothing : CallbackSet(cbs...)
 
 
@@ -62,13 +63,15 @@ function simulate(simulation::MultiBodySimulation)
                                      callback=callbacks, maxiters=args[:maxiters], 
                                      abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                      diffeq_args...)
-    # return integrator
+    
+    start_time = time()
+
     prog = ProgressUnknown("Evolving system:", showspeed=true, spinner=true, enabled=args[:showprogress])
     maxtime = simulation.tspan[end]
     try
         if args[:showprogress]
             for i in integrator
-                next!(prog; showvalues=[(Symbol("System time"), u"kyr"(integrator.t * u"s")),
+                next!(prog; showvalues=[(Symbol("System time"), u"yr"(integrator.t * u"s")),
                                         (Symbol("System %"), (integrator.t - simulation.tspan[1])/maxtime*100)], 
                                         spinner="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
             end
@@ -76,14 +79,18 @@ function simulate(simulation::MultiBodySimulation)
         else
             solve!(integrator)
         end
-        retcodes[:Success] = true
-        retcodes[:DiffEq] = integrator.sol.retcode
+
+        # if "$(integrator.sol.retcode)" == "Success"
+        #     retcodes[:Success] = true
+        # elseif
+        #     "$(integrator.sol.retcode)" == "Unstable"
+
+        retcodes[:DiffEq] = Symbol("$(integrator.sol.retcode)")
     catch e
         if e isa InterruptException
-            @info "Stopped at t = $(u"kyr"(integrator.t * u"s"))"
+            @info "Stopped at t = $(u"yr"(integrator.t * u"s"))"
             
         else
-            retcodes[:DiffEq] = integrator.sol.retcode
             throw(e)
         end
     end
@@ -92,12 +99,12 @@ function simulate(simulation::MultiBodySimulation)
     runtime =  (time() - start_time) * u"s"
 
     if args[:verbose]
-        if retcodes[:Success]
+        if retcodes[:DiffEq] == :Success
             @info "Simulation successful."
         else
-            outcome = collect(keys(retcodes))
-            t = u"kyr"(integrator.t * u"s")
-            @info "$outcome at t = " t
+            outcome = retcodes#collect(keys(retcodes))
+            t = u"yr"(integrator.t * u"s")
+            @info "Outcome: " t outcome
         end
     end
 
