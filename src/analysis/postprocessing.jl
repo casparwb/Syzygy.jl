@@ -55,7 +55,7 @@ function get_stellar_structure(result)
                                 similar(radius_matrix), similar(mass_matrix))
 
     for param in keys(initial_stellar_parameters)
-        param == :S && continue
+        param == :spin && continue
         if !(param ∈ keys(final_stellar_parameters))
             setindex!(getproperty(structure, param), initial_stellar_parameters[param], 1:n_bodies, 1)
             setindex!(getproperty(structure, param), initial_stellar_parameters[param], 1:n_bodies, 2)
