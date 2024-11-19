@@ -124,7 +124,8 @@ end
 function get_callback(cb::CPUTimeCB, n, system, retcodes, args)
     condition_cpu_time(u, t, integrator) = true
     
-    affect_cpu_time!(integrator) = max_cpu_time_callback!(integrator, retcodes, time(), args[:max_cpu_time])
+    t_start = time()
+    affect_cpu_time!(integrator) = max_cpu_time_callback!(integrator, retcodes, t_start, args[:max_cpu_time])
     
     callback_cpu_time = DiscreteCallback(condition_cpu_time, affect_cpu_time!, save_positions=(false, false))
     
