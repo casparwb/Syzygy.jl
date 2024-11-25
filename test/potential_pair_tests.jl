@@ -169,7 +169,7 @@ using Test
         @test abs.(dv1) ≈ abs.(dv2)
 
 
-        @testset "PN1_to_2p5_acceleration! equal PN1+PN2+PN2.5" begin
+        @testset "PN1_to_2p5_acceleration! equals PN1+PN2+PN2.5" begin
             dv1_2 = zeros(3)
             dv2_2 = zeros(3)
 
@@ -251,7 +251,7 @@ using Test
 
         m1, m2 = masses
 
-        Χ = 0.5 # dimensionless spin paramter (1 = maximum spinning)
+        Χ = 0.8 # dimensionless spin paramter (1 = maximum spinning)
         dir = rand(3)
         dir = dir/norm(dir)
         S1 = GRAVCONST*Χ*dir*m1^2 .|> upreferred .|> ustrip
@@ -285,7 +285,9 @@ using Test
         dv2 = zeros(3)
 
         dvs = [dv1 dv2]
+        @show dv1 dv2
         Syzygy.PN2_spin_acceleration!(dv1, dv2, rs, vs, pair, params)
+        @show dv1 dv2
 
         @test abs.(dv1) ≈ abs.(dv2)
 
@@ -346,7 +348,7 @@ using Test
 
     end
 
-    @testset "Spin precession" begin
+    @testset "PN 1 to 2 Spin precession" begin
 
         masses = 10.0*ones(2)
         radii = Syzygy.schwarzschild_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
@@ -370,33 +372,37 @@ using Test
         params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
                                                 stellar_types, M_cores, R_cores, ages)
 
-        r1 = [-1.0, 0.0, 0.0]#u"Rsun"
-        r2 = [1.0, 0.0, 0.0]#u"Rsun"
-        rs = [r1 r2]
+        func_names = ["PN-1", "PN-1.5", "PN-2", "PN"]
+        acc_funcs = [Syzygy.PN1_spin_precession!, Syzygy.PN1p5_spin_precession!, Syzygy.PN2_spin_precession!, Syzygy.spin_precession!]
+        @testset "$name" for (name, func) in zip(func_names, acc_funcs)
+            r1 = [-1.0, 0.0, 0.0]#u"Rsun"
+            r2 = [1.0, 0.0, 0.0]#u"Rsun"
+            rs = [r1 r2]
 
-        v1 = [0.0, -100.0, 0.0]#u"Rsun"
-        v2 = [0.0, 100.0, 0.0]#u"Rsun"
-        vs = [v1 v2]
+            v1 = [0.0, -100.0, 0.0]#u"Rsun"
+            v2 = [0.0, 100.0, 0.0]#u"Rsun"
+            vs = [v1 v2]
 
-        dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
-        dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
-        
-        @test abs.(dS1) ≈ abs.(dS2)
+            dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
+            dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
+            
+            @test abs.(dS1) ≈ abs.(dS2)
 
-        rs = cat(rs, [S1 S2], dims=1)
-        vs = cat(vs, [dS1 dS2], dims=1)
-        pair = (1, 2)
+            rs = cat(rs, [S1 S2], dims=1)
+            vs = cat(vs, [dS1 dS2], dims=1)
+            pair = (1, 2)
 
-        dv1 = zeros(3)
-        dv2 = zeros(3)
+            dv1 = zeros(3)
+            dv2 = zeros(3)
 
-        # Syzygy.pure_gravitational_acceleration!(dv1, dv2, rs, pair, params)
-        # @show dv1 dv2
+            # Syzygy.pure_gravitational_acceleration!(dv1, dv2, rs, pair, params)
+            # @show dv1 dv2
 
-        dvs = [dv1 dv2]
-        Syzygy.spin_precession!(dv1, dv2, dvs, rs, vs, pair, params)
+            dvs = [dv1 dv2]
+            func(dv1, dv2, dvs, rs, vs, pair, params)
 
-        @test dv1 ≈ dv2
+            @test dv1 ≈ dv2
+        end
 
     end
 
