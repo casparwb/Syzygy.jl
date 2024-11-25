@@ -61,19 +61,20 @@ end
 function setup_callbacks(conditions, system, p, retcodes, args)
     cbs = []
 
-    n = system.n
     for condition in conditions
-        cb = get_callback(condition, n, system, retcodes, args)
+        cb = get_callback(condition, system, retcodes, args)
         if cb isa Tuple
             append!(cbs, cb)
         else
             push!(cbs, cb)
         end
     end
+    
     return cbs
 end
 
-function get_callback(cb::CollisionCB, n, system, retcodes, args)
+function get_callback(cb::CollisionCB, system, retcodes, args)
+    n = system.n
     condition_collision(u, t, integrator) = true
     affect_collision!(integrator) = collision_callback!(integrator, n, retcodes, cb.grav_rad_multiple)
     callback_collision = DiscreteCallback(condition_collision, affect_collision!, save_positions=(false, false))
@@ -81,7 +82,7 @@ function get_callback(cb::CollisionCB, n, system, retcodes, args)
     return callback_collision
 end
 
-function get_callback(cb::NewCollisionCB, n, system, retcodes, args)
+function get_callback(cb::NewCollisionCB, system, retcodes, args)
     condition_collision(u, t, integrator) = true
     pairs = system.pairs
     affect_collision!(integrator) = collision_callback_idiomatic!(integrator, pairs, retcodes, cb.grav_rad_multiple)
@@ -90,7 +91,7 @@ function get_callback(cb::NewCollisionCB, n, system, retcodes, args)
     return callback_collision
 end
 
-function get_callback(cb::EscapeCB, n, system, retcodes, args)
+function get_callback(cb::EscapeCB, system, retcodes, args)
     @assert system.n == 3 "Escape check callback is currently only available for triples."
     
     function condition_escape(u, t, integrator)
@@ -103,11 +104,13 @@ function get_callback(cb::EscapeCB, n, system, retcodes, args)
     return callback_escape
 end
 
-function get_callback(cb::RocheLobeOverflowCB, n, system, retcodes, args)
+function get_callback(cb::RocheLobeOverflowCB, system, retcodes, args)
 
     function condition_rlof(u, t, integrator)
         (integrator.iter % cb.check_every) == 0  # check for rlof every 'check_every' iteration
     end
+
+    n = system.n
 
     rlof_rcodes = [Symbol(:RLOF_, i) for i = 1:n]
     rlof_rcodes = SA[rlof_rcodes...]
@@ -121,7 +124,7 @@ function get_callback(cb::RocheLobeOverflowCB, n, system, retcodes, args)
     return callback_rlof_demo, callback_rlof_hier
 end
 
-function get_callback(cb::CPUTimeCB, n, system, retcodes, args)
+function get_callback(cb::CPUTimeCB, system, retcodes, args)
     condition_cpu_time(u, t, integrator) = true
     
     t_start = time()
@@ -132,7 +135,7 @@ function get_callback(cb::CPUTimeCB, n, system, retcodes, args)
     return callback_cpu_time
 end
 
-function get_callback(cb::CentreOfMassCB, n, system, retcodes, args)
+function get_callback(cb::CentreOfMassCB, system, retcodes, args)
 
     affect_com!(integrator) = move_to_com_callback!(integrator)
     
@@ -142,7 +145,7 @@ function get_callback(cb::CentreOfMassCB, n, system, retcodes, args)
     return callback_com
 end
 
-function get_callback(cb::HubbleTimeCB, n, system, retcodes, args)
+function get_callback(cb::HubbleTimeCB, system, retcodes, args)
 
     affect_hubble!(integrator) = hubble_time_callback!(integrator, retcodes)
     
@@ -153,7 +156,7 @@ function get_callback(cb::HubbleTimeCB, n, system, retcodes, args)
     return callback_hubble
 end
 
-function get_callback(cb::DemocraticCheckCB, n, system, retcodes, args)
+function get_callback(cb::DemocraticCheckCB, system, retcodes, args)
     @assert system.n == 3 "Democratic interaction callback is currently only available for triples."
     
     pair = system.pairs
@@ -170,7 +173,7 @@ function get_callback(cb::DemocraticCheckCB, n, system, retcodes, args)
     return callback_democratic1, callback_democratic2, callback_democratic3
 end
 
-function get_callback(cb::IonizationCB, n, system, retcodes, args)
+function get_callback(cb::IonizationCB, system, retcodes, args)
 
     condition_ionization(u, t, integrator) = true
     max_distance =  cb.max_a_factor*upreferred(system.binaries[2].elements.a).val
@@ -251,7 +254,7 @@ function collision_check(d, R1, R2, m1, m2, stellar_type1::Int, stellar_type2::I
     elseif  (0 <= stellar_type1 <= 9) && (10 <= stellar_type2 <= 14) # one star, one CO
         return collision_check_star_compact_object(d, R1, m2, m1)
     elseif (10 <= stellar_type1 <= 14) && (0 <= stellar_type2 <= 9) # one star, one CO
-        collision_check_star_compact_object(d, R2, m1, m2)
+        return collision_check_star_compact_object(d, R2, m1, m2)
     elseif (10 <= stellar_type1 <= 14) && (10 <= stellar_type2 <= 14) # two COs
         return collision_check_compact_objects(d, m1, m2, grav_rad_multiple)
     end
@@ -261,9 +264,14 @@ function collision_check_stars(d, R1, R2)
     d <= (R1 + R2)
 end
 
-function collision_check_star_compact_object(d, R2, m1, m2)
-    tidal_disruption_radius = R2*cbrt(m1/m2)
-    return d < (tidal_disruption_radius + R2)
+function collision_check_star_compact_object(d, R_star, m_CO, m_star)
+    tidal_disruption_radius = R_star*cbrt(m_CO/m_star)
+    if d <= (tidal_disruption_radius + R_star)
+        println(d, " ", tidal_disruption_radius)
+        return true
+    end
+
+    return false
 end
 
 function collision_check_compact_objects(d, m1, m2, grav_rad_multiple) 
