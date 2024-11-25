@@ -118,12 +118,22 @@ sim = simulation(triple, t_sim=1, alg=Syzygy.McAte5(), dt=1e-5) # use a timestep
 
 ## Callbacks
 
-The package contains several pre-defined callbacks that can be specified when setting up the simulation. They are mostly stopping conditions, but can also be flags or other code injections. They can be specified using the `callbacks` argument, and should be given either as a `String`, which specifies the pre-defined callbacks, or it can be a callback type as described in [Event Handling and Callback Functions](https://docs.sciml.ai/DiffEqDocs/stable/features/callback_functions/#The-Callback-Types) if the user creates their own (see Advanced usage for more details). The most important pre-defined callbacks are
+The package contains several pre-defined callbacks that can be specified when setting up the simulation. These mostly define stopping conditions, but can also be e.g, flags or events. Callbacks can be specified using the `callbacks` keyword argument when calling `simulation`, and be given as a `Vector{<:AbstractSyzygyCallback}`. There are number of pre-defined callbacks, but you can also define your own. (see Advanced usage for more details). The most important pre-defined callbacks are
 
-- `collision`: a stopping condition that is invoked when two particles have overlapping radii. If the systems contains compact objects, the [tidal disruption radius](https://en.wikipedia.org/wiki/Tidal_disruption_event#Tidal-disruption_radius) or the [gravitational radius](https://en.wikipedia.org/wiki/Schwarzschild_radius) is used to check for collisions between a CO and a Star, or two COs.
-- `escape`: a stopping condition for checking whether an object has been ejected from the system. The callback has three checks that need to be passed in order for the condition to be invoked. See Standish & Myles 1971 for more details. Currently this callback is only possible to use for a triple system.
+- `CollisionCB`: a stopping condition that terminates the integration when two objects gets close enough. The exact condition for specifying a collision depends on the stellar types of the objects. If the two objects are both stars, then the code simply checks if the radii overlap. If the objects are stellar remnants (black holes, neutron stars, white dwarfs), then the code checks if the distance is smaller than some multiple of their mutual gravitational radius. By default, this multiple value is set to 1000. If the two objects contain one star and one remnant, then the code checks if the star is within the tidal disruption radius of the remnant object.
+- `EscapeCB`: a stopping condition for checking whether an object has been ejected from the system. The callback has three checks that need to be passed in order for the condition to be invoked. See Standish & Myles 1971 for more details. Currently this callback is only possible to use for a triple system.
 
-To get the full list of callbacks, you can call `Syzygy.callbacks()`.
+Certain callbacks accepts argument when instantiating them. This can include how often the solver should check for the condition (for every n-th step). This is implemented as the field `check_every`. 
+
+> [!INFO]
+> To get the full list of callbacks, you can call `Syzygy.callbacks()`, or you can do e.g. `?CollisionCB` to see the documentation for each callback.
+
+
+### Examples
+```julia
+callbacks = [CollisionCB(), EscapeCB()]
+sim = simulation(system, t_sim=1, callbacks=callbacks)
+```
 
 ## Potentials
 
@@ -151,19 +161,18 @@ tidal_pot = DynamicalTidalAcceleration(;kwargs...)
 res = simulate(system, potential=[grav_pot, tidal_pot]) 
 ```
 
-## Post-Newtonian physics
+## Post-Newtonian expansion
 
-- `PN1Potential`
-- `PN2Potential`
-- `PN2p5Potential`
-- `PNPotential`
-- `PN1p5SpinPotential`
-- `PN2SpinPotential`
-- `PN2p5SpinPotential`
-- `PN1SpinPrecessionPotential`
-- `PN1p5SpinPrecessionPotential`
-- `PN2SpinPrecessionPotential`
-- `SpinPrecessionPotential`
+For systems where general relativistic effects can become important, `Syzygy.jl` supports post-Newtonian acceleration potential up to order 2.5. It also has support for evolving the precession of the spins of compact objects, up to order 2. The full list of post-Newtonian potentials are given here:
+
+- `PN1Potential`: post-Newtonian acceleration of order 1.
+- `PN2Potential`: post-Newtonian acceleration of order 2.
+- `PN2p5Potential`: post-Newtonian acceleration of order 2.5.
+- `PNPotential`: post-Newtonian acceleration of order 1 to 2.5. This is more efficient than including all of the above potentials individually.
+- `PN1SpinPrecessionPotential`: spin precession potential of order 1.
+- `PN1p5SpinPrecessionPotential`: spin precession potential of order 1.5.
+- `PN2SpinPrecessionPotential`: spin precession potential of order 2.
+- `SpinPrecessionPotential`: spin precession potential of order 1 to 2. 
 
 ## Running a simulation
 
@@ -198,11 +207,11 @@ orbitplot(sol, bodies=[1, 2], dims=[1, 2]) # plot only particles 1 and 2 in the 
 
 ## Arbitrary precision
 
-By default `Syzygy.jl` uses `Float64` datatypes for the variables of integration, which means that we can not set the error tolerances for the ODE solver lower than $\sim 10^{-14}$ (see [DiffEq docs](https://docs.sciml.ai/DiffEqDocs/stable/basics/faq/#How-to-get-to-zero-error)). While this is generally pretty good, for longer simulation times, this might not be enough. Therefore, `Syzygy.jl` supports arbitrary precision arithmetic, which means you can essentially get as small error as you want, as the cost of speed of course. You can still get pretty decent speed if you use the `Float64x2` type from (MultiFloats.jl)[https://github.com/dzhang314/MultiFloats.jl]. These have twice as many bits as a standard `Float64`, while still being somewhat performant. If you need even higher precision, you can use the arbitrary precision floating point numbers from (ArbNumerics.jl)[https://github.com/JeffreySarnoff/ArbNumerics.jl]. However, using these will dramatically slow down the code (using Double64 gives a slowdown of $\sim 70\times$, while using ArbFloat with the same number of bits makes the code run over $2000\times$ slower.) To use this functionality, simply specify the `precision` keyword when calling either `simulation` or `simulate`. Fixed-bit types are specified with symbols, while arbitrary precision are specified with an integer, determining the number of bits to use. 
+By default `Syzygy.jl` uses `Float64` datatypes for the variables of integration, which means that we can not set the error tolerances for the ODE solver lower than $\sim 10^{-14}$ (see [DiffEq docs](https://docs.sciml.ai/DiffEqDocs/stable/basics/faq/#How-to-get-to-zero-error)). While this is generally pretty good, for longer simulation times or systems with very close passages, this might not be enough. Therefore, `Syzygy.jl` supports higher and arbitracy arithmetic, which means you can essentially get as small error as you want aT the cost of speed. This is done through the (DoubleFloats.jl)[] and (ArbNumerics.jl)[] packages. You get the best performance using the `Double64` type from the former package, which has twice the precision of `Float64`s. If you need even higher precision, you can use the arbitrary precision floating point numbers from (ArbNumerics.jl)[https://github.com/JeffreySarnoff/ArbNumerics.jl]. However, using these will dramatically slow down the code. To use this functionality, simply specify the `precision` keyword when calling either `simulation` or `simulate`. Fixed-bit types are specified with symbols, while arbitrary precision are specified with an integer, determining the number of bits to use. 
 
 ```julia
 binary = multibodysystem([2.0, 1.0]u"Msun", a=1.0u"AU")
-result = simulate(binary, t_sim=1, save_everystep=false, precision=:Float64x2) # will use Double64 precision (106 bits)
+result = simulate(binary, t_sim=1, save_everystep=false, precision=:Double64) # will use Double64 precision (106 bits)
 result = simulate(binary, t_sim=1, save_everystep=false, precision=254) # will use ArbFloat type with 254 bit precision
 ```
 
@@ -212,7 +221,39 @@ result = simulate(binary, t_sim=1, save_everystep=false, precision=254) # will u
 
 ## Defining your own callbacks
 
-To define you own callback, simply set it up following the the [DiffEq docs](https://docs.sciml.ai/DiffEqDocs/stable/features/callback_functions), and include it in the `callbacks` vector when initializing a simulation. 
+To define you own callback, first define a struct which is a subtype of `Syzygy.AbstractSyzygyCallback`. For example:
+
+```julia
+struct MyCallback <: Syzygy.AbstractSyzygyCallback end
+```
+
+You can then add a method to the `Syzygy.get_callback` function, which has the signature `get_callback(cb, system, retcodes, args)`, where `cb` is an object with a type of your callback struct, `system` is the system that is simulated, retcodes is a dictionary in which you can add return codes/flags, and args can be any dictionary with additional arguments. Inside this function, you set up your `affect` and `condition` functions, which determine when the callback is triggered, and what should happen when it does. It should then return a callback type from the SciMLBase package.
+
+For example, if you want to add a callback that terminates the integration if it runs for a certain amount of time, you would do:
+
+```julia
+
+function Syzygy.get_callback(cb::MyCallback, system, retcodes, args)
+    max_cpu_time = args[:max_cpu_time]
+    t_start = time()
+    
+    condition_cpu_time(u, t, integrator) = true # check every step
+    
+    function max_cpu_time_callback!(integrator)
+        if (time() - t_start) >= max_cpu_time
+            retcode[:MaxCPUTime] = true
+            terminate!(integrator)
+        end
+    end
+    
+
+    affect_cpu_time!(integrator) = max_cpu_time_callback!(integrator)
+    
+    callback_cpu_time = DiscreteCallback(condition_cpu_time, affect_cpu_time!, save_positions=(false, false))
+
+    callback_cpu_time
+end
+```
 
 
 ## Adding another potential
@@ -221,7 +262,7 @@ To add a new potential and acceleration function, you first need to define the a
 Example:
 
 ```julia
-function my_acceleration_function!(dvi, dvj, rs, vs, pair, params, potential)
+function my_acceleration_function!(dvi, dvj, rs, vs, pair, params)
 
     i, j = pair
     mi, mj = params.M[i], params.M[j]
@@ -234,26 +275,17 @@ function my_acceleration_function!(dvi, dvj, rs, vs, pair, params, potential)
 end
 ```
 
-You then need to define a potential type, which must be a subtype of the `Syzygy.MultiBodyPotential` supertype.  
+You then need to define a potential type, which must be a subtype of the `Syzygy.MultiBodyPotential` supertype.
 
 ```julia
-struct MyPotential <: Syzygy.MultiBodyPotential end
-```
-
-You can optionally include parameters in your potential
-
-```julia
-struct MyPotential{T1, T2} <: Syzygy.MultiBodyPotential
-    parameter1::T1
-    parameter2::T2
-end
+struct MyPotential{T1, T2} <: Syzygy.MultiBodyPotential end
 ```
 
 Finally, you add a method to the `Syzygy.get_accelerating_function` such that it returns a wrapper around your acceleration function. The wrapper has to have the following signature:
 
 ```julia
-function Syzygy.get_accelerating_function(parameters::MyPotential)
-    (dvi, dvj, rs, vs, pair, time, params)-> my_acceleration_function!(dvi, dvj, rs, vs, pair, params, potential)
+function Syzygy.get_accelerating_function(potential::MyPotential)
+    (dvi, dvj, rs, vs, pair, time, params)-> my_acceleration_function!(dvi, dvj, rs, vs, pair, params)
 end
 ```
 
