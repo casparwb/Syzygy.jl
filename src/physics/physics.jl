@@ -198,23 +198,25 @@ end
 
 """
     potential_energy(sol::MultiBodySolution, 
-                     bodies=eachindex(sol.ic.particles); 
+                     bodies=keys(sol.ic.particles); 
                      tspan=extrema(sol.t))
 
 Return the total potential energy for the given `bodies` and `tspan`.
 """
 function potential_energy(sol::MultiBodySolution, 
-                          bodies=eachindex(sol.ic.particles); 
+                          bodies=keys(sol.ic.particles); 
                           tspan=extrema(sol.t))
+    
     masses = sol.structure.m
-
+    time = sol.t
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
     indices = indices[1]:indices[2]
     
     pot_energy = zeros(typeof(1.0u"J"), length(sol.t))
     for i ∈ indices
         m = ifelse(i > 1, masses[:,2], masses[:,1])
-        pe = potential_energy(sol.r[:,bodies,i], m)
+        r = [SVector{3}(sol.r[:,b,i]) for b in bodies]
+        pe = potential_energy(r, m)
         pot_energy[i] = pe
     end
 
@@ -252,16 +254,17 @@ end
 
 """
     kinetic_energy(sol::MultiBodySolution, 
-                   bodies=eachindex(sol.ic.particles); 
+                   bodies=keys(sol.ic.particles); 
                    tspan=extrema(sol.t))
 
 Return the total kinetic energy for the given `bodies` and `tspan` from a simulation solution.
 """
 function kinetic_energy(sol::MultiBodySolution, 
-                        bodies=eachindex(sol.ic.particles); 
+                        bodies=keys(sol.ic.particles); 
                         tspan=extrema(sol.t))
 
     masses = sol.structure.m
+    time = sol.t
 
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
     indices = indices[1]:indices[2]
@@ -269,7 +272,8 @@ function kinetic_energy(sol::MultiBodySolution,
     kin_energy = Vector{typeof(1.0u"J")}(undef, length(sol.t))
     for i ∈ indices
         m = ifelse(i > 1, masses[:,2], masses[:,1])
-        te = kinetic_energy(sol.v[:,bodies,i], m)
+        v = [SVector{3}(sol.v[:,b,i]) for b in bodies]
+        te = kinetic_energy(v, m)
         kin_energy[i] = te
     end
 
