@@ -9,6 +9,7 @@ using RecipesBase
 @userplot AngularMomentumPlot
 @userplot ICPlot
 @userplot AccelerationPlot
+@userplot KozaiLidovPlot
 
 # function animate_threebody(sol::TripleSolution, name; 
 #                            max_diff=100, nframes=200, fps=20,
@@ -464,6 +465,96 @@ end
     end
 end 
 
+
+@recipe function f(kP::KozaiLidovPlot; loge=false, t_unit=u"yr")
+
+    sol = kP.args[1]
+    triple = sol.ic
+    time = sol.t
+
+    @assert sol.ic.n == 3 "Only valid for triples."
+
+    m1, m2, m3 = triple.particles.mass
+
+    r12 = sol.r[particle=1] .- sol.r[particle=2]
+    v12 = sol.v[particle=1] .- sol.v[particle=2]
+    d12 = norm.(eachcol(r12))
+
+    e_in = eccentricity.(eachcol(r12), eachcol(v12), d12, m1+m2)
+
+    com_in = center_of_mass(sol, [1, 2])
+    v_com_in = centre_of_mass_velocity(sol, [1, 2])
+    r123 = sol.r[particle=3] .- com_in
+    v123 = sol.v[particle=3] .- v_com_in
+    d123 = norm.(eachcol(r123))
+    e_out = eccentricity.(eachcol(r123), eachcol(v123), d123, m1+m2+m3)
+
+    h1 = eachcol(r12) .× eachcol(v12)
+    h2 = eachcol(r123) .× eachcol(v123)
+
+    i_mut = mutual_inclination.(h1, h2)
+
+    layout --> (2, 1)
+    size --> (800, 900)
+
+    legend := :topright
+    legendfontsize --> 12
+    titlefontsize --> 20
+    tickfontsize --> 10
+
+    t = ustrip.(t_unit, time)
+
+    # Inner eccentricity plot
+    @series begin
+        seriestype --> :line
+        label := "e_in"
+        subplot := 1
+
+        yscale --> ifelse(loge, :log10, :identity)
+        # @show plotattributes[:yscale]
+        edata = ifelse(loge, 1 .- e_in, e_in)
+        ylabel := ifelse(loge,"log (1 - e)", "e")
+        xticks --> nothing
+        # title --> "Eccentricity"
+
+        t, edata
+    end
+
+    # Outer eccentricity plot
+    @series begin
+        seriestype --> :line
+        label := "e_out"
+        subplot := 1
+
+        yscale --> ifelse(loge, :log10, :identity)
+        # @show plotattributes[:yscale]
+        edata = ifelse(loge, 1 .- e_out, e_out)
+        ylabel := ifelse(loge,"log (1 - e)", "e_out")
+        xticks --> nothing
+        # title --> "Eccentricity"
+
+        t, edata
+    end
+
+
+    # Mutual inclination plot
+    @series begin
+        seriestype --> :line
+        label --> false#"Binary $bin"
+        subplot := 2
+
+        xlabel := "Time [$(t_unit)]"
+
+        # @show plotattributes[:yscale]
+        # xticks --> nothing
+        ylabel := "i mut [°]"
+        # title --> "Inclination"
+
+        t, ustrip.(u"°", i_mut)
+    end
+
+
+end
 
 # @recipe function f(eP::ElementPlot; loge=false, tspan=nothing, step=1, t_unit=u"kyr")
 
