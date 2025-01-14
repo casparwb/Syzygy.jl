@@ -102,7 +102,7 @@ end
 
 function multibodysystem(masses::Vector{<:Unitful.Mass}, 
                          R::Vector{<:Unitful.Length}, 
-                         S::Vector{<:Union{<:Vector{<:Quantity}, <:Quantity}}, 
+                         S::Vector{<:Union{<:AbstractVector{<:Quantity}, <:Quantity}}, 
                          L::Vector{<:Unitful.Power}, 
                          stellar_types::Vector{Int}, 
                          R_core::Vector{<:Unitful.Length}, 
@@ -474,9 +474,9 @@ function multibodysystem(masses, positions, velocities;
     stellar_types = ifelse(stellar_types isa Number, repeat([stellar_types], n_bodies), stellar_types)
 
     S = if S isa Number 
-        Sv = [[S, zero(S), zero(S)] for i in 1:n_bodies]
+        [[S, zero(S), zero(S)] for i in 1:n_bodies]
     elseif S isa Vector{<:Number}
-        Sv = [[ss, zero(ss), zero(ss)] for ss in S]
+        [[ss, zero(ss), zero(ss)] for ss in S]
     else
         S
     end
