@@ -1040,6 +1040,11 @@ function PN1_spin_precession!(dvi,
                               params::SimulationParams)
     # i = 1, j = 2
     i, j = pair
+
+    if any(x -> params.stellar_types[x] < 13, pair)
+        return nothing
+    end
+
     ā₁  = @SVector [dvs[1, i], dvs[2, i], dvs[3, i]]
     r̄₁  = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     v̄₁  = @SVector [vs[1, i], vs[2, i], vs[3, i]]
@@ -1131,6 +1136,11 @@ function PN1p5_spin_precession!(dvi,
                               params::SimulationParams)
     # i = 1, j = 2
     i, j = pair
+
+    if any(x -> params.stellar_types[x] < 13, pair)
+        return nothing
+    end
+
     r̄₁  = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     v̄₁  = @SVector [vs[1, i], vs[2, i], vs[3, i]]
 
@@ -1205,6 +1215,11 @@ function PN2_spin_precession!(dvi,
 
     # i = 1, j = 2
     i, j = pair
+
+    if any(x -> params.stellar_types[x] < 13, pair)
+        return nothing
+    end
+
     ā₁  = @SVector [dvs[1, i], dvs[2, i], dvs[3, i]]
     r̄₁  = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     v̄₁  = @SVector [vs[1, i], vs[2, i], vs[3, i]]
@@ -1412,6 +1427,11 @@ function spin_precession!(dvi,
 
     # i = 1, j = 2
     i, j = pair
+
+    if any(x -> params.stellar_types[x] < 13, pair)
+        return nothing
+    end
+
     ā₁  = @SVector [dvs[1, i], dvs[2, i], dvs[3, i]]
     r̄₁  = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     v̄₁  = @SVector [vs[1, i], vs[2, i], vs[3, i]]
