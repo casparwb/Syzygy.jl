@@ -8,7 +8,10 @@ using DiffEqCallbacks: ManifoldProjection
 
 abstract type AbstractSyzygyCallback end
 
-# """
+struct FinalTimeCB{T} <: AbstractSyzygyCallback 
+    t_final::T
+end
+
 struct CollisionCB         <: AbstractSyzygyCallback 
     check_every::Int
     grav_rad_multiple::Int
@@ -71,6 +74,17 @@ function setup_callbacks(conditions, system, p, retcodes, args)
     end
     
     return cbs
+end
+
+function get_callback(cb::FinalTimeCB, system, retcodes, args)
+    condition_final_time(u, t, integrator) = integrator.t >= cb.t_final
+    
+    function affect!(integrator) 
+        retcodes[:FinalTime] = true
+        terminate!(integrator)
+    end
+
+    return DiscreteCallback(condition_final_time, affect!, save_positions=(false, false))
 end
 
 function get_callback(cb::CollisionCB, system, retcodes, args)

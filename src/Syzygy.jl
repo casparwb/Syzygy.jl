@@ -87,11 +87,11 @@ module Syzygy
         triple = multibodysystem([1.0, 1.0, 1.0]u"Msun", a=[0.1, 1.0]u"AU", e=[0.4, 0.2])
         res = simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
                  callbacks=[])
-        simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
+        simulate(triple, t_sim=10, save_everystep=false, showprogress=false, max_cpu_time=1,
                  callbacks=[CollisionCB()])
-        simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
+        simulate(triple, t_sim=10, save_everystep=false, showprogress=false, max_cpu_time=1,
                  callbacks=[CollisionCB(), EscapeCB(100, 100)])
-        simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
+        simulate(triple, t_sim=10, save_everystep=false, showprogress=false, max_cpu_time=1,
                  callbacks=[CollisionCB(), EscapeCB(100, 100)], potential=[PureGravitationalPotential(), PNPotential()])
         # res = simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
         #          callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)])

@@ -157,6 +157,10 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     tspan = setup_timespan(t0, t_sim, P_out, dtype)
     args[:tspan] = tspan
 
+    t_final = get_final_time(t0, t_sim, P_out, dtype)
+    args[:callbacks] = AbstractSyzygyCallback[args[:callbacks]...]
+    push!(args[:callbacks], FinalTimeCB(t_final))
+
     # Setup optional saving points
     if !iszero(args[:npoints])
         args[:saveat] = range(tspan..., length=args[:npoints])
@@ -257,17 +261,29 @@ end
 
 function setup_timespan(t0, t_sim, P_out, datatype=Float64)
     if t_sim isa Quantity
-        t_sim *= one(t_sim)
-        t_sim = ustrip(upreferred(u"s"), t_sim) + t0
-        tspan = (t0, t_sim)
+        # t_sim *= one(t_sim)
+        # t_sim = ustrip(upreferred(u"s"), t_sim) + t0
+        # tspan = (t0, t_sim)
+        tspan = (t0, Inf)
     else
-        tspan = (t0, t0 + t_sim*P_out.val)
-        t_sim = t_sim*P_out.val
+        # P_out = ustrip(upreferred(u"s"), P_out)
+        # tspan = (t0, t0 + t_sim*P_out)
+        tspan = (t0, Inf)
     end
 
     tspan = datatype.(tspan)
 
     return tspan
+end
+
+function get_final_time(t0, t_sim, P_out, datatype=Float64)
+    if t_sim isa Quantity
+        t_sim *= one(t_sim)
+        return (ustrip(upreferred(u"s"), t_sim) + t0)
+    else
+        P_out = ustrip(upreferred(u"s"), P_out)
+        return t0 + t_sim*P_out
+    end
 end
 
 
