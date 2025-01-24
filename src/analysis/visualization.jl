@@ -481,7 +481,6 @@ end
     d12 = norm.(eachcol(r12))
 
     e_in = eccentricity.(eachcol(r12), eachcol(v12), d12, m1+m2)
-
     com_in = center_of_mass(sol, [1, 2])
     v_com_in = centre_of_mass_velocity(sol, [1, 2])
     r123 = sol.r[particle=3] .- com_in
@@ -497,7 +496,7 @@ end
     layout --> (2, 1)
     size --> (800, 900)
 
-    legend := :topright
+    legend := loge ? :topright : :topleft
     legendfontsize --> 12
     titlefontsize --> 20
     tickfontsize --> 10
@@ -663,7 +662,7 @@ end
     # d312 = distances(r3 .- centre_of_mass(sol, (1, 2))[:,indices] .|> u"AU")
 
     distances(r1, r2) = norm.(eachcol(r1 .- r2))
-
+    legend := :left
     pairs = sol.ic.pairs
     distances = Dict(p => distances(sol.r[particle=p[1]], sol.r[particle=p[2]]) .|> u"Rsun" for p in pairs)
 
@@ -675,7 +674,7 @@ end
             xticks --> nothing
             label --> "$pair"
             ylabel --> "Distance"
-            ustrip(t), distances[pair] #./ first(d12)
+            ustrip(t), distances[pair] ./ first(distances[pair])
         end
     end
 
