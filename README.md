@@ -21,13 +21,14 @@
 `Syzygy.jl` is not a registered package, which means it can be installed using the link to this Github repo. To install it in the REPL, enter the Pkg mode with `]` and just type
 
 ```julia
-add https://github.com/casparwb/Syzygy.jl
+julia> ] # enter Pkg mode
+pkg> add https://github.com/casparwb/Syzygy.jl
 ```
 
 Alternatively, from you terminal run
 
 ```bash
-julia -e 'import Pkg;  Pkg.add(url="https://github.com/casparwb/Syzygy.jl")'
+> julia -e 'import Pkg;  Pkg.add(url="https://github.com/casparwb/Syzygy.jl")'
 ```
 
 ## Hierarchical system initialization
