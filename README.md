@@ -25,7 +25,7 @@ julia> ] # enter Pkg mode
 pkg> add https://github.com/casparwb/Syzygy.jl
 ```
 
-Alternatively, from you terminal run
+Alternatively, from your terminal run
 
 ```bash
 > julia -e 'import Pkg;  Pkg.add(url="https://github.com/casparwb/Syzygy.jl")'
