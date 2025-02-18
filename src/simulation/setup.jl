@@ -140,14 +140,31 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
 
     # setup time step (only used if using symplectic integrator)
     periods = if system isa NonHierarchicalSystem
-        Rs = [norm(particles[ij[1]].position - particles[ij[2]].position) for ij in system.pairs]
-        2π/(GRAVCONST*sum(particles.mass)) .* (Rs ./ 2) .^ (3/2)
+        periods_ = typeof(upreferred(1.0u"s"))[]
+        for pair in system.pairs
+            i, j = pair
+            r = particles[i].position - particles[j].position
+            v = particles[i].velocity - particles[j].velocity
+
+            d = norm(r)
+            v² = norm(v)^2
+
+            M = sum(particles.mass[[i, j]])
+            a = semi_major_axis(d, v², M)
+            push!(periods_, 2π*√(a^3/(GRAVCONST*M)))
+        end
+        periods_
     else
         [bin.elements.P |> upreferred for bin in values(system.binaries)]
     end
 
+
     P_in, P_out = extrema(periods)
-    args[:dt] *= P_in.val # time step is multiple of inner period
+    if args[:dt] isa Real
+        args[:dt] *= P_in.val # time step is multiple of inner period
+    else
+        args[:dt] = ustrip(upreferred(u"s"), args[:dt])
+    end
 
     # Setup time span
     t0 = args[:t0]
@@ -160,6 +177,16 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     t_final = get_final_time(t0, t_sim, P_out, dtype)
     args[:callbacks] = AbstractSyzygyCallback[args[:callbacks]...]
     push!(args[:callbacks], FinalTimeCB(t_final))
+
+    if haskey(args, :saveat)
+        saveat = args[:saveat]
+        if saveat isa Number
+            saveat = saveat isa Quantity ? ustrip(upreferred(u"s"), saveat) : saveat
+            args[:saveat] = t0:saveat:t_final
+        end
+    else
+        args[:saveat] = []
+    end
 
     # Setup optional saving points
     if !iszero(args[:npoints])
