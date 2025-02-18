@@ -3,46 +3,17 @@
 module Syzygy
     using PrecompileTools, Reexport, Preferences
     @reexport using Unitful, UnitfulAstro
+    include("units.jl")
 
-    function set_units(units)
-        allowed_units = ["SI", "Solar", "CGS"]
-
-        if !(units in allowed_units)
-            throw(ArgumentError("Given unit system not allowed. Currently $(allowed_units) are allowed.")) 
-        end
-
-        @set_preferences!("units" => units)
-        @info "New default units set; restart your Julia session for this change to take effect!"
-    end
-
-    function units_from_unit_system(unit_system)
-        allowed_units = ["SI", "Solar", "SI"]
-        units = if unit_system == "SI"
-            u"kg, m, s"
-        elseif unit_system == "CGS"
-            u"g, cm, s"
-        elseif unit_system == "Solar"
-            u"Rsun, Msun, yr"
-        else
-            throw(ArgumentError("Given unit system not allowed. Currently $(allowed_units) are allowed.")) 
-        end
-
-        return units
-    end
-
-    const unit_system = @load_preference("units", "Solar")
-    const units = units_from_unit_system(unit_system)
-
-    Unitful.preferunits(units...)
-    const localpromotion = copy(Unitful.promotion)
     function __init__()
         Unitful.register(Syzygy)
         merge!(Unitful.promotion, localpromotion)
     end
 
 
-    # include("units.jl")
     include("constants.jl")
+
+    include("ode_solvers.jl")
     
     include("setup/stellar_types.jl")
     include("setup/potentials.jl")
@@ -63,10 +34,13 @@ module Syzygy
     include("io.jl")
     
 
-    public centre_of_mass, center_of_mass, centre_of_mass_velocity, potential_energy, 
+    public centre_of_mass, center_of_mass, centre_of_mass_velocity, center_of_mass_velocity, potential_energy, 
            kinetic_energy, specific_orbital_energy, reduced_mass, gravitational_radius,
            schwarzschild_radius, roche_radius, octupole_parameter, is_unstable,
            stability_criterion_ma01, eccentricity
+
+    using .ODEAlgorithms
+    export ODESolvers
 
     export multibodysystem
     export PureGravitationalPotential, DynamicalTidalPotential, 
