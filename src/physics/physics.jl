@@ -574,16 +574,18 @@ end
 
 function spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1::Quantity, m2::Quantity)
     T1PN = PN1_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
-    T1p5PN = PN1p5_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
-    T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
-    return GRAVCONST*(T1PN/c^2 + T1p5PN/c^3 + T2PN/c^4)
+    # T1p5PN = PN1p5_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
+    T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2, GRAVCONST)
+    # return GRAVCONST*(T1PN/c^2 + T1p5PN/c^3 + T2PN/c^4)
+    return GRAVCONST*(T1PN/c^2 + T2PN/c^4)
 end
 
 function spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1::AbstractFloat, m2::AbstractFloat)
     T1PN = PN1_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
-    T1p5PN = PN1p5_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
-    T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
-    return G*(T1PN/c² + T1p5PN/c³ + T2PN/c⁴)
+    # T1p5PN = PN1p5_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
+    T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2, G)
+    # return G*(T1PN/c² + T1p5PN/c³ + T2PN/c⁴)
+    return G*(T1PN/c² + T2PN/c⁴)
 end
 ####################################################################################
 
@@ -691,12 +693,12 @@ function PN2_spin_precession_velocity(body1::MassBody, body2::MassBody)
 end
 
 function PN2_spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1::Quantity, m2::Quantity)
-    T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
+    T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2, GRAVCONST)
     return GRAVCONST*T2PN/c^4
 end
 
 function PN2_spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1::AbstractFloat, m2::AbstractFloat)
-    T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
+    T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2, G)
     return G*T2PN/c⁴
 end
 ####################################################################################
@@ -708,7 +710,6 @@ function PN1_spin_precession_velocity_factor(S̄₁, S̄₂, r₁, r₂, v₁, v
     r = norm(r̄)
 
     n̄ = r̄/r
-
     m₂/r^2*(S̄₁*(n̄ ⋅ v̄) - 2*n̄*(v̄ ⋅ S̄₁) + (v₁ - 2v₂)*(n̄ ⋅ S̄₁))
 end
 
@@ -721,7 +722,7 @@ function PN1p5_spin_precession_velocity_factor(S̄₁, S̄₂, r₁, r₂, v₁,
     -1/r^3*(S̄₂ - 3*(n̄ ⋅ S̄₂)*n̄) × S̄₁
 end
 
-function PN2_spin_precession_velocity_factor(S̄₁, S̄₂, r₁, r₂, v₁, v₂, m₁, m₂)
+function PN2_spin_precession_velocity_factor(S̄₁, S̄₂, r₁, r₂, v₁, v₂, m₁, m₂, G_)
     
     r̄ = r₁ - r₂
     v̄ = v₁ - v₂
@@ -738,11 +739,13 @@ function PN2_spin_precession_velocity_factor(S̄₁, S̄₂, r₁, r₂, v₁, v
     v₁S₁ = dot(v₁, S̄₁)
     v₂S₁ = dot(v₂, S̄₁)
 
+    # G_ = m₁ isa Quantity ? GRAVCONST : G
 
-    m₂/r^2*(S̄₁*(nv₂*vv₂ - 3/2*nv₂^2*nv + G*m₁/r*nv₁ - G*m₂/r*nv) + 
-            n̄*(vS₁*(3*nv₂^2 + 2*vv₂) + G*m₁/r*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁) +
-                2nS₁*G*m₂/r*nv) - v₁*(3/2*nS₁*nv₂^2 + vS₁*nv₂ -
-                nS₁*G/r*(6m₁ - m₂)) + v₂*(nS₁*(2vv₂ + 3nv₂^2) +
-                2nv*(v₁S₁ + v₂S₁) - 5nS₁*G/r*(m₁ - m₂))
+
+    m₂/r^2*(S̄₁*(nv₂*vv₂ - 3/2*nv₂^2*nv + G_*m₁/r*nv₁ - G_*m₂/r*nv) + 
+            n̄*(vS₁*(3*nv₂^2 + 2*vv₂) + G_*m₁/r*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁) +
+                2nS₁*G_*m₂/r*nv) - v₁*(3/2*nS₁*nv₂^2 + vS₁*nv₂ -
+                nS₁*G_/r*(6m₁ - m₂)) + v₂*(nS₁*(2vv₂ + 3nv₂^2) +
+                2nv*(v₁S₁ + v₂S₁) - 5nS₁*G_/r*(m₁ - m₂))
             )
 end
