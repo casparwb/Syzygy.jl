@@ -5,6 +5,7 @@ include("./setup.jl")
 
 # using OrdinaryDiffEq
 using OrdinaryDiffEqRKN
+import OrdinaryDiffEqSymplecticRK
 using Unitful, UnitfulAstro, StaticArrays
 using ProgressMeter
 
