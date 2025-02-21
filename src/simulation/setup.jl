@@ -138,9 +138,8 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
         check_spins(system.particles.S)
     end
 
-    # setup time step (only used if using symplectic integrator)
     periods = if system isa NonHierarchicalSystem
-        periods_ = typeof(upreferred(1.0u"s"))[]
+        periods_ = typeof(1.0*unit_time)[]
         for pair in system.pairs
             i, j = pair
             r = particles[i].position - particles[j].position
@@ -158,17 +157,17 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
         [bin.elements.P |> upreferred for bin in values(system.binaries)]
     end
 
-
     P_in, P_out = extrema(periods)
+    # setup time step (only used if using symplectic integrator)
     if args[:dt] isa Real
         args[:dt] *= P_in.val # time step is multiple of inner period
     else
-        args[:dt] = ustrip(upreferred(u"s"), args[:dt])
+        args[:dt] = ustrip(unit_time, args[:dt])
     end
 
     # Setup time span
     t0 = args[:t0]
-    t0 = isnothing(t0) ? ustrip(upreferred(u"s"), system.time) : ustrip(upreferred(u"s"), t0)
+    t0 = isnothing(t0) ? ustrip(unit_time, system.time) : ustrip(unit_time, t0)
     args[:t0] = t0
     t_sim = args[:t_sim]
     tspan = setup_timespan(t0, t_sim, P_out, dtype)
@@ -181,7 +180,7 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     if haskey(args, :saveat)
         saveat = args[:saveat]
         if saveat isa Number
-            saveat = saveat isa Quantity ? ustrip(upreferred(u"s"), saveat) : saveat
+            saveat = saveat isa Quantity ? ustrip(unit_time, saveat) : saveat
             args[:saveat] = t0:saveat:t_final
         end
     else
@@ -190,7 +189,7 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
 
     # Setup optional saving points
     if !iszero(args[:npoints])
-        args[:saveat] = range(tspan..., length=args[:npoints])
+        args[:saveat] = range(t0, t_final, length=args[:npoints])
     end
 
     # Setup parameters
@@ -251,7 +250,7 @@ end
 
 #     # Setup time span
 #     t0 = args[:t0]
-#     t0 = isnothing(t0) ? ustrip(upreferred(u"s"), multiple_system.time) : ustrip(upreferred(u"s"), t0)
+#     t0 = isnothing(t0) ? ustrip(unit_time, multiple_system.time) : ustrip(unit_time, t0)
 #     args[:t0] = t0
 #     t_sim = args[:t_sim]
 
@@ -289,11 +288,11 @@ end
 function setup_timespan(t0, t_sim, P_out, datatype=Float64)
     if t_sim isa Quantity
         # t_sim *= one(t_sim)
-        # t_sim = ustrip(upreferred(u"s"), t_sim) + t0
+        # t_sim = ustrip(unit_time, t_sim) + t0
         # tspan = (t0, t_sim)
         tspan = (t0, Inf)
     else
-        # P_out = ustrip(upreferred(u"s"), P_out)
+        # P_out = ustrip(unit_time, P_out)
         # tspan = (t0, t0 + t_sim*P_out)
         tspan = (t0, Inf)
     end
@@ -306,9 +305,9 @@ end
 function get_final_time(t0, t_sim, P_out, datatype=Float64)
     if t_sim isa Quantity
         t_sim *= one(t_sim)
-        return (ustrip(upreferred(u"s"), t_sim) + t0)
+        return (ustrip(unit_time, t_sim) + t0)
     else
-        P_out = ustrip(upreferred(u"s"), P_out)
+        P_out = ustrip(unit_time, P_out)
         return t0 + t_sim*P_out
     end
 end
