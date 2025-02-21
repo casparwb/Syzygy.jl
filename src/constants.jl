@@ -19,6 +19,8 @@ const c⁻⁷ = (c⁻⁶/c).val
 
 const π² = π^2
 
+const surface_gravity_unit_conversion_factor = ustrip(u"cm/s^2", 1.0*unit_length/unit_time^2)
+
 const stellar_type = Dict(  "deeply or fully convective low mass MS star" => 0,
                             "Main Sequence Star" => 1,
                             "Hertzsprung Gap" => 2,

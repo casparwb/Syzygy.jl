@@ -187,15 +187,15 @@ function k_over_T_convective(mass, radius, envelope_mass, envelope_radius,
                              luminosity, Z=0.02)
                              
 
-        R_conv, M_conv = envelope_radius, envelope_mass
-        t_conv = 0.4311*(cbrt((3M_conv*R_conv^2)/luminosity)) # Preece et al. 2022
+    R_conv, M_conv = envelope_radius, envelope_mass
+    t_conv = 0.4311*(cbrt((3M_conv*R_conv^2)/luminosity)) # Preece et al. 2022
 
-        log10z = log10(Z)
-        a =  0.630*log10z + 2.72  # a(z) for envelope
-        b = -0.219*log10z + 0.68  # b(z) for envelope
-        c = -0.023*log10z + 0.220 # c(z) for envelope
+    log10z = log10(Z)
+    a =  0.630*log10z + 2.72  # a(z) for envelope
+    b = -0.219*log10z + 0.68  # b(z) for envelope
+    c = -0.023*log10z + 0.220 # c(z) for envelope
 
-        return (R_conv/radius)^a*(M_conv/mass)^b*c/t_conv
+    return (R_conv/radius)^a*(M_conv/mass)^b*c/t_conv
 end
 
 function k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
@@ -204,30 +204,35 @@ function k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
     return 1.9782e4*mass*radius/semi_major_axis^5*(1 + q₂)^(5/6)*E₂
 end
 
-function get_k_interpolator(order=(5,5))
-    k_data_location = joinpath(@__DIR__, "..", "..", "deps", "tidal_evolution_constants", "grid.jld2")
-
+function get_k_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
+    Z = Z == 0.02 ? 0.0134 : Z
+    k_data_location = joinpath(@__DIR__, "..", "..", "deps", "tidal_evolution_constants", "grid_Z=$Z.jld2")
+    
+    if !isfile(k_data_location)
+        @error "Tidal evolution constant data file $(split(k_data_location, "/")[end]) not found."
+    end
+    
     masses = JLD2.load(k_data_location, "Mass")#[1:10:end]
     logg = JLD2.load(k_data_location, "logg")#[1:10:end]
     logk2 = JLD2.load(k_data_location, "logk2")#[1:10:end]
 
     # unique_mass_ids = unique(i -> masses[i], eachindex(masses))
 
-    logm = masses .|> u"Msun" |> ustrip .|> log10
-    logg = logg .|> u"cm/s^2" |> ustrip
+    logm = ustrip.(u"Msun", masses) .|> log10
+    logg = ustrip.(u"cm/s^2", logg) |> ustrip
     logk2 = logk2
 
     coordinates = [SA[col...] for col in (eachcol([logm logg]'))]
 
-    lb = [minimum(logm), minimum(logg)]
-	ub = [maximum(logm), maximum(logg)]
+    lb = [minimum(logm), minimum(logg)] .* lb_multiplier
+	ub = [maximum(logm), maximum(logg)] .* ub_multiplier
     interpolator = chebregression(coordinates, logk2, lb, ub, order)
     k_itp(logm, logg) = interpolator(SA[logm, logg])
 
     return k_itp
 end
 
-const k_interpolator = get_k_interpolator()
+# const k_interpolator = get_k_interpolator()
 
 function asidal_motion_constant_interpolated(logm::Float64, logg::Float64)
     return k_interpolator(logm, logg)

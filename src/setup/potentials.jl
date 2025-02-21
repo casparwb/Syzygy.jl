@@ -77,12 +77,16 @@ end
 
 struct EquilibriumTidalPotential <: MultiBodyPotential end
 
-struct StaticEquilibriumTidalPotential{M_env_Type, R_env_Type} <: MultiBodyPotential
+struct StaticEquilibriumTidalPotential{M_env_Type, R_env_Type, kT, ΩT} <: MultiBodyPotential
     M_env::M_env_Type
     R_env::R_env_Type
+    apsidal_motion_constant::kT
+    rotational_angular_velocity::ΩT
+    # logg# # convert from R⊙/yr² to cm/s²
+    # logm = log10(m₁)
 end
 
-function StaticEquilibriumTidalPotential(system; Z=0.02)
+function StaticEquilibriumTidalPotential(system; Z=0.02, lb_multiplier=1.1, ub_multiplier=1.1)
 
     age = system.time
     n_bodies = system.n
@@ -104,7 +108,41 @@ function StaticEquilibriumTidalPotential(system; Z=0.02)
     R_envs = SA[R_envs...]
     m_envs = SA[m_envs...]
 
-    StaticEquilibriumTidalPotential(m_envs, R_envs)
+    k_interpolator = get_k_interpolator(Z=Z, lb_multiplier=lb_multiplier, ub_multiplier=ub_multiplier)
+    apsidal_motion_constants = Float64[]
+    rotational_angular_velocities = Float64[]
+    for i = 1:n_bodies
+        particle = system.particles[i]
+        if !(particle.structure.stellar_type isa Star)
+            push!(apsidal_motion_constants, 0.0)
+            push!(rotational_angular_velocities, 0.0)
+            continue
+        else
+            m, R = particle.mass, particle.radius
+            g = GRAVCONST*m/R^2
+
+            logg = log10(ustrip(u"cm/s^2", g))
+            logm = log10(ustrip(u"Msun", m))
+            try
+                k = k_interpolator(logm, logg)
+                push!(apsidal_motion_constants, k)
+            catch e
+                # if e isa ArgumentError
+                #     k = get_k_interpolator(Z=Z, lb_multiplier=1.1, ub_multiplier=1.1)
+                # end
+                throw(e)
+            end
+
+            Ω = stellar_spin(m, R)
+            push!(rotational_angular_velocities, ustrip(unit(1/unit_time), Ω))
+
+        end
+    end
+
+    apsidal_motion_constants = SA[apsidal_motion_constants...]
+    rotational_angular_velocities = SA[rotational_angular_velocities...]
+
+    StaticEquilibriumTidalPotential(m_envs, R_envs, apsidal_motion_constants, rotational_angular_velocities)
 end
 
 
@@ -301,7 +339,7 @@ function equilibrium_tidal_drag_force!(dvi,
 
             Ω = norm(S̄₁)
             
-            logg = log10(6.985766564066957e-5*(G*m₁/R^2)) # convert from R⊙/yr² to cm/s²
+            logg = log10(surface_gravity_unit_conversion_factor*(G*m₁/R^2)) # convert from R⊙/yr² to cm/s²
             logm = log10(m₁)
             k = asidal_motion_constant_interpolated(logm, logg)
 
@@ -334,7 +372,7 @@ function equilibrium_tidal_drag_force!(dvi,
 
             Ω = norm(S̄₂)
             
-            logg = log10(6.985766564066957e-5*(G*m₂/R^2)) # convert from R⊙/yr² to cm/s²
+            logg = log10(surface_gravity_unit_conversion_factor*(G*m₂/R^2)) # convert from R⊙/yr² to cm/s²
             logm = log10(m₂)
             k = asidal_motion_constant_interpolated(logm, logg)
 
@@ -365,6 +403,16 @@ function equilibrium_tidal_drag_force!(dvi,
                                
 
     i, j = pair
+    stellar_type_1 = params.stellar_types[i]
+    stellar_type_2 = params.stellar_types[j]
+
+    # println(i, " ", stellar_type_1)
+    # println(j, " ", stellar_type_2)
+
+    if (stellar_type_1 > 10) && (stellar_type_2 > 10) # tides are (currently) only for stars
+        return nothing
+    end
+
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
     v̄₁ = @SVector [vs[1, i], vs[2, i], vs[3, i]]
     
@@ -377,85 +425,146 @@ function equilibrium_tidal_drag_force!(dvi,
     r = norm(r̄)
     v = norm(v̄)
     
-    r² = r^2
-    r_hat = r̄/r
+    r⁻¹ = 1/r
+    # r² = r^2
+    r_hat = r̄*r⁻¹
 
-    ms = params.M
-    Rs = params.R
+    # ms = params.M
+    m₁ = params.M[i]
+    m₂ = params.M[j]
+    # Rs = params.R
+    # R₁ = params.R[i]
+    # R₂ = params.R[j]
 
-    m₁, m₂ = ms[i], ms[j]
+    # Ω₁ = potential.rotational_angular_velocity[i]
+    # Ω₂ = potential.rotational_angular_velocity[j]
 
-    θ_dot = (r̄ × v̄)/r²
+    # m₁, m₂ = ms[i], ms[j]
+
+    θ_dot = (r̄ × v̄)*r⁻¹*r⁻¹
     θ_dot_norm = norm(θ_dot)
     θ_hat = θ_dot/θ_dot_norm
 
     a = semi_major_axis(r, v^2, m₂+m₁, G)
 
+    # k₁ = potential.apsidal_motion_constant[i]
+    # k₂ = potential.apsidal_motion_constant[j]
+
     # tidal force on 1 by 2
-    a₁ = let k = i
-        stellar_type = params.stellar_types[k]
+    a₁ = let
+        if !(stellar_type_1 < 10)
+                SA[0.0, 0.0, 0.0]
+            else    
+                μ = G*m₂*r⁻¹*r⁻¹
+    
+                envelope_mass = potential.M_env[i]
+                envelope_radius = potential.R_env[i]
+                luminosity = params.L[i]
+                R = params.R[i]
+                Ω = potential.rotational_angular_velocity[i]
+                k_T = apsidal_motion_constant_over_tidal_timescale(m₁, R, envelope_mass, envelope_radius,
+                                                                   stellar_type_1, luminosity, 
+                                                                   m₂, a)
+                k = potential.apsidal_motion_constant[i]
+                kτ = R^3/(G*m₁)*k_T
+    
+                @. -3μ*m₂/m₁*(R*r⁻¹)^5*((k + 3v̄*r⁻¹*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
+            end
 
-        if !(stellar_types[stellar_type] isa Star)
-            SA[0.0, 0.0, 0.0]
-        else
-            S̄₁  = @SVector [rs[4, k], rs[5, k], rs[6, k]]
-
-            envelope_mass = potential.M_env[k]
-            envelope_radius = potential.R_env[k]
-            luminosity  = params.L[k]
-
-            R = Rs[k]
-
-            Ω = norm(S̄₁)
-            
-            logg = log10(6.985766564066957e-5*(G*m₁/R^2)) # convert from R⊙/yr² to cm/s²
-            logm = log10(m₁)
-            k = asidal_motion_constant_interpolated(logm, logg)
-
-            μ = G*m₂/r²
-            
-            k_T = apsidal_motion_constant_over_tidal_timescale(m₁, R, envelope_mass, envelope_radius,
-                                                               stellar_type, luminosity, 
-                                                               m₂, a)
-
-            kτ = R^3/(G*m₁)*k_T
-
-            @. -3μ*m₂/m₁*(R/r)^5*((k + 3v̄/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
         end
-    end
 
-    # tidal force on 2 by 1
-    a₂ = let k = j
-        stellar_type = params.stellar_types[k]
+    # # tidal force on 2 by 1
+    a₂ = let 
+        if !(stellar_type_2 < 10)
+                SA[0.0, 0.0, 0.0]
+            else    
+                μ = G*m₁*r⁻¹*r⁻¹
+    
+                envelope_mass = potential.M_env[j]
+                envelope_radius = potential.R_env[j]
+                luminosity  = params.L[j]
+                R = params.R[j]
+                Ω = potential.rotational_angular_velocity[j]
+                k_T = apsidal_motion_constant_over_tidal_timescale(m₂, R, envelope_mass, envelope_radius,
+                                                                   stellar_type_1, luminosity, 
+                                                                   m₁, a)
+                k = potential.apsidal_motion_constant[j]
+                kτ = R^3/(G*m₂)*k_T
+    
+                @. -3μ*m₁/m₂*(R*r⁻¹)^5*((k + 3v̄*r⁻¹*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
+            end
 
-        if !(stellar_types[stellar_type] isa Star)
-            SA[0.0, 0.0, 0.0]
-        else
-            S̄₂  = @SVector [rs[4, k], rs[5, k], rs[6, k]]
-
-            envelope_mass = potential.M_env[k]
-            envelope_radius = potential.R_env[k]
-            luminosity  = params.L[k]
-
-            R = Rs[k]
-
-            Ω = norm(S̄₂)
-            
-            logg = log10(6.985766564066957e-5*(G*m₂/R^2)) # convert from R⊙/yr² to cm/s²
-            logm = log10(m₂)
-            k = asidal_motion_constant_interpolated(logm, logg)
-
-            μ = G*m₁/r²
-            
-            k_T = apsidal_motion_constant_over_tidal_timescale(m₂, R, envelope_mass, envelope_radius,
-                                                               stellar_type, luminosity, 
-                                                               m₁, a)
-
-            kτ = R^3/(G*m₂)*k_T
-
-            @. -3μ*m₁/m₂*(R/r)^5*((k + 3v̄/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
         end
-    end
+
+    # a₁ = let k = i
+    #     stellar_type = params.stellar_types[k]
+
+    #     if !(stellar_types[stellar_type] isa Star)
+    #         SA[0.0, 0.0, 0.0]
+    #     else
+    #         S̄₁  = @SVector [rs[4, k], rs[5, k], rs[6, k]]
+
+    #         envelope_mass = potential.M_env[k]
+    #         envelope_radius = potential.R_env[k]
+    #         luminosity  = params.L[k]
+
+    #         R = Rs[k]
+
+    #         Ω = norm(S̄₁)
+            
+    #         logg = log10(6.985766564066957e-5*(G*m₁/R^2)) # convert from R⊙/yr² to cm/s²
+    #         logm = log10(m₁)
+    #         # k = asidal_motion_constant_interpolated(logm, logg)
+    #         # k = potential.k_interpolator(logm, logg)
+    #         k = potential.apsidal_motion_constant[]
+
+    #         μ = G*m₂/r²
+            
+    #         k_T = apsidal_motion_constant_over_tidal_timescale(m₁, R, envelope_mass, envelope_radius,
+    #                                                            stellar_type, luminosity, 
+    #                                                            m₂, a)
+
+    #         kτ = R^3/(G*m₁)*k_T
+
+    #         @. -3μ*m₂/m₁*(R/r)^5*((k + 3v̄/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
+    #     end
+    # end
+
+    # a₂ = let k = j
+    #     stellar_type = params.stellar_types[k]
+
+    #     if !(stellar_types[stellar_type] isa Star)
+    #         SA[0.0, 0.0, 0.0]
+    #     else
+    #         S̄₂  = @SVector [rs[4, k], rs[5, k], rs[6, k]]
+
+    #         envelope_mass = potential.M_env[k]
+    #         envelope_radius = potential.R_env[k]
+    #         luminosity  = params.L[k]
+
+    #         R = Rs[k]
+
+    #         Ω = norm(S̄₂)
+            
+    #         logg = log10(6.985766564066957e-5*(G*m₂/R^2)) # convert from R⊙/yr² to cm/s²
+    #         logm = log10(m₂)
+    #         # k = asidal_motion_constant_interpolated(logm, logg)
+    #         # k = potential.k_interpolator(logm, logg)
+    #         k = potential.apsidal_motion_constant[]
+
+    #         μ = G*m₁/r²
+            
+    #         k_T = apsidal_motion_constant_over_tidal_timescale(m₂, R, envelope_mass, envelope_radius,
+    #                                                            stellar_type, luminosity, 
+    #                                                            m₁, a)
+
+    #         kτ = R^3/(G*m₂)*k_T
+
+    #         @. -3μ*m₁/m₂*(R/r)^5*((k + 3v̄/r*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
+    #     end
+    # end
+    # println(i, " ", a₁)
+    # println(j, " ", a₂)
     
     dvi .+= a₁
     dvj .+= a₂
