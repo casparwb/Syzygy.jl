@@ -55,6 +55,9 @@ end
 
 const unit_system = @load_preference("units", "Solar")
 const units = units_from_unit_system(unit_system)
+const unit_length = only([u for u in units if Unitful.dimension(u) == Unitful.𝐋])
+const unit_mass = only([u for u in units if Unitful.dimension(u) == Unitful.𝐌])
+const unit_time = only([u for u in units if Unitful.dimension(u) == Unitful.𝐓])
 
 Unitful.preferunits(units...)
 const localpromotion = copy(Unitful.promotion)

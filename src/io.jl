@@ -151,7 +151,7 @@ function Base.show(io::IO, sim::MultiBodySimulation)
     println(io, "\nSimulation setup\n-------------------------------")
 
     print(io, "\nTime span: ")
-    timespan = u"kyr".(sim.tspan .* u"s")
+    timespan = u"kyr".(sim.tspan .* unit_time)
     print(io, timespan)
 
     println("\n")

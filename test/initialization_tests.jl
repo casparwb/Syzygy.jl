@@ -1,3 +1,4 @@
+using LinearAlgebra: norm
 @testset "Setup" begin
 
     # @testset "State vectors to elements" begin

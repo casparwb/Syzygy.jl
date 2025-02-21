@@ -72,7 +72,7 @@ function simulate(simulation::MultiBodySimulation)
     try
         if args[:showprogress]
             for i in integrator
-                next!(prog; showvalues=[(Symbol("System time"), u"yr"(integrator.t * u"s")),
+                next!(prog; showvalues=[(Symbol("System time"), u"yr"(integrator.t * unit_time)),
                                         (Symbol("System %"), (integrator.t - simulation.tspan[1])/maxtime*100)], 
                                         spinner="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
             end
@@ -89,8 +89,8 @@ function simulate(simulation::MultiBodySimulation)
         retcodes[:DiffEq] = Symbol("$(integrator.sol.retcode)")
     catch e
         if e isa InterruptException
-            @info "Stopped at t = $(u"yr"(integrator.t * u"s"))"
-            
+            @info "Stopped at t = $(u"yr"(integrator.t * unit_time))"
+            retcodes[:DiffEq] == :Interrupted
         else
             throw(e)
         end
@@ -104,7 +104,7 @@ function simulate(simulation::MultiBodySimulation)
             @info "Simulation successful."
         else
             outcome = retcodes#collect(keys(retcodes))
-            t = u"yr"(integrator.t * u"s")
+            t = u"yr"(integrator.t * unit_time)
             @info "Outcome: " t outcome
         end
     end
