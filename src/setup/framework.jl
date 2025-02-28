@@ -383,6 +383,11 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
 
     end
 
+    #v1x, v1y, v1z, v2x, v2y, v2z, v3x, v3y, v3z, r1x, r1y, r1z, r2x, r2y, r2z, r3x, r3y, r3z
+    # syms_v = [Symbol.(["v$(i)x", "v$(i)y", "v$(i)z"]) for i = 1:simulation.ic.n]
+    # syms_r = [Symbol.(["r$(i)x", "r$(i)y", "r$(i)z"]) for i = 1:simulation.ic.n]
+    # syms = vcat(syms_v..., syms_r...)  
+
     SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
 end
 
