@@ -8,6 +8,10 @@ using DiffEqCallbacks: ManifoldProjection
 
 abstract type AbstractSyzygyCallback end
 
+struct SavingCB{T} <: AbstractSyzygyCallback
+    save_every::T
+end
+
 struct FinalTimeCB{T} <: AbstractSyzygyCallback 
     t_final::T
 end
@@ -74,6 +78,14 @@ function setup_callbacks(conditions, system, p, retcodes, args)
     end
     
     return cbs
+end
+
+function get_callback(cb::SavingCB, system, retcodes, args)
+
+    condition_saving(u, t, integrator) = iszero(integrator.iter % cb.save_every)
+    affect!(integrator) = savevalues!(integrator, true)
+    
+    return DiscreteCallback(condition_saving, affect!, save_positions=(false, false))
 end
 
 function get_callback(cb::FinalTimeCB, system, retcodes, args)
@@ -717,7 +729,7 @@ function ionization_callback!(integrator, retcodes, max_distance)
 
     if criteria_1 && criteria_2 && criteria_3
         retcodes[:Ionization] = true
-        Syzygy.OrdinaryDiffEq.terminate!(integrator)        
+        terminate!(integrator)        
     end
 
 end
