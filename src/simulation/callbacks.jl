@@ -225,7 +225,7 @@ function collision_callback_old!(integrator, n, retcode)
                 d = norm(ri - rj)
 
                 if isless(d - ustrip(integrator.p.R[j]), ustrip(integrator.p.R[i]))
-                    t = integrator.t * upreferred(u"s")
+                    t = integrator.t * unit_time
                     retcode[:Collision] = (SA[i, j], t)
                     terminate!(integrator)
                 end
@@ -263,7 +263,7 @@ function collision_callback!(integrator, n, retcode, grav_rad_multiple)
                 collision = collision_check(d, Ri, Rj, Mi, Mj, stellar_type_i, stellar_type_j, 
                                                   grav_rad_multiple)::Bool
                 if collision
-                    t = integrator.t * upreferred(u"s")
+                    t = integrator.t * unit_time
                     retcode[:Collision] = (SA[i, j], t)
                     terminate!(integrator)
                 end
@@ -301,7 +301,7 @@ function collision_check_star_compact_object(d, R_star, m_CO, m_star)
 end
 
 function collision_check_compact_objects(d, m1, m2, grav_rad_multiple) 
-    rg = G*(m1 + m2)*c⁻² # mutual gravitational radius
+    rg = UNITLESS_G*(m1 + m2)*c⁻² # mutual gravitational radius
 
     return d <= rg*grav_rad_multiple
 end
@@ -334,7 +334,7 @@ function collision_callback_idiomatic!(integrator, pairs, retcode, grav_rad_mult
                                           grav_rad_multiple)
 
         if collision#collision_check(d, Ri, Rj, Mi, Mj, stellar_type_i, stellar_type_j, grav_rad_multiple)
-            t = integrator.t * upreferred(u"s")
+            t = integrator.t * unit_time
             retcode[:Collision] = (SA[i, j], t)
             terminate!(integrator)
         end
@@ -358,10 +358,9 @@ function collision_check(d, R1, R2, m1, m2, stellar_type1::Star, stellar_type2::
 end
 
 function collision_check(d, R1, R2, m1, m2, stellar_type1::CompactObject, stellar_type2::CompactObject, grav_rad_multiple)
-    rg = G*(m1 + m2)*c⁻² # mutual gravitational radius
+    rg = UNITLESS_G*(m1 + m2)*c⁻² # mutual gravitational radius
     d <= grav_rad_multiple*rg
 end
-
 
 @inline function total_mass(masses, sibling_ids::SVector{N, Int}) where N
     M = zero(masses[1])
@@ -409,7 +408,7 @@ function unbound_callback!(integrator, retcode; max_a_factor=100)
 
         # binary properties of remaining components
         M_bin = SA[integrator.p.M[binary_ids[1]], integrator.p.M[binary_ids[2]]]
-        a_bin = semi_major_axis(norm(r_rel_bin), norm(v_rel_bin)^2, M_bin[1] + M_bin[2], G)
+        a_bin = semi_major_axis(norm(r_rel_bin), norm(v_rel_bin)^2, M_bin[1] + M_bin[2])
         a_bin < zero(a_bin) && continue
 
         r_bin = centre_of_mass(SA[r_comp1, r_comp2], M_bin)
@@ -429,7 +428,7 @@ function unbound_callback!(integrator, retcode; max_a_factor=100)
             M = ustrip(integrator.p.M[particle])
             T = kinetic_energy(v_part, M) 
             
-            U = -(G*M)*(M_bin[1]/norm(r_part - r_comp1) + M_bin[2]/norm(r_part - r_comp2))
+            U = -(UNITLESS_G*M)*(M_bin[1]/norm(r_part - r_comp1) + M_bin[2]/norm(r_part - r_comp2))
             
             Etot = T + U
             if Etot > zero(Etot)
@@ -482,7 +481,7 @@ function rlof_callback_hierarchical!(integrator, retcode, particles, binaries, n
         R_roche = roche_radius(d, M₁/M₂)
         rlof = isless(R_roche, integrator.p.R[i])
         if rlof
-            retcode[rcode] = upreferred(u"s")*integrator.t
+            retcode[rcode] = unit_time*integrator.t
         end
     end
 end
@@ -528,7 +527,7 @@ function rlof_callback_democratic!(integrator, retcode, n, rlof_rcodes)
 
         rlof = R_roche <= integrator.p.R[i]
         if rlof
-            retcode[rcode] = integrator.t * upreferred(u"s")
+            retcode[rcode] = integrator.t * unit_time
         end
     end
     nothing
@@ -552,7 +551,7 @@ function max_cpu_time_callback!(integrator, retcode, start_time, max_cpu_time)
 end
 
 function hubble_time_callback!(integrator, retcode)
-    if upreferred(u"s")*integrator.t > 13.8u"Gyr"
+    if unit_time*integrator.t > 13.8u"Gyr"
         retcode[:HubbleTime] = true
         terminate!(integrator)
     end
@@ -618,14 +617,14 @@ function democratic_check_callback_binary!(integrator, pairs, retcodes)
         v_rel = vj - vi
         
         K = 0.5*(Mi*norm(vi)^2 + Mj*norm(vj)^2)
-        U = -G*Mi*Mj/norm(r_rel)
+        U = -UNITLESS_G*Mi*Mj/norm(r_rel)
     
         (K + U) > 0 && continue # if not bound, skip
 
         d = norm(r_rel)
         v² = norm(v_rel)^2
     
-        a = semi_major_axis(d, v², M, G)
+        a = semi_major_axis(d, v², M)
         a < zero(a) && continue
 
         if a < sma
@@ -666,7 +665,7 @@ function democratic_check_callback_hyperbolic(integrator, retcodes)
 
     d = norm(r_rel)
 
-    e = eccentricity(r_rel, v_rel, d, m12, G)
+    e = eccentricity(r_rel, v_rel, d, m12)
 
     if e >= 1
         retcodes[:Democratic_ecc] = (true, integrator.t)
@@ -709,7 +708,7 @@ function ionization_callback!(integrator, retcodes, max_distance)
     distances_now = SA[d12, d23, d13]
 
     K = 0.5*m .* SA[norm(v1)^2, norm(v2)^2, norm(v3)^2]
-    U = -G*m .* SA[m[2]/d12 + m[3]/d13,
+    U = -UNITLESS_G*m .* SA[m[2]/d12 + m[3]/d13,
                    m[1]/d12 + m[3]/d23,
                    m[1]/d13 + m[2]/d23]
 
