@@ -150,17 +150,26 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
 
             M = sum(particles.mass[[i, j]])
             a = semi_major_axis(d, v², M)
-            push!(periods_, 2π*√(a^3/(GRAVCONST*M)))
+            if a < zero(a) # not a bound binary
+                push!(periods_, NaN*unit_time)
+            else
+                push!(periods_, 2π*√(a^3/(GRAVCONST*M)))
+            end
         end
-        periods_
+        filter(!isnan, periods_)
     else
         [bin.elements.P |> upreferred for bin in values(system.binaries)]
     end
 
-    P_in, P_out = extrema(periods)
+    P_in, P_out = isempty(periods) ? (Inf*unit_time, Inf*unit_time) : extrema(periods)
     # setup time step (only used if using symplectic integrator)
     if args[:dt] isa Real
-        args[:dt] *= P_in.val # time step is multiple of inner period
+        if isinf(P_in)
+            throw(DomainError(args[:dt], "None of the bodies are bound, therefore giving dt as a multiple of the smallest period is not possible. Solution: give dt as a number with a time unit."))
+            # @warn "None of the bodies are bound, therefore giving dt as a multiple of the smallest period is not possible. Solution: give dt as a number with a time unit."
+            # return nothing
+        end
+        args[:dt] *= P_in.val # time step is multiple of smallest period
     else
         args[:dt] = ustrip(unit_time, args[:dt])
     end
