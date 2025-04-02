@@ -53,7 +53,7 @@ module Syzygy
     export to_solution
     export GRAVCONST
     
-    export CollisionCB, EscapeCB, RocheLobeOverflowCB, CPUTimeCB, 
+    export CollisionCB, EscapeCB, RocheLobeOverflowCB, CPUTimeCB, SavingCB,
            CentreOfMassCB, HubbleTimeCB, DemocraticCheckCB, IonizationCB
    
 
@@ -71,11 +71,8 @@ module Syzygy
         #          callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)])
         # simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
         #          callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)],
-        #          potential=[PureGravitationalPotential(), DynamicalTidalPotential(G=GRAVCONST.val, n=4, γ=[1.5, 1.5, 1.5])])
+        #          potential=[PureGravitationalPotential(), DynamicalTidalPotential(4, [1.5, 1.5, 1.5])])
         # simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
-        #          callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)],
-        #          potential=[PureGravitationalPotential(), EquilibriumTidalPotential(GRAVCONST.val)])
-        # res = simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
         #          callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)],
         #          potential=[PureGravitationalPotential(), StaticEquilibriumTidalPotential(triple)])
 
