@@ -1,21 +1,22 @@
 using StaticArrays
 
 const GRAVCONST = 6.6743015e-11u"m^3/kg/s^2" |> upreferred
-const G = GRAVCONST.val
-const G² = G^2
-const G³ = G^3
-const G⁴ = G^4
+const UNITLESS_G = GRAVCONST.val
+const G² = UNITLESS_G^2
+const G³ = UNITLESS_G^3
+const G⁴ = UNITLESS_G^4
 
-const c = 299_792_458u"m/s" |> upreferred
-const c² = (c*c).val
-const c³ = (c²*c).val
-const c⁴ = (c³*c).val
-const c⁻² = (1/c²)
-const c⁻³ = (1/c³)
-const c⁻⁴ = (c⁻²/c²)
-const c⁻⁵ = (c⁻⁴/c).val
-const c⁻⁶ = (c⁻⁵/c).val
-const c⁻⁷ = (c⁻⁶/c).val
+const speed_of_light = 299_792_458u"m/s" |> upreferred
+const UNITLESS_c = ustrip(unit_length/unit_time, speed_of_light)
+const c² = UNITLESS_c*UNITLESS_c
+const c³ = c²*UNITLESS_c
+const c⁴ = c³*UNITLESS_c
+const c⁻² = 1/c²
+const c⁻³ = 1/c³
+const c⁻⁴ = c⁻²/c²
+const c⁻⁵ = c⁻⁴/UNITLESS_c
+const c⁻⁶ = c⁻⁵/UNITLESS_c
+const c⁻⁷ = c⁻⁶/UNITLESS_c
 
 const π² = π^2
 

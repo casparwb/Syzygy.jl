@@ -219,7 +219,7 @@ function get_k_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multipli
     # unique_mass_ids = unique(i -> masses[i], eachindex(masses))
 
     logm = ustrip.(u"Msun", masses) .|> log10
-    logg = ustrip.(u"cm/s^2", logg) |> ustrip
+    logg = ustrip.(u"cm/s^2", logg)
     logk2 = logk2
 
     coordinates = [SA[col...] for col in (eachcol([logm logg]'))]

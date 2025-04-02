@@ -165,7 +165,7 @@ julia> m = rand(3)
 julia> com = Syzygy.potential_energy(r, m)
 ```
 """
-function potential_energy(positions::AbstractVector, masses::AbstractVector)
+function potential_energy(positions::AbstractVector, masses)
     U = zero((masses[1]*masses[2])/norm(positions[1] - positions[2]))
     n = length(positions)
     @inbounds for i in 1:n
@@ -176,24 +176,21 @@ function potential_energy(positions::AbstractVector, masses::AbstractVector)
         end
     end
 
-    U*ifelse(U isa Quantity, GRAVCONST, G)
+    U*ifelse(U isa Quantity, GRAVCONST, UNITLESS_G)
 end
 
-function potential_energy(positions::AbstractMatrix, masses, G)
-    # U = 0.0
+function potential_energy(positions::AbstractMatrix, masses)
     U = zero((masses[1]*masses[2])/(norm(positions[:,1] - positions[:,2])))
     n = size(positions, 2)
     @inbounds for i in 1:n
         for j in i:n
             if i != j
-                # @show i, j
-                # @show U
                 U -= masses[i]*masses[j]/(norm(positions[:,i] - positions[:,j]))
             end
         end
     end
 
-    U*ifelse(U isa Quantity, upreferred(G), ustrip(upreferred(G)))
+    U*ifelse(U isa Quantity, GRAVCONST, UNITLESS_G)
 end
 
 """
@@ -212,7 +209,7 @@ function potential_energy(sol::MultiBodySolution,
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
     indices = indices[1]:indices[2]
     
-    pot_energy = zeros(typeof(1.0u"J"), length(sol.t))
+    pot_energy = zeros(typeof(upreferred(1.0u"J")), length(sol.t))
     for i ∈ indices
         m = ifelse(i > 1, masses[:,2], masses[:,1])
         r = [SVector{3}(sol.r[:,b,i]) for b in bodies]
@@ -331,14 +328,11 @@ Return the gravitational radius of an object with the given `mass`.
 The gravitational radius is defined as GM/c².
 """
 function gravitational_radius(mass::Unitful.Mass)
-    GRAVCONST*mass/c^2
+    GRAVCONST*mass/speed_of_light^2
 end
 
-"""
-    gravitational_radius(mass::Real)
-"""
 function gravitational_radius(mass::Real)
-    G*mass/c²
+    UNITLESS_G*mass/c²
 end
 
 """
@@ -394,7 +388,7 @@ Return the stellar rotation of a star with mass 'm [M⊙]' and radius 'R [R⊙]'
 described by Hurley, Pols, & Tout 2000, eq 107-108.
 """
 function stellar_spin(m::Unitful.Mass, R::Unitful.Length)
-    stellar_spin(ustrip(u"Msun", m), ustrip(u"Rsun", R))*upreferred(1.0u"1/yr")
+    stellar_spin(ustrip(u"Msun", m), ustrip(u"Rsun", R))*u"1/yr"
 end
 
 function stellar_spin(m::T, R::T) where T <: Real
@@ -577,15 +571,13 @@ function spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1::Quantity, m2::Quan
     T1p5PN = PN1p5_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
     T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2, GRAVCONST)
     return GRAVCONST*(T1PN/c^2 + T1p5PN/c^3 + T2PN/c^4)
-    # return GRAVCONST*(T1PN/c^2 + T2PN/c^4)
 end
 
 function spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1::AbstractFloat, m2::AbstractFloat)
     T1PN = PN1_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
     T1p5PN = PN1p5_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
-    T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2, G)
-    return G*(T1PN/c² + T1p5PN/c³ + T2PN/c⁴)
-    return G*(T1PN/c² + T2PN/c⁴)
+    T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2, UNITLESS_G)
+    return UNITLESS_G*(T1PN/c² + T1p5PN/c³ + T2PN/c⁴)
 end
 ####################################################################################
 
@@ -623,7 +615,7 @@ end
 
 function PN1_spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1::AbstractFloat, m2::AbstractFloat)
     T1PN = PN1_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
-    return G*T1PN/c²
+    return UNITLESS_G*T1PN/c²
 end
 ####################################################################################
 
@@ -661,7 +653,7 @@ end
 
 function PN1p5_spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1::AbstractFloat, m2::AbstractFloat)
     T1p5PN = PN1p5_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2)
-    return G*T1p5PN/c³
+    return UNITLESS_G*T1p5PN/c³
 end
 ####################################################################################
 
@@ -698,8 +690,8 @@ function PN2_spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1::Quantity, m2::
 end
 
 function PN2_spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1::AbstractFloat, m2::AbstractFloat)
-    T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2, G)
-    return G*T2PN/c⁴
+    T2PN = PN2_spin_precession_velocity_factor(S1, S2, r1, r2, v1, v2, m1, m2, UNITLESS_G)
+    return UNITLESS_G*T2PN/c⁴
 end
 ####################################################################################
 
@@ -723,7 +715,7 @@ function PN1p5_spin_precession_velocity_factor(S̄₁, S̄₂, r₁, r₂, v₁,
     1/r^3*(S̄₂ - 3*(n̄ ⋅ S̄₂)*n̄) × S̄₁
 end
 
-function PN2_spin_precession_velocity_factor(S̄₁, S̄₂, r₁, r₂, v₁, v₂, m₁, m₂, G_)
+function PN2_spin_precession_velocity_factor(S̄₁, S̄₂, r₁, r₂, v₁, v₂, m₁, m₂, G)
     
     r̄ = r₁ - r₂
     v̄ = v₁ - v₂
@@ -740,13 +732,10 @@ function PN2_spin_precession_velocity_factor(S̄₁, S̄₂, r₁, r₂, v₁, v
     v₁S₁ = dot(v₁, S̄₁)
     v₂S₁ = dot(v₂, S̄₁)
 
-    # G_ = m₁ isa Quantity ? GRAVCONST : G
-
-
-    m₂/r^2*(S̄₁*(nv₂*vv₂ - 3/2*nv₂^2*nv + G_*m₁/r*nv₁ - G_*m₂/r*nv) + 
-            n̄*(vS₁*(3*nv₂^2 + 2*vv₂) + G_*m₁/r*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁) +
-                2nS₁*G_*m₂/r*nv) - v₁*(3/2*nS₁*nv₂^2 + vS₁*nv₂ -
-                nS₁*G_/r*(6m₁ - m₂)) + v₂*(nS₁*(2vv₂ + 3nv₂^2) +
-                2nv*(v₁S₁ + v₂S₁) - 5nS₁*G_/r*(m₁ - m₂))
+    m₂/r^2*(S̄₁*(nv₂*vv₂ - 3/2*nv₂^2*nv + G*m₁/r*nv₁ - G*m₂/r*nv) + 
+            n̄*(vS₁*(3*nv₂^2 + 2*vv₂) + G*m₁/r*(-16*nS₁*nv + 3*v₁S₁ - 7*v₂S₁) +
+                2nS₁*G*m₂/r*nv) - v₁*(3/2*nS₁*nv₂^2 + vS₁*nv₂ -
+                nS₁*G/r*(6m₁ - m₂)) + v₂*(nS₁*(2vv₂ + 3nv₂^2) +
+                2nv*(v₁S₁ + v₂S₁) - 5nS₁*G/r*(m₁ - m₂))
             )
 end

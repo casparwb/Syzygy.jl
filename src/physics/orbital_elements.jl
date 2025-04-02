@@ -4,7 +4,7 @@
     semi_major_axis(d, v², M)
 
 Return the semi-major axis of a binary system with total mass 'M'.
-Here, 'd' denotes the relative distance, while 'v²' is the relative
+Here, 'd' denotes the relative separation, while 'v²' is the relative
 velocity magnitude squared.
 
 ```math
@@ -16,7 +16,8 @@ function semi_major_axis(d, v², M, G)
     GM*d/(2GM - d*v²)
 end
 
-semi_major_axis(d, v², M) = semi_major_axis(d, v², M, GRAVCONST)
+semi_major_axis(d::Quantity, v², M) = semi_major_axis(d, v², M, GRAVCONST)
+semi_major_axis(d::Real, v², M) = semi_major_axis(d, v², M, UNITLESS_G)
 
 """
     orbital_period(a, M, G)
@@ -24,11 +25,15 @@ semi_major_axis(d, v², M) = semi_major_axis(d, v², M, GRAVCONST)
 Get the orbital period of binary with semi-major axis `a` and total mass `M`.
 """
 function orbital_period(a, M, G)
-    a < zero(a) && @warn "Given semi-major axis is negative: " a
+    if a < zero(a) 
+        @warn "Given semi-major axis is negative: " a
+        return Inf
+    end
     2π*√(abs(a)^3/(G*M))
 end
 
 orbital_period(a, M::Unitful.Mass) = orbital_period(a, M, GRAVCONST)
+orbital_period(a, M::Real) = orbital_period(a, M, UNITLESS_G)
 
 """
     eccentricity_vector(r, v, d, μ)
@@ -40,48 +45,37 @@ velocity `v`, and standard gravitational parameter `μ`, where `μ ≡ G(m₁ + 
     \\vec{e} = \\frac{\\vec{v} \\times (\\vec{r} \\times \\vec{v})}{\\mu} - \\frac{\\vec{r}}{d} 
 ```
 """
-function eccentricity_vector(r, v, d, μ)
+function eccentricity_vector(r, v, d::T1, μ::T2) where {T1 <: Number, T2 <: Number}
     (v × (r × v))/μ - r/d
 end
 
 """
     eccentricity_vector(r, v, d, m::AbstractVector, G=GRAVCONST)
 """
-function eccentricity_vector(r, v, d, masses::AbstractVector, G=GRAVCONST)
+function eccentricity_vector(r, v, d, masses::AbstractVector, G)
     μ = G*(masses[1] + masses[2])
     eccentricity_vector(r, v, d, μ)
 end
 
-# function eccentricity_vector(r, v, d, M::Number, G=GRAVCONST)
-#     μ = G*M
-#     eccentricity_vector(r, v, d, μ)
-# end
+eccentricity_vector(r, v, d::Unitful.Length, masses::AbstractVector) = eccentricity_vector(r, v, d, masses, GRAVCONST)
+eccentricity_vector(r, v, d::Real, masses::AbstractVector) = eccentricity_vector(r, v, d, masses, UNITLESS_G)
 
-function eccentricity(r, v, d, m::AbstractVector, G=GRAVCONST)
+
+
+function eccentricity(r, v, d, m::AbstractVector, G)
     μ = G*(m[1] + m[2])
     return norm(eccentricity_vector(r, v, d, μ))
 end
 
-function eccentricity(r, v, d, M::Number, G=GRAVCONST)
+function eccentricity(r, v, d, M::Number, G)
     μ = G*M
     return norm(eccentricity_vector(r, v, d, μ))
 end
 
-"""
-    eccentricity(r, v, a, M)
+eccentricity(r, v, d::Unitful.Length, M) = eccentricity(r, v, d, M, GRAVCONST)
+eccentricity(r, v, d::Real, M) = eccentricity(r, v, d, M, UNITLESS_G)
 
-Eccentricity of binary orbit with total mass `M`, semi-major axis `a`,
-relative positions `r`, and relative velocities `v`.
 
-``e = \\sqrt{1 - \\frac{|r×v|²}{GMa}}`` 
-"""
-function eccentricity_old(r, v, a, M, G)
-    e² = 1 - sum(abs2, r × v)/(G*M*a)
-    e² < 0 && return 1e-4
-    return sqrt(e²)
-end
-
-eccentricity_old(r, v, a, M) = eccentricity(r, v, a, M, GRAVCONST)
 
 function angular_momentum(r, v)
     r×v
@@ -107,9 +101,9 @@ Return the longitude of ascending node of a body in an orbit with angular moment
 function longitude_of_ascending_node(h)
     n = SA[-h[2], h[1], zero(h[1])]
     Ω = acos(n[1]/norm(n))
-    isnan(Ω) && return 0.0u"rad"
-    n[2] >= n[3] && return (Ω)u"rad"
-    return (2π - Ω)u"rad"
+    isnan(Ω) && return 0.0
+    n[2] >= n[3] && return (Ω)
+    return (2π - Ω)
 end
 
 """
@@ -121,19 +115,19 @@ velocity `r`, angular momentum `h` and mass `m`.
 function argument_of_periapsis(r, v, h, m, G)
     μ = G*m
     n = SA[-h[2], h[1], zero(h[1])]
-    # n = 
     e = (v × h)/μ .- r/norm(r)
 
     ω = acos(dot(e, n)/(norm(n)*norm(e)))
     if isnan(ω) 
         ω = atan(e[2], e[1])
-        return ifelse(h[3] < zero(h[3]), 2π - ω, ω)u"rad"
+        return ifelse(h[3] < zero(h[3]), 2π - ω, ω)
     end
 
-    return ifelse(e[3] < zero(e[3]), 2π - ω, ω)u"rad"
+    return ifelse(e[3] < zero(e[3]), 2π - ω, ω)
 end
 
-argument_of_periapsis(r, v, h, M) = argument_of_periapsis(r, v, h, M, GRAVCONST)
+argument_of_periapsis(r, v, h, M::Quantity) = argument_of_periapsis(r, v, h, M, GRAVCONST)*u"rad"
+argument_of_periapsis(r, v, h, M::Real) = argument_of_periapsis(r, v, h, M, UNITLESS_G)
 
 """
     true_anomaly(r, v, h, M, G)
@@ -160,7 +154,8 @@ function true_anomaly(r, v, h, m, G)
     # return ifelse(vᵣ >= zero(vᵣ), ν, 2π - ν)
 end
 
-true_anomaly(r, v, h, M) = true_anomaly(r, v, h, M, GRAVCONST)
+true_anomaly(r, v, h, M::Quantity) = true_anomaly(r, v, h, M, GRAVCONST)
+true_anomaly(r, v, h, M::Real) = true_anomaly(r, v, h, M, UNITLESS_G)
 
 
 """
@@ -235,26 +230,41 @@ function binary_elements(positions, velocities, masses)
     v = norm(v_rel)
     M = M1 + M2
 
-    a = semi_major_axis(d, v^2, M, GRAVCONST) |> u"Rsun"
-    e = eccentricity(r_rel, v_rel, d, M, GRAVCONST) 
+    a = semi_major_axis(d, v^2, M)
+    e = eccentricity(r_rel, v_rel, d, M) 
 
-    P = orbital_period(a, M, GRAVCONST) |> u"d"
+    P = orbital_period(a, M)
     h = angular_momentum(r_rel, v_rel)
-    ω = argument_of_periapsis(r_rel, v_rel, h, M, GRAVCONST) 
+    ω = argument_of_periapsis(r_rel, v_rel, h, M) 
     i = inclination(h)
     Ω = longitude_of_ascending_node(h)
-    ν = true_anomaly(r_rel, v_rel, h, M, GRAVCONST)
-    # ν = true_anomaly(r1, v1, h1, M1, GRAVCONST)
+    ν = true_anomaly(r_rel, v_rel, h, M)
 
     OrbitalElements(a, P, e, ω, i, Ω, ν)
 end
 
 """
-    is_binary(positions, velocities, masses)
+    is_binary(r1, r2, v1, v2, m1, m1)
 
-Check if two bodies with the given positions, velocities, and masses
+Check if two bodies with the given positions (r1, r2), velocities (v1, v2), and masses (m1, m2)
 are gravitationally bound and form a binary.
 """
+function is_binary(r1, r2, v1, v2, m1, m2, G)
+    r_rel = r2 - r1
+
+    v₁² = norm(v1)^2
+    v₂² = norm(v2)^2
+
+    K = 0.5*(m1*v₁² + m2*v₂²)
+    U = -G*m1*m2/norm(r_rel)
+
+    (K + U) < zero(U)
+end
+
+is_binary(r1, r2, v1, v2, m1, m2::Quantity) = is_binary(r1, r2, v1, v2, m1, m2, GRAVCONST)
+is_binary(r1, r2, v1, v2, m1, m2::Real) = is_binary(r1, r2, v1, v2, m1, m2, UNITLESS_G)
+
+
 function is_binary(positions::AbstractVector, velocities::AbstractVector, masses::AbstractVector)
 
     r1 = positions[1]
@@ -263,17 +273,10 @@ function is_binary(positions::AbstractVector, velocities::AbstractVector, masses
     v1 = velocities[1]
     v2 = velocities[2]
 
-    M1, M2 = masses
+    m1, m2 = masses
 
-    r_rel = r2 - r1
+    is_binary(r1, r2, v1, v2, m1, m2)
 
-    v₁² = norm(v1)^2
-    v₂² = norm(v2)^2
-
-    K = 0.5*(M1*v₁² + M2*v₂²)
-    U = -GRAVCONST*M1*M2/norm(r_rel)
-
-    (K + U) < zero(U)
 end
 
 function is_binary(positions::AbstractMatrix, velocities::AbstractMatrix, masses)
