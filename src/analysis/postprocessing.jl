@@ -81,11 +81,11 @@ function to_solution(result::SimulationResult)
 
     spin_precession = any(x -> x isa SpinPotential, values(result.simulation.potential))
 
-    time = result.solution.t .* upreferred(u"s")
+    time = result.solution.t .* unit_time
     
     n_steps = length(time)
 
-    S_unit = unit(system.particles.S[1][1])
+    unit_spin = unit(system.particles.S[1][1])
 
     r = Array{typeof(upreferred(1.0u"m")), 3}(undef, 3, n_bodies, n_steps)
     v = similar(r, typeof(upreferred(1.0u"m/s")))
@@ -94,8 +94,8 @@ function to_solution(result::SimulationResult)
     v = AxisArray(v; dim=1:3, particle=1:n_bodies, time=time)
 
     S, Sv = if spin_precession
-            S = similar(r, typeof(upreferred(1.0*S_unit)))
-            Sv = similar(r, typeof(upreferred(1.0*S_unit/upreferred(u"yr"))))
+            S = similar(r, typeof(upreferred(1.0*unit_spin)))
+            Sv = similar(r, typeof(upreferred(1.0*unit_spin/unit_time)))
 
             S = AxisArray(S; dim=1:3, particle=1:n_bodies, time=time)
             Sv = AxisArray(Sv; dim=1:3, particle=1:n_bodies, time=time)
@@ -105,13 +105,14 @@ function to_solution(result::SimulationResult)
             nothing, nothing
             end
 
+    unit_velocity = unit_length/unit_time
     for idx in eachindex(time)
-        pos = result.solution.u[idx].x[2][1:3,:] .* upreferred(u"m")
-        vel = result.solution.u[idx].x[1][1:3,:] .* upreferred(u"m/s")
+        pos = result.solution.u[idx].x[2][1:3,:] .* unit_length
+        vel = result.solution.u[idx].x[1][1:3,:] .* unit_velocity
 
         if spin_precession
-            spin = result.solution.u[idx].x[2][4:6,:] .* upreferred(S_unit)
-            spin_vel = result.solution.u[idx].x[1][4:6,:] .* upreferred(S_unit/upreferred(u"yr"))
+            spin = result.solution.u[idx].x[2][4:6,:] .* upreferred(unit_spin)
+            spin_vel = result.solution.u[idx].x[1][4:6,:] .* upreferred(unit_spin/unit_time)
             S[:, :, idx] .= spin
             Sv[:, :, idx] .= spin_vel
         end
