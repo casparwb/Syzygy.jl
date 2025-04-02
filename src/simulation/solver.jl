@@ -90,7 +90,8 @@ function simulate(simulation::MultiBodySimulation)
     catch e
         if e isa InterruptException
             @info "Stopped at t = $(u"yr"(integrator.t * unit_time))"
-            retcodes[:DiffEq] == :Interrupted
+            savevalues!(integrator, true)
+            retcodes[:DiffEq] = :Interrupted
         else
             throw(e)
         end
