@@ -7,6 +7,7 @@ abstract type Other                <: StellarType end
 abstract type WhiteDwarf       <: StellarRemnant end
 abstract type CompactObject    <: StellarRemnant end
 
+
 """
 Deeply or fully convective low main sequence star with index 0. 
 """
@@ -194,13 +195,6 @@ function stellar_type_from_index(index)
     @assert (0 <= index <= 19) "Stellar index must be in the range {0, 19}."
     stellar_types[index]
 end
-
-
-
-
-
-
-
 
 
 
