@@ -1,7 +1,7 @@
 using LinearAlgebra: norm
 using Test
 
-@testset "Potentials" begin
+@testset "Potential values" begin
 
     @testset "Pure gravity" begin
         """

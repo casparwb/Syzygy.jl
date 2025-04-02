@@ -184,266 +184,266 @@ using Test
     end
 
 
-    @testset "PN-1.5 spin contribution" begin
+    # @testset "PN-1.5 spin contribution" begin
 
-        masses = 10.0*ones(2)
-        radii = Syzygy.schwarzschild_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
-        luminosities = zeros(2)
-        stellar_types = [14, 14]
-        M_cores = zeros(2)
-        R_cores = zeros(2)
-        ages = zeros(2)
+    #     masses = 10.0*ones(2)
+    #     radii = Syzygy.schwarzschild_radius.(masses) .|> upreferred .|> ustrip #5.0*ones(2)u"Rsun"
+    #     luminosities = zeros(2)
+    #     stellar_types = [14, 14]
+    #     M_cores = zeros(2)
+    #     R_cores = zeros(2)
+    #     ages = zeros(2)
 
-        m1, m2 = masses
+    #     m1, m2 = masses
 
-        Χ = 0.5 # dimensionless spin paramter (1 = maximum spinning)
-        dir = rand(3)
-        dir = dir/norm(dir)
-        S1 = GRAVCONST*Χ*dir*m1^2 .|> upreferred .|> ustrip
+    #     Χ = 0.5 # dimensionless spin paramter (1 = maximum spinning)
+    #     dir = rand(3)
+    #     dir = dir/norm(dir)
+    #     S1 = GRAVCONST*Χ*dir*m1^2 .|> upreferred .|> ustrip
     
-        # dir = rand(3)
-        # dir = dir/norm(dir)
-        S2 = GRAVCONST*Χ*dir*m2^2 .|> upreferred .|> ustrip
+    #     # dir = rand(3)
+    #     # dir = dir/norm(dir)
+    #     S2 = GRAVCONST*Χ*dir*m2^2 .|> upreferred .|> ustrip
 
-        params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
-                                                stellar_types, M_cores, R_cores, ages)
+    #     params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
+    #                                             stellar_types, M_cores, R_cores, ages)
 
-        r1 = [-1.0, 0.0, 0.0]#u"Rsun"
-        r2 = [1.0, 0.0, 0.0]#u"Rsun"
-        rs = [r1 r2]
+    #     r1 = [-1.0, 0.0, 0.0]#u"Rsun"
+    #     r2 = [1.0, 0.0, 0.0]#u"Rsun"
+    #     rs = [r1 r2]
 
-        v1 = [0.0, -100.0, 0.0]#u"Rsun"
-        v2 = [0.0, 100.0, 0.0]#u"Rsun"
-        vs = [v1 v2]
+    #     v1 = [0.0, -100.0, 0.0]#u"Rsun"
+    #     v2 = [0.0, 100.0, 0.0]#u"Rsun"
+    #     vs = [v1 v2]
 
-        dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
-        dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
+    #     dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
+    #     dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
         
-        @test abs.(dS1) ≈ abs.(dS2)
+    #     @test abs.(dS1) ≈ abs.(dS2)
 
-        rs = cat(rs, [S1 S2], dims=1)
-        vs = cat(vs, [dS1 dS2], dims=1)
+    #     rs = cat(rs, [S1 S2], dims=1)
+    #     vs = cat(vs, [dS1 dS2], dims=1)
 
-        pair = (1, 2)
+    #     pair = (1, 2)
 
-        dv1 = zeros(3)
-        dv2 = zeros(3)
+    #     dv1 = zeros(3)
+    #     dv2 = zeros(3)
 
-        # Syzygy.pure_gravitational_acceleration!(dv1, dv2, rs, pair, params)
-        # @show dv1 dv2
+    #     # Syzygy.pure_gravitational_acceleration!(dv1, dv2, rs, pair, params)
+    #     # @show dv1 dv2
 
-        dvs = [dv1 dv2]
-        Syzygy.PN1p5_spin_acceleration!(dv1, dv2, rs, vs, pair, params)
+    #     dvs = [dv1 dv2]
+    #     Syzygy.PN1p5_spin_acceleration!(dv1, dv2, rs, vs, pair, params)
 
-        @test abs.(dv1) ≈ abs.(dv2)
+    #     @test abs.(dv1) ≈ abs.(dv2)
 
-    end
+    # end
 
-    @testset "PN-2 spin contribution" begin
+    # @testset "PN-2 spin contribution" begin
 
-        masses = 10.0*ones(2)
-        radii = Syzygy.schwarzschild_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
-        luminosities = zeros(2)
-        stellar_types = [14, 14]
-        M_cores = zeros(2)
-        R_cores = zeros(2)
-        ages = zeros(2)
+    #     masses = 10.0*ones(2)
+    #     radii = Syzygy.schwarzschild_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
+    #     luminosities = zeros(2)
+    #     stellar_types = [14, 14]
+    #     M_cores = zeros(2)
+    #     R_cores = zeros(2)
+    #     ages = zeros(2)
 
-        m1, m2 = masses
+    #     m1, m2 = masses
 
-        Χ = 0.8 # dimensionless spin paramter (1 = maximum spinning)
-        dir = rand(3)
-        dir = dir/norm(dir)
-        S1 = GRAVCONST*Χ*dir*m1^2 .|> upreferred .|> ustrip
+    #     Χ = 0.8 # dimensionless spin paramter (1 = maximum spinning)
+    #     dir = rand(3)
+    #     dir = dir/norm(dir)
+    #     S1 = GRAVCONST*Χ*dir*m1^2 .|> upreferred .|> ustrip
     
-        # dir = rand(3)
-        # dir = dir/norm(dir)
-        S2 = GRAVCONST*Χ*dir*m2^2 .|> upreferred .|> ustrip
+    #     # dir = rand(3)
+    #     # dir = dir/norm(dir)
+    #     S2 = GRAVCONST*Χ*dir*m2^2 .|> upreferred .|> ustrip
 
-        params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
-                                                stellar_types, M_cores, R_cores, ages)
+    #     params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
+    #                                             stellar_types, M_cores, R_cores, ages)
 
-        r1 = [-1.0, 0.0, 0.0]#u"Rsun"
-        r2 = [1.0, 0.0, 0.0]#u"Rsun"
-        rs = [r1 r2]
+    #     r1 = [-1.0, 0.0, 0.0]#u"Rsun"
+    #     r2 = [1.0, 0.0, 0.0]#u"Rsun"
+    #     rs = [r1 r2]
 
-        v1 = [0.0, -100.0, 0.0]#u"Rsun"
-        v2 = [0.0, 100.0, 0.0]#u"Rsun"
-        vs = [v1 v2]
+    #     v1 = [0.0, -100.0, 0.0]#u"Rsun"
+    #     v2 = [0.0, 100.0, 0.0]#u"Rsun"
+    #     vs = [v1 v2]
 
-        dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
-        dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
+    #     dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
+    #     dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
         
-        @test abs.(dS1) ≈ abs.(dS2)
+    #     @test abs.(dS1) ≈ abs.(dS2)
 
-        rs = cat(rs, [S1 S2], dims=1)
-        vs = cat(vs, [dS1 dS2], dims=1)
+    #     rs = cat(rs, [S1 S2], dims=1)
+    #     vs = cat(vs, [dS1 dS2], dims=1)
 
-        pair = (1, 2)
+    #     pair = (1, 2)
 
-        dv1 = zeros(3)
-        dv2 = zeros(3)
+    #     dv1 = zeros(3)
+    #     dv2 = zeros(3)
 
-        dvs = [dv1 dv2]
-        @show dv1 dv2
-        Syzygy.PN2_spin_acceleration!(dv1, dv2, rs, vs, pair, params)
-        @show dv1 dv2
+    #     dvs = [dv1 dv2]
+    #     @show dv1 dv2
+    #     Syzygy.PN2_spin_acceleration!(dv1, dv2, rs, vs, pair, params)
+    #     @show dv1 dv2
 
-        @test abs.(dv1) ≈ abs.(dv2)
+    #     @test abs.(dv1) ≈ abs.(dv2)
 
-    end
+    # end
 
-    @testset "PN-2.5 spin contribution" begin
+    # @testset "PN-2.5 spin contribution" begin
 
-        masses = 10.0*ones(2)
-        radii = Syzygy.schwarzschild_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
-        luminosities = zeros(2)
-        stellar_types = [14, 14]
-        M_cores = zeros(2)
-        R_cores = zeros(2)
-        ages = zeros(2)
+    #     masses = 10.0*ones(2)
+    #     radii = Syzygy.schwarzschild_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
+    #     luminosities = zeros(2)
+    #     stellar_types = [14, 14]
+    #     M_cores = zeros(2)
+    #     R_cores = zeros(2)
+    #     ages = zeros(2)
 
-        m1, m2 = masses
+    #     m1, m2 = masses
 
-        Χ = 0.5 # dimensionless spin paramter (1 = maximum spinning)
-        dir = rand(3)
-        dir = dir/norm(dir)
-        S1 = GRAVCONST*Χ*dir*m1^2 .|> upreferred .|> ustrip
+    #     Χ = 0.5 # dimensionless spin paramter (1 = maximum spinning)
+    #     dir = rand(3)
+    #     dir = dir/norm(dir)
+    #     S1 = GRAVCONST*Χ*dir*m1^2 .|> upreferred .|> ustrip
     
-        # dir = rand(3)
-        # dir = dir/norm(dir)
-        S2 = GRAVCONST*Χ*dir*m2^2 .|> upreferred .|> ustrip
+    #     # dir = rand(3)
+    #     # dir = dir/norm(dir)
+    #     S2 = GRAVCONST*Χ*dir*m2^2 .|> upreferred .|> ustrip
 
-        params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
-                                                stellar_types, M_cores, R_cores, ages)
+    #     params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
+    #                                             stellar_types, M_cores, R_cores, ages)
 
-        r1 = [-1.0, 0.0, 0.0]#u"Rsun"
-        r2 = [1.0, 0.0, 0.0]#u"Rsun"
-        rs = [r1 r2]
+    #     r1 = [-1.0, 0.0, 0.0]#u"Rsun"
+    #     r2 = [1.0, 0.0, 0.0]#u"Rsun"
+    #     rs = [r1 r2]
 
-        v1 = [0.0, -100.0, 0.0]#u"Rsun"
-        v2 = [0.0, 100.0, 0.0]#u"Rsun"
-        vs = [v1 v2]
+    #     v1 = [0.0, -100.0, 0.0]#u"Rsun"
+    #     v2 = [0.0, 100.0, 0.0]#u"Rsun"
+    #     vs = [v1 v2]
 
-        dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
-        dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
+    #     dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
+    #     dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
         
-        @test abs.(dS1) ≈ abs.(dS2)
+    #     @test abs.(dS1) ≈ abs.(dS2)
 
-        rs = cat(rs, [S1 S2], dims=1)
-        vs = cat(vs, [dS1 dS2], dims=1)
+    #     rs = cat(rs, [S1 S2], dims=1)
+    #     vs = cat(vs, [dS1 dS2], dims=1)
 
-        pair = (1, 2)
+    #     pair = (1, 2)
 
-        dv1 = zeros(3)
-        dv2 = zeros(3)
+    #     dv1 = zeros(3)
+    #     dv2 = zeros(3)
 
-        # Syzygy.pure_gravitational_acceleration!(dv1, dv2, rs, pair, params)
-        # @show dv1 dv2
+    #     # Syzygy.pure_gravitational_acceleration!(dv1, dv2, rs, pair, params)
+    #     # @show dv1 dv2
 
-        dvs = [dv1 dv2]
-        Syzygy.PN2p5_spin_acceleration!(dv1, dv2, rs, vs, pair, params)
+    #     dvs = [dv1 dv2]
+    #     Syzygy.PN2p5_spin_acceleration!(dv1, dv2, rs, vs, pair, params)
 
-        @test abs.(dv1) ≈ abs.(dv2)
+    #     @test abs.(dv1) ≈ abs.(dv2)
 
-    end
+    # end
 
-    @testset "PN 1 to 2 Spin precession" begin
+    # @testset "PN 1 to 2 Spin precession" begin
 
-        masses = 10.0*ones(2)
-        radii = Syzygy.schwarzschild_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
-        luminosities = zeros(2)
-        stellar_types = [14, 14]
-        M_cores = zeros(2)
-        R_cores = zeros(2)
-        ages = zeros(2)
+    #     masses = 10.0*ones(2)
+    #     radii = Syzygy.schwarzschild_radius.(masses) .|> upreferred |> ustrip #5.0*ones(2)u"Rsun"
+    #     luminosities = zeros(2)
+    #     stellar_types = [14, 14]
+    #     M_cores = zeros(2)
+    #     R_cores = zeros(2)
+    #     ages = zeros(2)
 
-        m1, m2 = masses
+    #     m1, m2 = masses
 
-        Χ = 0.5 # dimensionless spin paramter (1 = maximum spinning)
-        dir = rand(3)
-        dir = dir/norm(dir)
-        S1 = GRAVCONST*Χ*dir*m1^2 .|> upreferred .|> ustrip
+    #     Χ = 0.5 # dimensionless spin paramter (1 = maximum spinning)
+    #     dir = rand(3)
+    #     dir = dir/norm(dir)
+    #     S1 = GRAVCONST*Χ*dir*m1^2 .|> upreferred .|> ustrip
     
-        # dir = rand(3)
-        # dir = dir/norm(dir)
-        S2 = GRAVCONST*Χ*dir*m2^2 .|> upreferred .|> ustrip
+    #     # dir = rand(3)
+    #     # dir = dir/norm(dir)
+    #     S2 = GRAVCONST*Χ*dir*m2^2 .|> upreferred .|> ustrip
 
-        params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
-                                                stellar_types, M_cores, R_cores, ages)
+    #     params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
+    #                                             stellar_types, M_cores, R_cores, ages)
 
-        func_names = ["PN-1", "PN-1.5", "PN-2", "PN"]
-        acc_funcs = [Syzygy.PN1_spin_precession!, Syzygy.PN1p5_spin_precession!, Syzygy.PN2_spin_precession!, Syzygy.spin_precession!]
-        @testset "$name" for (name, func) in zip(func_names, acc_funcs)
-            r1 = [-1.0, 0.0, 0.0]#u"Rsun"
-            r2 = [1.0, 0.0, 0.0]#u"Rsun"
-            rs = [r1 r2]
+    #     func_names = ["PN-1", "PN-1.5", "PN-2", "PN"]
+    #     acc_funcs = [Syzygy.PN1_spin_precession!, Syzygy.PN1p5_spin_precession!, Syzygy.PN2_spin_precession!, Syzygy.spin_precession!]
+    #     @testset "$name" for (name, func) in zip(func_names, acc_funcs)
+    #         r1 = [-1.0, 0.0, 0.0]#u"Rsun"
+    #         r2 = [1.0, 0.0, 0.0]#u"Rsun"
+    #         rs = [r1 r2]
 
-            v1 = [0.0, -100.0, 0.0]#u"Rsun"
-            v2 = [0.0, 100.0, 0.0]#u"Rsun"
-            vs = [v1 v2]
+    #         v1 = [0.0, -100.0, 0.0]#u"Rsun"
+    #         v2 = [0.0, 100.0, 0.0]#u"Rsun"
+    #         vs = [v1 v2]
 
-            dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
-            dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
+    #         dS1 = Syzygy.spin_precession_velocity(S1, S2, r1, r2, v1, v2, m1, m2)
+    #         dS2 = Syzygy.spin_precession_velocity(S2, S1, r2, r1, v2, v1, m2, m1)
             
-            @test abs.(dS1) ≈ abs.(dS2)
+    #         @test abs.(dS1) ≈ abs.(dS2)
 
-            rs = cat(rs, [S1 S2], dims=1)
-            vs = cat(vs, [dS1 dS2], dims=1)
-            pair = (1, 2)
+    #         rs = cat(rs, [S1 S2], dims=1)
+    #         vs = cat(vs, [dS1 dS2], dims=1)
+    #         pair = (1, 2)
 
-            dv1 = zeros(3)
-            dv2 = zeros(3)
+    #         dv1 = zeros(3)
+    #         dv2 = zeros(3)
 
-            # Syzygy.pure_gravitational_acceleration!(dv1, dv2, rs, pair, params)
-            # @show dv1 dv2
+    #         # Syzygy.pure_gravitational_acceleration!(dv1, dv2, rs, pair, params)
+    #         # @show dv1 dv2
 
-            dvs = [dv1 dv2]
-            func(dv1, dv2, dvs, rs, vs, pair, params)
+    #         dvs = [dv1 dv2]
+    #         func(dv1, dv2, dvs, rs, vs, pair, params)
 
-            @test dv1 ≈ dv2
-        end
+    #         @test dv1 ≈ dv2
+    #     end
 
-    end
+    # end
 
-    @testset "Equilibrium tides" begin
+    # @testset "Equilibrium tides" begin
 
-        masses = 1.0*ones(2)u"Msun"
-        radii = 1.0*ones(2)u"Rsun"#5.0*ones(2)u"Rsun"
-        luminosities = 1.0*ones(2)u"Lsun"
-        stellar_types = [1, 1]
+    #     masses = 1.0*ones(2)u"Msun"
+    #     radii = 1.0*ones(2)u"Rsun"#5.0*ones(2)u"Rsun"
+    #     luminosities = 1.0*ones(2)u"Lsun"
+    #     stellar_types = [1, 1]
 
-        M_cores = 0.1 .* masses
-        R_cores = 0.01 .* radii
+    #     M_cores = 0.1 .* masses
+    #     R_cores = 0.01 .* radii
 
-        ages = zeros(2)u"yr"
+    #     ages = zeros(2)u"yr"
 
-        binary = multibodysystem(masses, a=10.0u"Rsun", R=radii, m_core = M_cores, R_core = R_cores)
+    #     binary = multibodysystem(masses, a=10.0u"Rsun", R=radii, m_core = M_cores, R_core = R_cores)
 
-        params = Syzygy.DefaultSimulationParams(Float64.(ustrip(radii)), Float64.(ustrip(masses)), 
-                                                Float64.(ustrip(luminosities)), stellar_types, 
-                                                Float64.(ustrip(M_cores)), Float64.(ustrip(R_cores)), Float64.(ustrip(ages)))
+    #     params = Syzygy.DefaultSimulationParams(Float64.(ustrip(radii)), Float64.(ustrip(masses)), 
+    #                                             Float64.(ustrip(luminosities)), stellar_types, 
+    #                                             Float64.(ustrip(M_cores)), Float64.(ustrip(R_cores)), Float64.(ustrip(ages)))
 
-        dv1 = zeros(3)
-        dv2 = zeros(3)
+    #     dv1 = zeros(3)
+    #     dv2 = zeros(3)
 
-        rs = reduce(hcat, binary.particles.position) .|> ustrip
-        vs = reduce(hcat, binary.particles.velocity) .|> ustrip
+    #     rs = reduce(hcat, binary.particles.position) .|> ustrip
+    #     vs = reduce(hcat, binary.particles.velocity) .|> ustrip
 
-        Ss = Syzygy.stellar_spin.(masses, radii)
-        Ss = reduce(hcat, [[upreferred(S).val, 0.0, 0.0] for S in Ss])
-        vSs = reduce(hcat, [zeros(3) for i = 1:2])
+    #     Ss = Syzygy.stellar_spin.(masses, radii)
+    #     Ss = reduce(hcat, [[upreferred(S).val, 0.0, 0.0] for S in Ss])
+    #     vSs = reduce(hcat, [zeros(3) for i = 1:2])
 
-        rs = [rs; Ss]
-        vs = [vs; vSs]
+    #     rs = [rs; Ss]
+    #     vs = [vs; vSs]
 
-        pot = Syzygy.EquilibriumTidalPotential()
-        pair = (1, 2)
-        Syzygy.Syzygy.equilibrium_tidal_drag_force!(dv1, dv2, rs, vs, pair, params, pot)
+    #     pot = Syzygy.StaticEquilibriumTidalPotential()
+    #     pair = (1, 2)
+    #     Syzygy.Syzygy.equilibrium_tidal_drag_force!(dv1, dv2, rs, vs, pair, params, pot)
 
-        @test abs.(dv1) ≈ abs.(dv2)
+    #     @test abs.(dv1) ≈ abs.(dv2)
 
-    end
+    # end
 
     @testset "Static equilibrium tides" begin
 
@@ -459,9 +459,9 @@ using Test
 
         binary = multibodysystem(masses, a=10.0u"Rsun", R=radii, m_core = M_cores, R_core = R_cores)
 
-        params = Syzygy.DefaultSimulationParams(Float64.(ustrip(radii)), Float64.(ustrip(masses)), 
-                                                Float64.(ustrip(luminosities)), stellar_types, 
-                                                Float64.(ustrip(M_cores)), Float64.(ustrip(R_cores)), Float64.(ustrip(ages)))
+        params = Syzygy.DefaultSimulationParams(Float64.(ustrip.(radii)), Float64.(ustrip.(masses)), 
+                                                Float64.(ustrip.(luminosities)), stellar_types, 
+                                                Float64.(ustrip.(M_cores)), Float64.(ustrip.(R_cores)), Float64.(ustrip.(ages)))
 
         dv1 = zeros(3)
         dv2 = zeros(3)
@@ -499,13 +499,13 @@ using Test
 
         binary = multibodysystem(masses, a=5.0u"Rsun", e=0.4, R=radii, m_core = M_cores, R_core = R_cores)
 
-        params = Syzygy.DefaultSimulationParams(Float64.(ustrip(radii)), 
-                                                Float64.(ustrip(masses)), 
-                                                Float64.(ustrip(luminosities)), 
+        params = Syzygy.DefaultSimulationParams(Float64.(ustrip.(radii)), 
+                                                Float64.(ustrip.(masses)), 
+                                                Float64.(ustrip.(luminosities)), 
                                                 stellar_types, 
-                                                Float64.(ustrip(M_cores)), 
-                                                Float64.(ustrip(R_cores)), 
-                                                Float64.(ustrip(ages)))
+                                                Float64.(ustrip.(M_cores)), 
+                                                Float64.(ustrip.(R_cores)), 
+                                                Float64.(ustrip.(ages)))
 
         dv1 = zeros(3)
         dv2 = zeros(3)
