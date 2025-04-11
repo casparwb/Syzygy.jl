@@ -198,10 +198,10 @@ function k_over_T_convective(mass, radius, envelope_mass, envelope_radius,
     return (R_conv/radius)^a*(M_conv/mass)^b*c/t_conv
 end
 
-function k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
-    E₂ = 1.592e-9*mass^2.84 # second-order tidal coefficient
-    q₂ = mass_perturber/mass
-    return 1.9782e4*mass*radius/semi_major_axis^5*(1 + q₂)^(5/6)*E₂
+function k_over_T_radiative(mass_tidal_object, radius_tidal_object, mass_perturber, semi_major_axis)
+    E₂ = 1.592e-9*mass_tidal_object^2.84 # second-order tidal coefficient
+    q₂ = mass_perturber/mass_tidal_object
+    return 1.9782e4*mass_tidal_object*radius_tidal_object/semi_major_axis^5*(1 + q₂)^(5/6)*E₂
 end
 
 function get_k_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
@@ -212,11 +212,9 @@ function get_k_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multipli
         @error "Tidal evolution constant data file $(split(k_data_location, "/")[end]) not found."
     end
     
-    masses = JLD2.load(k_data_location, "Mass")#[1:10:end]
-    logg = JLD2.load(k_data_location, "logg")#[1:10:end]
-    logk2 = JLD2.load(k_data_location, "logk2")#[1:10:end]
-
-    # unique_mass_ids = unique(i -> masses[i], eachindex(masses))
+    masses = JLD2.load(k_data_location, "Mass")
+    logg = JLD2.load(k_data_location, "logg")
+    logk2 = JLD2.load(k_data_location, "logk2")
 
     logm = ustrip.(u"Msun", masses) .|> log10
     logg = ustrip.(u"cm/s^2", logg)
