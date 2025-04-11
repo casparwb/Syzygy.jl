@@ -67,13 +67,11 @@ end
 
 struct EquilibriumTidalPotential <: MultiBodyPotential end
 
-struct StaticEquilibriumTidalPotential{M_env_Type, R_env_Type, kT, ΩT} <: MultiBodyPotential
-    M_env::M_env_Type
-    R_env::R_env_Type
-    apsidal_motion_constant::kT
-    rotational_angular_velocity::ΩT
-    # logg# # convert from R⊙/yr² to cm/s²
-    # logm = log10(m₁)
+struct StaticEquilibriumTidalPotential{T} <: MultiBodyPotential
+    M_env::T
+    R_env::T
+    apsidal_motion_constant::T
+    rotational_angular_velocity::T
 end
 
 function StaticEquilibriumTidalPotential(system; Z=0.02, lb_multiplier=1.1, ub_multiplier=1.1)
@@ -83,9 +81,10 @@ function StaticEquilibriumTidalPotential(system; Z=0.02, lb_multiplier=1.1, ub_m
     R_envs = Float64[]
     m_envs = Float64[]
 
+
     for i = 1:n_bodies
         particle = system.particles[i]
-        envelope_radius, envelope_mass = if particle.structure.stellar_type isa Star && particle.structure.m < 1.25u"Msun"
+        envelope_radius, envelope_mass = if particle.structure.stellar_type isa Star && particle.mass < 1.25u"Msun"
                                             envelope_structure(system.particles[i], age, Z)
                                          else
                                             0.0u"Rsun", 0.0u"Rsun"
@@ -109,18 +108,17 @@ function StaticEquilibriumTidalPotential(system; Z=0.02, lb_multiplier=1.1, ub_m
             continue
         else
             m, R = particle.mass, particle.radius
-            g = GRAVCONST*m/R^2
+            # g = GRAVCONST*m/R^2
 
-            logg = log10(ustrip(u"cm/s^2", g))
+            logg = log10(ustrip(u"cm/s^2", (GRAVCONST*m/R^2))) 
             logm = log10(ustrip(u"Msun", m))
             try
-                k = k_interpolator(logm, logg)
-                push!(apsidal_motion_constants, k)
+                logk = k_interpolator(logm, logg)
+                push!(apsidal_motion_constants, 10^logk)
             catch e
                 # if e isa ArgumentError
                 #     k = get_k_interpolator(Z=Z, lb_multiplier=1.1, ub_multiplier=1.1)
                 # end
-                println(m)
                 throw(e)
             end
 
@@ -133,7 +131,10 @@ function StaticEquilibriumTidalPotential(system; Z=0.02, lb_multiplier=1.1, ub_m
     apsidal_motion_constants = SA[apsidal_motion_constants...]
     rotational_angular_velocities = SA[rotational_angular_velocities...]
 
-    StaticEquilibriumTidalPotential(m_envs, R_envs, apsidal_motion_constants, rotational_angular_velocities)
+    StaticEquilibriumTidalPotential(m_envs, 
+                                    R_envs, 
+                                    apsidal_motion_constants, 
+                                    rotational_angular_velocities)
 end
 
 
@@ -330,8 +331,8 @@ function equilibrium_tidal_drag_force!(dvi,
 
             Ω = norm(S̄₁)
             
-            logg = log10(surface_gravity_unit_conversion_factor*(UNITLESS_G*m₁/R^2)) # convert from default units to cm/s²
-            logm = log10(m₁)
+            logg = potential.logg[i]#log10(surface_gravity_unit_conversion_factor*(UNITLESS_G*m₁/R^2)) # convert from default units to cm/s²
+            logm = potential.logm[j]#log10(m₁)
             k = asidal_motion_constant_interpolated(logm, logg)
 
             μ = UNITLESS_G*m₂/r²
@@ -397,10 +398,7 @@ function equilibrium_tidal_drag_force!(dvi,
     stellar_type_1 = params.stellar_types[i]
     stellar_type_2 = params.stellar_types[j]
 
-    # println(i, " ", stellar_type_1)
-    # println(j, " ", stellar_type_2)
-
-    if (stellar_type_1 > 10) && (stellar_type_2 > 10) # tides are (currently) only for stars
+    if !(stellar_type_1 isa Star) && !(stellar_type_2 isa Star) # tides are (currently) only for stars
         return nothing
     end
 
@@ -417,20 +415,10 @@ function equilibrium_tidal_drag_force!(dvi,
     v = norm(v̄)
     
     r⁻¹ = 1/r
-    # r² = r^2
     r_hat = r̄*r⁻¹
 
-    # ms = params.M
     m₁ = params.M[i]
     m₂ = params.M[j]
-    # Rs = params.R
-    # R₁ = params.R[i]
-    # R₂ = params.R[j]
-
-    # Ω₁ = potential.rotational_angular_velocity[i]
-    # Ω₂ = potential.rotational_angular_velocity[j]
-
-    # m₁, m₂ = ms[i], ms[j]
 
     θ_dot = (r̄ × v̄)*r⁻¹*r⁻¹
     θ_dot_norm = norm(θ_dot)
@@ -438,12 +426,9 @@ function equilibrium_tidal_drag_force!(dvi,
 
     a = semi_major_axis(r, v^2, m₂+m₁)
 
-    # k₁ = potential.apsidal_motion_constant[i]
-    # k₂ = potential.apsidal_motion_constant[j]
-
     # tidal force on 1 by 2
     a₁ = let
-        if !(stellar_type_1 < 10)
+        if !(stellar_type_1 isa Star)
                 SA[0.0, 0.0, 0.0]
             else    
                 μ = UNITLESS_G*m₂*r⁻¹*r⁻¹
@@ -466,7 +451,7 @@ function equilibrium_tidal_drag_force!(dvi,
 
     # # tidal force on 2 by 1
     a₂ = let 
-        if !(stellar_type_2 < 10)
+        if !(stellar_type_2 isa Star)
                 SA[0.0, 0.0, 0.0]
             else    
                 μ = UNITLESS_G*m₁*r⁻¹*r⁻¹
@@ -477,7 +462,7 @@ function equilibrium_tidal_drag_force!(dvi,
                 R = params.R[j]
                 Ω = potential.rotational_angular_velocity[j]
                 k_T = apsidal_motion_constant_over_tidal_timescale(m₂, R, envelope_mass, envelope_radius,
-                                                                   stellar_type_1, luminosity, 
+                                                                   stellar_type_2, luminosity, 
                                                                    m₁, a)
                 k = potential.apsidal_motion_constant[j]
                 kτ = R^3/(UNITLESS_G*m₂)*k_T
