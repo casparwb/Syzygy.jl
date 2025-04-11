@@ -112,10 +112,10 @@ Quantities must be in units of solar mass and solar radii.
 Reference Hurley et al. 2002 - DOI: 10.1046/j.1365-8711.2002.05038.x
 """
 function convective_envelope_radius(mass, radius, core_radius, stellar_type, age, tMS, tBGB)
-
-    if any(stellar_type .== (3, 5, 6, 8, 9)) # giant-like stars
+    stellar_type_number = stellar_type.number
+    if any(stellar_type_number .== (3, 5, 6, 8, 9)) # giant-like stars
         return radius - core_radius
-    elseif any(stellar_type .== (1, 7))   # main sequence stars
+    elseif any(stellar_type_number .== (1, 7))   # main sequence stars
         τ = age/tMS 
         
         R_env₀ = if mass > 1.25
@@ -130,7 +130,7 @@ function convective_envelope_radius(mass, radius, core_radius, stellar_type, age
                 end
 
         return R_env₀*(1 - τ)^0.25
-    elseif any(stellar_type .== (2, 8)) # Hertzsprung gap stars
+    elseif any(stellar_type_number .== (2, 8)) # Hertzsprung gap stars
         τ = (age - tMS)/(tBGB - tMS)
         return sqrt(τ)*(radius - core_radius)
     end
@@ -146,7 +146,7 @@ Quantities must be in units of solar mass and solar radii.
 Reference Hurley et al. 2000 - https://ui.adsabs.harvard.edu/abs/1981A&A....99..126H
 """
 function convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
-    @assert stellar_types[stellar_type] isa Star "Only stars have envelopes."
+    @assert stellar_type isa Star "Only stars have envelopes."
 
     if any(stellar_type .== (1, 7)) 
         M_env₀ = if mass < 0.35

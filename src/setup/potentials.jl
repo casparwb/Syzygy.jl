@@ -316,7 +316,7 @@ function equilibrium_tidal_drag_force!(dvi,
      # tidal force on 1 by 2
     a₁ = let k = i
         stellar_type = params.stellar_types[k]
-        if !(stellar_types[stellar_type] isa Star)
+        if !(stellar_type isa Star)
             SA[0.0, 0.0, 0.0]
         else
             S̄₁  = @SVector [rs[4, k], rs[5, k], rs[6, k]]
@@ -349,7 +349,7 @@ function equilibrium_tidal_drag_force!(dvi,
     a₂ = let k = j
         stellar_type = params.stellar_types[k]
 
-        if !(stellar_types[stellar_type] isa Star)
+        if !(stellar_type isa Star)
             SA[0.0, 0.0, 0.0]
         else
             S̄₂  = @SVector [rs[4, k], rs[5, k], rs[6, k]]

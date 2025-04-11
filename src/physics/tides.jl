@@ -87,7 +87,7 @@ function apsidal_motion_constant_over_tidal_timescale(mass::Unitful.Mass, radius
                                                       mass_perturber,
                                                       semi_major_axis)::Float64
 
-    if !(stellar_types[stellar_type] isa Star)
+    if !(stellar_type isa Star)
         return 0.0
     end
 
@@ -121,7 +121,7 @@ function apsidal_motion_constant_over_tidal_timescale(mass::Real, radius,
                                                       mass_perturber,
                                                       semi_major_axis; Z=0.02)::Float64
 
-    if !(stellar_types[stellar_type] isa Star)
+    if !(stellar_type isa Star)
         return 0.0
     end
 
@@ -138,7 +138,7 @@ function k_over_T(mass::Unitful.Mass, radius, core_mass, age,
                   luminosity,
                   mass_perturber, semi_major_axis, Z=0.02)
 
-    if !(stellar_types[stellar_type] isa Star)
+    if !(stellar_type isa Star)
         return 0.0
     end
 
@@ -168,7 +168,7 @@ function k_over_T(mass::Real, radius, core_mass, age,
                   luminosity,
                   mass_perturber, semi_major_axis, Z=0.02)
 
-    if !(stellar_types[stellar_type] isa Star)
+    if !(stellar_type isa Star)
         return 0.0
     end
 
