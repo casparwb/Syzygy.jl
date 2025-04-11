@@ -456,12 +456,12 @@ Return the octupole parameter ϵₒ for a given `triple`, defined as:
 """
 function octupole_parameter(triple::HierarchicalMultiple)
     @assert triple.n == 3 "Octupole parameter only valid for triple system."
-    m₁, m₂ = [triple.particles[i].structure.m for i in 1:2]#[triple.mass[1], triple.mass[2]] |> sort |> reverse
-    aᵢₙ  = triple.binaries[1].elements.a
-    aₒᵤₜ = triple.binaries[2].elements.a
-    eₒᵤₜ = triple.binaries[2].elements.e
+    m₁, m₂ = triple.particles.mass[[1, 2]]
+    a_in  = triple.binaries[1].elements.a
+    a_out = triple.binaries[2].elements.a
+    e_out = triple.binaries[2].elements.e
 
-    (m₁ - m₂)/(m₁ + m₂)*aᵢₙ/aₒᵤₜ*eₒᵤₜ/(1 - eₒᵤₜ^2)
+    (m₁ - m₂)/(m₁ + m₂)*a_in/a_out*e_out/(1 - e_out^2)
 end
 
 function quadrupole_timescale(triple::HierarchicalMultiple)
@@ -469,7 +469,7 @@ function quadrupole_timescale(triple::HierarchicalMultiple)
     P_in = triple.binaries[1].elements.P 
     P_out = triple.binaries[2].elements.P
     e_out = triple.binaries[2].elements.e
-    return 16/30π*sum(m)/m[3]*P_out^2/P_in*cbrt(1 - e_out^2)^2 |> u"yr"
+    return 16/30π*sum(m)/m[3]*P_out^2/P_in*cbrt(1 - e_out^2)^2 |> unit_time
 end
 
 # """
