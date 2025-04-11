@@ -25,7 +25,7 @@ function envelope_structure(star::Particle, age, Z=0.02)
 
     envelope_structure(star.structure.m, star.structure.R, 
                        star.structure.m_core, star.structure.R_core, 
-                       star.structure.stellar_type.number, age)
+                       star.structure.stellar_type, age)
 end
 
 
@@ -148,7 +148,7 @@ Reference Hurley et al. 2000 - https://ui.adsabs.harvard.edu/abs/1981A&A....99..
 function convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
     @assert stellar_type isa Star "Only stars have envelopes."
 
-    if any(stellar_type .== (1, 7)) 
+    if any(stellar_type.number .== (1, 7)) 
         M_env₀ = if mass < 0.35
                      mass
                  elseif mass > 1.25
@@ -159,7 +159,7 @@ function convective_envelope_mass(mass, core_mass, stellar_type, age, tMS, tBGB)
         
         τ = age/tMS
         return M_env₀*(1 - τ)^0.25
-    elseif any(stellar_type .== (2, 8))
+    elseif any(stellar_type.number .== (2, 8))
         τ = (age - tMS)/(tBGB - tMS)
         return τ*(mass - core_mass)
     else 
