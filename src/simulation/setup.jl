@@ -337,7 +337,7 @@ function setup_params(particles, time, datatype=Float64, stellar_evolution=false
     core_masses   = datatype[]
     core_radii    = datatype[]
     ages          = datatype[]
-    stellar_types = Int[]
+    stellar_types = StellarType[]
 
     particle_keys = keys(particles) |> collect |> sort
 
@@ -355,7 +355,7 @@ function setup_params(particles, time, datatype=Float64, stellar_evolution=false
         radius       = p.structure.R      |> upreferred |> ustrip 
         core_mass    = p.structure.m_core |> upreferred |> ustrip
         core_radius  = p.structure.R_core |> upreferred |> ustrip
-        stellar_type = p.structure.stellar_type.index 
+        stellar_type = p.structure.stellar_type 
 
         push!(core_masses,   core_mass)
         push!(core_radii,    core_radius)

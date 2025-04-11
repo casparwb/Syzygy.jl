@@ -85,7 +85,7 @@ function Base.show(io::IO, particle::Particle)
     # print(io,  " "^indent, "Particle type: ")
     printstyled(io,  " "^indent, "Particle ", color=:yellow)
     print(io, "type: ")
-    print(io, stellar_type_index[particle.structure.stellar_type.index])
+    print(io, stellar_type_index[particle.structure.stellar_type.number])
     println(io)
 
     # println(io,  " "^indent, "Particle structure: ")
@@ -135,7 +135,7 @@ function Base.show(io::IO, structure::StellarStructure)
             # show(io, prop)
             print("["*join(prop,",")*"]")
         elseif prop isa StellarType
-            show(io, prop.index)
+            show(io, prop.number)
         else
             prop = prop isa Quantity ? round(prop.val, digits=2)*unit(prop) : round(prop, digits=2)
             show(io, prop)

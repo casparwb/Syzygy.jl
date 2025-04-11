@@ -20,18 +20,17 @@ function get_stellar_structure(result)
             tmp[param] = [getproperty(system.particles[i].structure, param) for i = 1:n_bodies]
         end
 
-        tmp[:stellar_type] = [t.index for t in tmp[:stellar_type]] 
+        tmp[:stellar_type] = [t.number for t in tmp[:stellar_type]] 
         tmp
     end
 
     final_stellar_parameters = begin
         tmp = Dict()
         for param in propertynames(result.ode_params)
-            # tmp[param] = convert.(Unitful.Quantity, getproperty(result.ode_params, param))
             tmp[param] =  getproperty(result.ode_params, param)
         end
 
-        tmp[:stellar_type] = pop!(tmp, :stellar_types)
+        tmp[:stellar_type] = [t.number for t in tmp[:stellar_types]] 
         tmp[:m] = pop!(tmp, :M)
         tmp
     end
@@ -41,7 +40,6 @@ function get_stellar_structure(result)
         final_stellar_parameters[k] = final_stellar_parameters[k] .* unit(v[1])
     end
 
-    # elements, structure, quantities = setup_simulation_solution(n_steps, n_bodies, n_binaries)
 
     radius_matrix = Matrix{typeof((1.0u"m"))}(undef, n_bodies, 2)
     mass_matrix = Matrix{typeof(1.0u"kg")}(undef, n_bodies, 2)

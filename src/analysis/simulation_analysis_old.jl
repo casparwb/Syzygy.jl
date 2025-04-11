@@ -114,7 +114,7 @@ function analyse_simulation(result::SimulationResult)
             tmp[param] = [getproperty(system.particles[i].structure, param) for i = 1:n_bodies]
         end
 
-        tmp[:type] = [t.index for t in tmp[:type]] 
+        tmp[:stellar_type] = [t.number for t in tmp[:stellar_type]] 
         tmp
     end
 

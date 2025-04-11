@@ -25,7 +25,7 @@ function envelope_structure(star::Particle, age, Z=0.02)
 
     envelope_structure(star.structure.m, star.structure.R, 
                        star.structure.m_core, star.structure.R_core, 
-                       star.structure.stellar_type.index, age)
+                       star.structure.stellar_type.number, age)
 end
 
 

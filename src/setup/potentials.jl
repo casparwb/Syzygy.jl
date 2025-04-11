@@ -8,11 +8,11 @@ abstract type MultiBodyPotential end
 abstract type SpinPotential <: MultiBodyPotential end
 abstract type SimulationParams end
 
-struct DefaultSimulationParams{FloatVecType, IntVecType} <: SimulationParams
+struct DefaultSimulationParams{FloatVecType, stpVecType} <: SimulationParams
     R::FloatVecType # radii
     M::FloatVecType # masses
     L::FloatVecType # luminosities
-    stellar_types::IntVecType 
+    stellar_types::stpVecType 
     M_cores::FloatVecType # core masses
     R_cores::FloatVecType # core radii
     ages::FloatVecType 
@@ -120,6 +120,7 @@ function StaticEquilibriumTidalPotential(system; Z=0.02, lb_multiplier=1.1, ub_m
                 # if e isa ArgumentError
                 #     k = get_k_interpolator(Z=Z, lb_multiplier=1.1, ub_multiplier=1.1)
                 # end
+                println(m)
                 throw(e)
             end
 

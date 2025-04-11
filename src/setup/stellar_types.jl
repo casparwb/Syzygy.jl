@@ -7,12 +7,11 @@ abstract type Other                <: StellarType end
 abstract type WhiteDwarf       <: StellarRemnant end
 abstract type CompactObject    <: StellarRemnant end
 
-
 """
 Deeply or fully convective low main sequence star with index 0. 
 """
 struct DeeplyOrFullyConvectiveLowMassMainSequence <: Star
-    index::Int
+    number::Int
     DeeplyOrFullyConvectiveLowMassMainSequence() = new(0)
 end
 
@@ -20,7 +19,7 @@ end
 Main sequence star with index 1. 
 """
 struct MainSequence <: Star
-    index::Int
+    number::Int
     MainSequence() = new(1)
 end
 
@@ -28,7 +27,7 @@ end
 Hertzsprung gap star with index 2. 
 """
 struct HertzsprungGap <: Star
-    index::Int
+    number::Int
     HertzsprungGap() = new(2)
 end
 
@@ -36,7 +35,7 @@ end
 First giant branch star with index 3. 
 """
 struct FirstGiantBranch <: Star
-    index::Int
+    number::Int
     FirstGiantBranch() = new(3)
 end
 
@@ -44,7 +43,7 @@ end
 Core helium burning star with index 4. 
 """
 struct CoreHeliumBurning <: Star
-    index::Int
+    number::Int
     CoreHeliumBurning() = new(4)
 end
 
@@ -52,7 +51,7 @@ end
 First asymptotic gant branch star with index 5.
 """
 struct FirstAsymptoticGiantBranch <: Star
-    index::Int
+    number::Int
     FirstAsymptoticGiantBranch() = new(5)
 end
 
@@ -60,7 +59,7 @@ end
 Second asymptotic giant branch star with index 6.
 """
 struct SecondAsymptoticGiantBranch <: Star
-    index::Int
+    number::Int
     SecondAsymptoticGiantBranch() = new(6)
 end
 
@@ -68,7 +67,7 @@ end
 Main sequence naked helium star with index 7.
 """
 struct MainSequenceNakedHelium <: Star
-    index::Int
+    number::Int
     MainSequenceNakedHelium() = new(7)
 end
 
@@ -76,7 +75,7 @@ end
 Hertzsprung gap naked helium star with index 8.
 """
 struct HertzsprungGapNakedHelium <: Star
-    index::Int
+    number::Int
     HertzsprungGapNakedHelium() = new(8)
 end
 
@@ -84,7 +83,7 @@ end
 Giant branch naked helium star with index 9.
 """
 struct GiantBranchNakedHelium <: Star
-    index::Int
+    number::Int
     GiantBranchNakedHelium() = new(9)
 end
 
@@ -92,7 +91,7 @@ end
 Helium white dwarf with index 10.
 """
 struct HeliumWhiteDwarf <: WhiteDwarf
-    index::Int
+    number::Int
     HeliumWhiteDwarf() = new(10)
 end
 
@@ -100,7 +99,7 @@ end
 Carbon/oxygen white dwarf with index 11.
 """
 struct CarbonOxygenWhiteDwarf <: WhiteDwarf
-    index::Int
+    number::Int
     CarbonOxygenWhiteDwarf() = new(11)
 end
 
@@ -108,7 +107,7 @@ end
 Oxygen/neon white dwarf with index 12.
 """
 struct OxygenNeonWhiteDwarf <: WhiteDwarf
-    index::Int
+    number::Int
     OxygenNeonWhiteDwarf() = new(12)
 end
 
@@ -116,7 +115,7 @@ end
 Neutron star with index 13.
 """
 struct NeutronStar <: CompactObject
-    index::Int
+    number::Int
     NeutronStar() = new(13)
 end
 
@@ -124,7 +123,7 @@ end
 Black hole with index 14.
 """
 struct BlackHole <: CompactObject
-    index::Int
+    number::Int
     BlackHole() = new(14)
 end
 
@@ -132,7 +131,7 @@ end
 Massless supernova with index 15.
 """
 struct MasslessSupernova <: Other
-    index::Int
+    number::Int
     MasslessSupernova() = new(15)
 end
 
@@ -140,7 +139,7 @@ end
 Unknown stellar type with index 16.
 """
 struct UnknownStellarType <: Other
-    index::Int
+    number::Int
     UnknownStellarType() = new(16)
 end
 
@@ -148,7 +147,7 @@ end
 Pre main sequence star with index 17.
 """
 struct PreMainSequence <: Star
-    index::Int
+    number::Int
     PreMainSequence() = new(17)
 end
 
@@ -156,7 +155,7 @@ end
 Planet with index 18.
 """
 struct Planet <: SubStellarObject
-    index::Int
+    number::Int
     Planet() = new(18)
 end
 
@@ -164,7 +163,7 @@ end
 Brown dwarf with index 19.
 """
 struct BrownDwarf <: SubStellarObject
-    index::Int
+    number::Int
     BrownDwarf() = new(19)
 end
 
