@@ -1,14 +1,7 @@
-
-
 include("./callbacks.jl")
 include("./setup.jl")
 
-# using OrdinaryDiffEq
-using OrdinaryDiffEqRKN
-import OrdinaryDiffEqSymplecticRK
-using Unitful, UnitfulAstro, StaticArrays
-using ProgressMeter
-
+using OrdinaryDiffEqRKN, StaticArrays, ProgressMeter
 
 """
     simulate(simulation::MultiBodySimulation)
@@ -81,11 +74,6 @@ function simulate(simulation::MultiBodySimulation)
             solve!(integrator)
         end
 
-        # if "$(integrator.sol.retcode)" == "Success"
-        #     retcodes[:Success] = true
-        # elseif
-        #     "$(integrator.sol.retcode)" == "Unstable"
-
         retcodes[:DiffEq] = Symbol("$(integrator.sol.retcode)")
     catch e
         if e isa InterruptException
@@ -144,12 +132,9 @@ function simulate(system::MultiBodyInitialConditions; args...)
     simulate(simulation(system; args...))
 end
 
-function get_masses(sim::MultiBodySimulation)
-    return [b.mass for b in sim.bodies]
-end
 
 function total_energy(result::SimulationResult, time)
-    masses = get_masses(result.simulation)
+    masses = result.ode_params.M
     idx = argmin(abs.(result.solution.t .- time))
 
     total_energy([result.solution.u[idx].x[2][1:3,i] for i ∈ eachindex(masses)], 
