@@ -27,18 +27,6 @@ end
 
 OrbitalElements(;a=0.0u"AU", P=0.0u"d", e=0.0, ω=0.0u"°", i=0.0u"°", Ω=0.0u"°", ν=0.0u"°") = OrbitalElements(a, P, e, ω, i, Ω, ν)
 
-# struct StellarStructure{tT, mT, RT, ST, LT}
-#     stellar_type::tT   
-#     m::mT      # total mass
-#     R::RT      # total radius
-#     S::ST      # total spin
-#     L::LT      # total luminosity
-#     R_core::RT # core radius
-#     m_core::mT # core mass
-#     R_env::RT  # envelope radius
-#     m_env::mT  # envelope mass
-# end
-
 struct StellarStructure{tT, mT, RT, ST, LT}
     stellar_type::tT   
     mass::mT             # total mass
