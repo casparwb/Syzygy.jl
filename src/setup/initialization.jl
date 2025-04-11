@@ -1,6 +1,120 @@
 using LinearAlgebra: norm
 
+const multibodysystem_parameter_aliases = Dict(:radii => :R,  
+                                               :spins => :S,  
+                                               :luminositites => :L, 
+                                               :core_radii => :R_core,  
+                                               :core_masses => :m_core,
+                                               :envelope_radii => :R_env,  
+                                               :envelope_masses => :m_env,
+                                               :sma => :a,  
+                                               :semi_major_axis => :a,  
+                                               :semi_major_axes => :a,
+                                               :semimajor_axis => :a,
+                                               :semimajor_axes => :a,
+                                               :eccentricity => :e,  
+                                               :eccentricities => :e,  
+                                               :argument_of_periapsis => :ω,  
+                                               :argument_of_pericenter => :ω,
+                                               :argument_of_pericentre => :ω,  
+                                               :aop => :ω,
+                                               :inclination => :i,
+                                               :longitude_of_ascending_node => :Ω,  
+                                               :loan => :Ω,
+                                               :true_anomaly => :ν,  
+                                               :true_anomalies => :ν,  
+                                               :anomaly => :ν,  
+                                               :anomalies => :ν,
+                                               :R => :R,
+                                               :S => :S,
+                                               :L => :L,
+                                               :R_core => :R_core,
+                                               :m_core => :m_core,
+                                               :R_env => :R_env,
+                                               :m_env => :m_env,
+                                               :a => :a,
+                                               :ω => :ω,
+                                               :i => :i,
+                                               :Ω => :Ω,
+                                               :ν => :ν,
+                                               :e => :e,
+                                               :stellar_types => :stellar_types)
 
+function parse_multibodysystem_args(keyword_arguments)
+    keyword_arguments = Dict(keyword_arguments)
+    default_param_values = Dict{Symbol, Any}(:R      => 1.0u"Rsun", 
+                                             :S      => 0.0u"1/yr", 
+                                             :L      => 1.0u"Lsun", 
+                                             :R_core => 0.0u"Rsun",
+                                             :m_core => 0.0u"Msun",
+                                             :R_env  => 0.0u"Rsun",
+                                             :m_env  => 0.0u"Msun",
+                                             :a      => 1.0u"AU", 
+                                             :ω      => 0.0u"rad", 
+                                             :i      => 0.0u"rad", 
+                                             :Ω      => 0.0u"rad", 
+                                             :ν      => (π)u"rad",
+                                             :e      => 0.1, 
+                                             :stellar_types  => 1)
+
+    args_out = copy(default_param_values)
+
+    for (k, v) in keyword_arguments
+        param_key = get(multibodysystem_parameter_aliases, k, nothing)
+        isnothing(param_key) && throw(ArgumentError("Parameter $k is not valid. See `keys(Syzygy.multibodysystem_parameter_aliases)` for all possible parameters."))
+        args_out[param_key] = v
+    end
+
+    return args_out
+end
+
+function check_units(masses, radii, spins, luminosities, 
+                     core_radii, core_masses, 
+                     envelope_radii, envelope_masses, 
+                     semi_major_axes, argument_of_periapses, inclinations, 
+                     longitude_of_ascending_nodes, 
+                     true_anomalies)
+
+    𝐋, 𝐌, 𝐓 = Unitful.𝐋, Unitful.𝐌, Unitful.𝐓
+    Length, Mass, Time = 𝐋, 𝐌, 𝐓
+    Power = Length^2*Mass/Time^3
+
+    @assert all(x -> dimension(x) == Mass, masses) "Unit of masses is not correct. Got $(unit.(masses)), expected mass"
+    @assert all(x -> dimension(x) == Length, radii) "Unit of radii is not correct. Got $(unit.(radii)), expected length"
+    # @assert all(x -> dimension(x) == 1/Time, spins) "Unit of spins is not correct. Got $(unit.(spins)), expected mass"
+    @assert all(x -> dimension(x) == Power, luminosities) "Unit of luminosities is not correct. Got $(unit.(luminosities)), expected power"
+    @assert all(x -> dimension(x) == Length, core_radii) "Unit of core radii is not correct. Got $(unit.(core_radii)), expected length"
+    @assert all(x -> dimension(x) == Mass, core_masses) "Unit of core masses is not correct. Got $(unit.(core_masses)), expected mass"
+    @assert all(x -> dimension(x) == Length, envelope_radii) "Unit of envelope radii is not correct. Got $(unit.(envelope_radii)), expected length"
+    @assert all(x -> dimension(x) == Mass, envelope_masses) "Unit of envelope masses is not correct. Got $(unit.(envelope_masses)), expected mass"
+    @assert all(x -> dimension(x) == Length, semi_major_axes) "Unit of semi-major axes is not correct. Got $(unit.(semi_major_axes)), expected length"
+
+    @assert all(x -> (unit(x) == u"rad" || unit(x) == u"°"), argument_of_periapses) "Unit of argument of periapses is not correct. Got $(unit.(argument_of_periapses)), expected angle (rad or °)"
+    @assert all(x -> (unit(x) == u"rad" || unit(x) == u"°"), inclinations) "Unit of inclinations is not correct. Got $(unit.(inclinations)), expected angle (rad or °)"
+    @assert all(x -> (unit(x) == u"rad" || unit(x) == u"°"), longitude_of_ascending_nodes) "Unit of longitude_of_ascending_nodes is not correct. Got $(unit.(longitude_of_ascending_nodes)), expected angle (rad or °)"
+    @assert all(x -> (unit(x) == u"rad" || unit(x) == u"°"), true_anomalies) "Unit of true_anomalies is not correct. Got $(unit.(true_anomalies)), expected angle (rad or °)"
+
+end
+
+""" 
+The following macro and function are taken from https://github.com/mauro3/UnPack.jl. All credits go 
+to the authors of that package.
+"""
+@inline unpack(x::AbstractDict{Symbol}, ::Val{k}) where {k} = x[k]
+
+macro unpack(args)
+    items, dict = args.args
+    items = isa(items, Symbol) ? [items] : items.args
+    dict_instance = gensym()
+    kd = [:( $key = $unpack($dict_instance, Val{$(Expr(:quote, key))}()) ) for key in items]
+    kdblock = Expr(:block, kd...)
+    expr = quote
+        local $dict_instance = $dict 
+        $kdblock
+        $dict_instance 
+    end
+    esc(expr)
+end
 
 """
     multibodysystem(masses::Vector{<:Quantity}; <kwargs>)
@@ -48,37 +162,31 @@ julia> quadruple = multibodysystem([1.0, 1.0, 1.0, 1.0]u"Msun", hierarchy=[4, 2,
 
 ```
 """
-function multibodysystem(masses::Vector{<:Unitful.Mass}; R  = 1.0u"Rsun", 
-                                                         S      = 0.0u"1/yr", 
-                                                         L      = 1.0u"Lsun", 
-                                                         R_core = unit(R[1])*(0.0),
-                                                         m_core = unit(masses[1])*(0.0),
-                                                         R_env  = unit(R[1])*(0.0),
-                                                         m_env  = unit(masses[1])*(0.0),
-                                                         stellar_types  = 1, 
-                                                         a      = 1.0u"AU", 
-                                                         e      = 0.1, 
-                                                         ω      = 0.0u"rad", 
-                                                         i      = 0.0u"rad", 
-                                                         Ω      = 0.0u"rad", 
-                                                         ν      = (π)u"rad", 
-                                                         time::Quantity = 0.0u"s", 
-                                                         verbose::Bool = false, 
-                                                         hierarchy = [length(masses), repeat([1], length(masses)-1)...])
+function multibodysystem(masses::Vector{<:Unitful.Mass};
+                         time::Quantity = 0.0u"s", 
+                         verbose::Bool = false, 
+                         hierarchy = [length(masses), repeat([1], length(masses)-1)...],
+                         system_params...)
+
+    system_params = parse_multibodysystem_args(system_params)
     n_bodies = length(masses)
     n_bins = n_bodies - 1
 
-    R = ifelse(R isa Number, repeat([R], n_bodies), R)
+    @unpack R, S, L, stellar_types, R_core, m_core, R_env, m_env, a, e, ω, i, Ω, ν = system_params
+    
+    R = ifelse(L isa Number, repeat([R], n_bodies), R)
     L = ifelse(L isa Number, repeat([L], n_bodies), L)
     R_core = ifelse(R_core isa Number, repeat([R_core], n_bodies), R_core)
     m_core = ifelse(m_core isa Number, repeat([m_core], n_bodies), m_core)
     R_env  = ifelse(R_env  isa Number, repeat([R_env ], n_bodies), R_env )
     m_env  = ifelse(m_env  isa Number, repeat([m_env ], n_bodies), m_env )
+    stellar_types = ifelse(stellar_types isa Number, repeat([stellar_types], n_bodies), stellar_types)
+
 
     S = if S isa Number 
         [[S, zero(S), zero(S)] for i in 1:n_bodies]
     elseif S isa Vector{<:Number}
-        [[ss, zero(ss), zero(ss)] for ss in S]
+       [[ss, zero(ss), zero(ss)] for ss in S]
     else
         S
     end
@@ -90,29 +198,29 @@ function multibodysystem(masses::Vector{<:Unitful.Mass}; R  = 1.0u"Rsun",
     Ω = ifelse(Ω isa Number, repeat([Ω], n_bins), Ω)
     ν = ifelse(ν isa Number, repeat([ν], n_bins), ν)
 
-    # if any(x -> x < zero(x), S)
-    #     idx = findall(x -> x < zero(x), S)
-    #     S[idx] .= stellar_spin.(masses[idx], R[idx])
-    # end
-
-    stellar_types = ifelse(stellar_types isa Number, repeat([stellar_types], n_bodies), stellar_types)
-    multibodysystem(masses, R, S, L, stellar_types, R_core, m_core, R_env, m_env, a, e, ω, i, Ω, ν, hierarchy, time, verbose=verbose)
+    hierarchical_multibodysystem_preprocess(masses, R, S, L, 
+                                            stellar_types, 
+                                            R_core, m_core, 
+                                            R_env, m_env, 
+                                            a, e, ω, i, Ω, ν, 
+                                            hierarchy, time, 
+                                            verbose=verbose)
 end
 
 
-function multibodysystem(masses::Vector{<:Unitful.Mass}, 
-                         R::Vector{<:Unitful.Length}, 
-                         S::Vector{<:Union{<:AbstractVector{<:Quantity}, <:Quantity}}, 
-                         L::Vector{<:Unitful.Power}, 
-                         stellar_types::Vector{Int}, 
-                         R_core::Vector{<:Unitful.Length}, 
-                         m_core::Vector{<:Unitful.Mass}, 
-                         R_env::Vector{<:Unitful.Length}, 
-                         m_env::Vector{<:Unitful.Mass},
-                         a::Vector{<:Unitful.Length}, e::Vector{<:Real}, ω::Vector{<:Quantity}, 
-                         i::Vector{<:Quantity}, Ω::Vector{<:Quantity}, ν::Vector{<:Quantity}, 
-                         hierarchy::Vector{Int}, time::Quantity; 
-                         verbose::Bool = false)
+function hierarchical_multibodysystem_preprocess(masses::Vector{<:Unitful.Mass}, 
+                                                 R::Vector{<:Unitful.Length}, 
+                                                 S::Vector{<:Union{<:AbstractVector{<:Quantity}, <:Quantity}}, 
+                                                 L::Vector{<:Unitful.Power}, 
+                                                 stellar_types::Vector{Int}, 
+                                                 R_core::Vector{<:Unitful.Length}, 
+                                                 m_core::Vector{<:Unitful.Mass}, 
+                                                 R_env::Vector{<:Unitful.Length}, 
+                                                 m_env::Vector{<:Unitful.Mass},
+                                                 a::Vector{<:Unitful.Length}, e::Vector{<:Real}, ω::Vector{<:Quantity}, 
+                                                 i::Vector{<:Quantity}, Ω::Vector{<:Quantity}, ν::Vector{<:Quantity}, 
+                                                 hierarchy::Vector{Int}, time::Unitful.Time; 
+                                                 verbose::Bool = false)
 
     n_bins = sum(hierarchy[2:end])
     n_particles = length(masses)
@@ -125,62 +233,22 @@ function multibodysystem(masses::Vector{<:Unitful.Mass},
         push!(elements, OrbitalElements(a[idx], 0.0u"d", e[idx], ω[idx], i[idx], Ω[idx], ν[idx]))
     end
 
-    # if unit(masses)[1] != unit()
     structures = StellarStructure[]
     for idx ∈ 1:n_particles
         stellar_type = stellar_type_from_index(stellar_types[idx])
-        # push!(structures, StellarStructure(stellar_type, masses[idx], R[idx], S[idx], L[idx]))
         push!(structures, StellarStructure(stellar_type, masses[idx], R[idx], S[idx], L[idx],
                                             R_core[idx], m_core[idx], R_env[idx], m_env[idx]))
     end
 
 
-    multibodysystem(masses, hierarchy, elements, structures, time, verbose=verbose)
+    hierarchical_multibodysystem(masses, hierarchy, elements, structures, time, verbose=verbose)
 end
 
-# function multibodysystem(masses::Vector{<:Unitful.Mass}, 
-#                          R::Vector{<:Unitful.Length}, 
-#                          S::Vector{Vector{<:Quantity}}, 
-#                          L::Vector{<:Quantity}, 
-#                          stellar_types::Vector{Int}, 
-#                          R_core::Vector{<:Unitful.Length}, 
-#                          m_core::Vector{<:Unitful.Mass}, 
-#                          R_env::Vector{<:Unitful.Length}, 
-#                          m_env::Vector{<:Unitful.Mass},
-#                          a::Vector{<:Unitful.Length}, e::Vector{<:Real}, ω::Vector{<:Quantity}, 
-#                          i::Vector{<:Quantity}, Ω::Vector{<:Quantity}, ν::Vector{<:Quantity}, 
-#                          hierarchy::Vector{Int}, time::Quantity; 
-#                          verbose::Bool = false)
 
-#     n_bins = sum(hierarchy[2:end])
-#     n_particles = length(masses)
-    
-#     @assert length(masses) == length(S) == length(L) == length(stellar_types) "Must give structural property for each particles."
-#     @assert n_bins == n_particles - 1 "Number of binary elements must equal N particles - 1."
-
-#     elements = OrbitalElements[]
-#     for idx = 1:n_bins
-#         push!(elements, OrbitalElements(a[idx], 0.0u"d", e[idx], ω[idx], i[idx], Ω[idx], ν[idx]))
-#     end
-
-#     # if unit(masses)[1] != unit()
-
-#     structures = StellarStructure[]
-#     for idx = 1:n_particles
-#         stellar_type = stellar_type_from_index(stellar_types[idx])
-#         # push!(structures, StellarStructure(stellar_type, masses[idx], R[idx], S[idx], L[idx]))
-#         push!(structures, StellarStructure(stellar_type, masses[idx], R[idx], S[idx], L[idx],
-#                                             R_core[idx], m_core[idx], R_env[idx], m_env[idx]))
-#     end
-
-#     multibodysystem(masses, hierarchy, elements, structures, time, verbose=verbose)
-# end
-
-
-function multibodysystem(masses::Vector, hierarchy::Vector, 
-                         elements::AbstractVector{T} where T <: OrbitalElements,
-                         structures::AbstractVector{T} where T <: StellarStructure,
-                         t = 0.0u"yr"; verbose=false)
+function hierarchical_multibodysystem(masses::Vector, hierarchy::Vector, 
+                                      elements::AbstractVector{T} where T <: OrbitalElements,
+                                      structures::AbstractVector{T} where T <: StellarStructure,
+                                      t = 0.0u"yr"; verbose=false)
 
     hierarchy_mat = hierarchy_matrix(hierarchy)
     positions, velocities = keplers_problem(hierarchy_mat, masses, elements)
@@ -211,7 +279,6 @@ function multibodysystem(masses::Vector, hierarchy::Vector,
                             OrbitalElements(e.a, P, e.e, e.ω, e.i, e.Ω, e.ν)
                         end
 
-                        # sibling_key = if 
 
                         create_binary(positions[:,idx], velocities[:,idx], 
                                       masses[idx], structures[idx], binary_elements, 
