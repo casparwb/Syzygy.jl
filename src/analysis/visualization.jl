@@ -10,6 +10,7 @@ using RecipesBase
 @userplot ICPlot
 @userplot AccelerationPlot
 @userplot KozaiLidovPlot
+@userplot ElementPlot
 
 # function animate_threebody(sol::TripleSolution, name; 
 #                            max_diff=100, nframes=200, fps=20,
@@ -418,7 +419,7 @@ end
     end
 end
 
-@recipe function f(eA::AccelerationPlot; a_func=pure_gravitational_acceleration!, 
+@recipe function f(eA::AccelerationPlot; 
                                          pot=PureGravitationalPotential(),
                                          bodies=nothing, tspan=nothing)
 
@@ -434,31 +435,42 @@ end
     
     N = length(indices)
     bodies = isnothing(bodies) ? (1:ic.n) : bodies 
-    all_bodies = 1:ic.n
-    n_bodies = length(bodies)
-    dv = zeros(3)
-    accel = Array{typeof(1.0u"m/s^2"), 3}(undef, length(bodies), 3, N)
 
-    for i in indices
-        fill!(dv, 0.0)
-        for (j, b) in enumerate(bodies)
-            r = sol.r[:,:,i] .|> upreferred |> ustrip
-            v = sol.v[:,:,i] .|> upreferred |> ustrip
-            a_func(dv, r, v, p, b, length(all_bodies), pot)
-            accel[j, :, i] .= dv .* upreferred(u"m/s^2")
+    dvi, dvj = zeros(3), zeros(3)
+    accel = zeros(typeof(1.0u"m/s^2"), 3, length(bodies), N)
+
+    a_func = Syzygy.get_accelerating_function(pot)
+
+    for t in indices
+        for pair in sol.ic.pairs
+            i, j = pair
+            fill!(dvi, 0.0)
+            fill!(dvj, 0.0)
+
+            r = SMatrix{3, 3}(sol.r[:,:,t]) .|> upreferred |> ustrip
+            v = SMatrix{3, 3}(sol.v[:,:,t]) .|> upreferred |> ustrip
+
+            a_func(dvi, dvj, r, v, pair, time[t], p)
+            accel[:, i, t] .+= dvi .* unit_length/unit_time^2
+            accel[:, j, t] .+= dvj .* unit_length/unit_time^2
         end
     end
 
+    accel
+
     ylims --> :auto
     xlims --> :auto
+    title --> nameof(typeof(pot))
+    ylabel --> "Acceleration"
+    xlabel --> "Time [$(unit_time)]"
+
+    time = upreferred.(time ./ ic.binaries[1].elements.P)
 
     for (j, b) in enumerate(bodies)
         @series begin
             seriestype --> :line
             label --> "Particle $(b)"
-            # data = Tuple([[u"AU"(r)] for r in particle.position[dims]])
-            # rs = r.(particle.)
-            data = accel[j, :, :]
+            data = accel[:, j, :]
             data = norm.(eachcol(data))
             time[indices], data
         end
@@ -466,7 +478,7 @@ end
 end 
 
 
-@recipe function f(kP::KozaiLidovPlot; loge=false, t_unit=u"yr")
+@recipe function f(kP::KozaiLidovPlot; xax="time", loge=false, t_unit=u"yr")
 
     sol = kP.args[1]
     triple = sol.ic
@@ -501,7 +513,15 @@ end
     titlefontsize --> 20
     tickfontsize --> 10
 
-    t = ustrip.(t_unit, time)
+    t = time
+    x_ax = if xax == "time"
+        ustrip.(t_unit, time)
+    elseif xax == "inner"
+        upreferred.(t ./ sol.ic.binaries[1].elements.P)
+    elseif xax == "outer"
+        upreferred.(t ./ sol.ic.binaries[2].elements.P)
+    end
+
 
     # Inner eccentricity plot
     @series begin
@@ -510,13 +530,11 @@ end
         subplot := 1
 
         yscale --> ifelse(loge, :log10, :identity)
-        # @show plotattributes[:yscale]
         edata = ifelse(loge, 1 .- e_in, e_in)
         ylabel := ifelse(loge,"log (1 - e)", "e")
         xticks --> nothing
-        # title --> "Eccentricity"
 
-        t, edata
+        x_ax, edata
     end
 
     # Outer eccentricity plot
@@ -526,30 +544,32 @@ end
         subplot := 1
 
         yscale --> ifelse(loge, :log10, :identity)
-        # @show plotattributes[:yscale]
         edata = ifelse(loge, 1 .- e_out, e_out)
-        ylabel := ifelse(loge,"log (1 - e)", "e_out")
+        ylabel := ifelse(loge,"log (1 - e)", "e")
         xticks --> nothing
-        # title --> "Eccentricity"
 
-        t, edata
+        x_ax, edata
     end
 
+    xlab = if xax == "time"
+        "Time [$(t_unit)]"
+    elseif xax == "inner"
+        "t/Pᵢₙ init"
+    elseif xax == "outer"
+        "t/Pₒᵤₜ init"
+    end
 
     # Mutual inclination plot
     @series begin
         seriestype --> :line
-        label --> false#"Binary $bin"
+        label --> false
         subplot := 2
 
-        xlabel := "Time [$(t_unit)]"
+        xlabel := xlab
 
-        # @show plotattributes[:yscale]
-        # xticks --> nothing
-        ylabel := "i mut [°]"
-        # title --> "Inclination"
+        ylabel := "Inclination [°]"
 
-        t, ustrip.(u"°", i_mut)
+        x_ax, ustrip.(u"°", i_mut)
     end
 
 
@@ -734,6 +754,74 @@ end
     #     # ylims --> (0.9*minimum(radii), maximum(radii)*1.1)
     #     t, h3
     # end
+end
+
+@recipe function f(kP::ElementPlot; loge=false, t_unit=u"yr")
+
+    sol = kP.args[1]
+    triple = sol.ic
+    time = sol.t
+
+    @assert sol.ic.n == 3 "Only valid for triples."
+
+    m1, m2, m3 = triple.particles.mass
+
+    r12 = sol.r[particle=1] .- sol.r[particle=2]
+    v12 = sol.v[particle=1] .- sol.v[particle=2]
+    d12 = norm.(eachcol(r12))
+
+    # e_in = eccentricity.(eachcol(r12), eachcol(v12), d12, m1+m2)
+    com_in = center_of_mass(sol, [1, 2])
+    v_com_in = centre_of_mass_velocity(sol, [1, 2])
+    r123 = sol.r[particle=3] .- com_in
+    v123 = sol.v[particle=3] .- v_com_in
+    d123 = norm.(eachcol(r123))
+    # e_out = eccentricity.(eachcol(r123), eachcol(v123), d123, m1+m2+m3)
+
+    a_in = semi_major_axis.(d12, norm.(eachcol(v12)) .^ 2, m1+m2)
+    a_out = semi_major_axis.(d123, norm.(eachcol(v123)) .^ 2, m1+m2+m3)
+
+    layout --> (2, 1)
+    size --> (800, 900)
+
+    legend := loge ? :topright : :topleft
+    legendfontsize --> 12
+    titlefontsize --> 20
+    tickfontsize --> 10
+
+    t = ustrip.(t_unit, time)
+
+    # Inner sma plot
+    @series begin
+        seriestype --> :line
+        label := "e_in"
+        subplot := 1
+
+        yscale --> ifelse(loge, :log10, :identity)
+        # @show plotattributes[:yscale]
+        ylabel := ifelse(loge,"log (1 - e)", "e")
+        xticks --> nothing
+        # title --> "sma"
+
+        t, a_in
+    end
+
+    # Outer sma plot
+    # @series begin
+    #     seriestype --> :line
+    #     label := "e_out"
+    #     subplot := 1
+
+    #     yscale --> ifelse(loge, :log10, :identity)
+    #     # @show plotattributes[:yscale]
+    #     # edata = ifelse(loge, 1 .- e_out, e_out)
+    #     ylabel := ifelse(loge,"log (1 - e)", "e_out")
+    #     xticks --> nothing
+    #     # title --> "Eccentricity"
+
+    #     t, a_out
+    # end
+
 end
 
 # anim = @animate for i in eachindex(sol.t)[1:100:end]
