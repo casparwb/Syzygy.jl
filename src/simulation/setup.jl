@@ -162,12 +162,11 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     end
 
     P_in, P_out = isempty(periods) ? (Inf*unit_time, Inf*unit_time) : extrema(periods)
+    
     # setup time step (only used if using symplectic integrator)
     if args[:dt] isa Real
         if isinf(P_in)
             throw(DomainError(args[:dt], "None of the bodies are bound, therefore giving dt as a multiple of the smallest period is not possible. Solution: give dt as a number with a time unit."))
-            # @warn "None of the bodies are bound, therefore giving dt as a multiple of the smallest period is not possible. Solution: give dt as a number with a time unit."
-            # return nothing
         end
         args[:dt] *= P_in.val # time step is multiple of smallest period
     else
