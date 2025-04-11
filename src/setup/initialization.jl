@@ -198,6 +198,11 @@ function multibodysystem(masses::Vector{<:Unitful.Mass};
     Ω = ifelse(Ω isa Number, repeat([Ω], n_bins), Ω)
     ν = ifelse(ν isa Number, repeat([ν], n_bins), ν)
 
+    check_units(masses, R, S, L, 
+                R_core, m_core, 
+                R_env, m_env, 
+                a, ω, i, Ω, ν)
+
     hierarchical_multibodysystem_preprocess(masses, R, S, L, 
                                             stellar_types, 
                                             R_core, m_core, 
@@ -501,31 +506,50 @@ function get_particle(binary::Binary, key::Int)
     throw(BoundsError)
 end
 
+function parse_stellar_structure_args(keyword_arguments)
+    keyword_arguments = Dict(keyword_arguments)
+    default_param_values = Dict{Symbol, Any}(:R      => 1.0u"Rsun", 
+                                             :S      => 0.0u"1/yr", 
+                                             :L      => 1.0u"Lsun", 
+                                             :R_core => 0.0u"Rsun",
+                                             :m_core => 0.0u"Msun",
+                                             :R_env  => 0.0u"Rsun",
+                                             :m_env  => 0.0u"Msun",
+                                             :stellar_types  => 1)
+
+    args_out = copy(default_param_values)
+
+    for (k, v) in keyword_arguments
+        param_key = get(multibodysystem_parameter_aliases, k, nothing)
+        isnothing(param_key) && throw(ArgumentError("Parameter $k is not valid. See `keys(Syzygy.multibodysystem_parameter_aliases)` for all possible parameters."))
+        args_out[param_key] = v
+    end
+
+    return args_out
+end
+
 """
     multibodysystem(masses, positions, velocities; kwargs...)
 
 Create a NonHierarchicalSystem from masses, positions, and velocities. 
+
 # Examples
 ```jldoctest
 julia> masses = rand(3)u"kg"
 julia> positions = [rand(3)u"m" for i = 1:3]
 julia> velocities = [rand(3)u"m/s" for i = 1:3]
 julia> multibodysystem(masses, positions, velocities);
-julia> multibodysystem(masses, positions, velocities, R=ones(3)u"m") # you an also supply any of the structure arguments
+julia> multibodysystem(masses, positions, velocities, radii=ones(3)u"m") # you can also supply any of the stellar structure arguments
 ```
 
 """
 function multibodysystem(masses, positions, velocities;
-                        R      = 1.0u"Rsun", 
-                        S      = 0.0u"1/yr", 
-                        L      = 1.0u"Lsun", 
-                        R_core = zero(R[1]),
-                        m_core = zero(masses[1]),
-                        R_env  = zero(R[1]),
-                        m_env  = zero(masses[1]),
-                        stellar_types  = 1, 
-                        time::Quantity = 0.0u"s", 
-                        verbose::Bool = false)
+                         time::Quantity = 0.0u"s", 
+                         verbose::Bool = false,
+                         stellar_structure_params...)
+
+    stellar_structure_params = parse_stellar_structure_args(stellar_structure_params)
+    @unpack R, S, L, R_core, m_core, R_env, m_env, stellar_types = stellar_structure_params
 
     n_bodies = length(masses)
 
@@ -547,13 +571,6 @@ function multibodysystem(masses, positions, velocities;
     else
         S
     end
-
-    # particle_structures = StellarStructure[]
-    # for idx in eachindex(masses)
-    #     structure = StellarStructure(stellar_types[idx], masses[idx], R[idx], S[idx], L[idx],
-    #                                 R_core[idx], m_core[idx], R_env[idx], m_env[idx])
-    #     push!(particle_structures, structure)
-    # end
 
     particles = Particle[]
     for idx in eachindex(masses)
@@ -581,17 +598,6 @@ function multibodysystem(masses, positions, velocities;
         end
     end
 
-    # binaries = nothing
-    # levels = SA[1]
-    # root = Binary(BinaryIndex(1), 1, BinaryIndex(-1), 1, SA[1, 2], SA[particle_keys...], 
-    #               centre_of_mass(positions, masses), 
-    #               centre_of_mass_velocity(velocities, masses), 
-    #               masses, OrbitalElements())
-    # hierarchy = [n_bodies, repeat([1], n_bodies-1)...]
-
-    # bodies = Dict{Int, Particle}(i => p for (i, p) in enumerate(particles))
-    # binaries = Dict(1 => root)
-
     particles = Dict{Int, Particle}(i => p for (i, p) in enumerate(particles))
 
     NonHierarchicalSystem(n_bodies, time, particles, pairs)
@@ -608,24 +614,6 @@ function multibodysystem(system::HierarchicalMultiple; new_params...)
     possible_kwargs = [:R, :S, :L, :R_core, :m_core, :R_env, :m_env, 
                        :stellar_types, :a, :e, :ω, :i, :Ω, :ν, 
                        :hierarchy, :time, :verbose]
-
-                    #    R  = 1.0u"Rsun", 
-                    #                                      S      = 0.0u"1/yr", 
-                    #                                      L      = 1.0u"Lsun", 
-                    #                                      R_core = unit(R[1])*(0.0),
-                    #                                      m_core = unit(masses[1])*(0.0),
-                    #                                      R_env  = unit(R[1])*(0.0),
-                    #                                      m_env  = unit(masses[1])*(0.0),
-                    #                                      stellar_types  = 1, 
-                    #                                      a      = 1.0u"AU", 
-                    #                                      e      = 0.1, 
-                    #                                      ω      = 0.0u"rad", 
-                    #                                      i      = 0.0u"rad", 
-                    #                                      Ω      = 0.0u"rad", 
-                    #                                      ν      = (π)u"rad", 
-                    #                                      time::Quantity = 0.0u"s", 
-                    #                                      verbose::Bool = false, 
-                    #                                      hierarchy = [length(masses), repeat([1], length(masses)-1)...]
 
     new_kwargs = Dict(new_params)
     unchanched_kwargs = [kw for kw in possible_kwargs if (!in(kw, keys(new_kwargs)))]
@@ -694,7 +682,7 @@ function multibodysystem(sol::MultiBodySolution, time)
     stellar_types = structure.type[:,quant_time_index]
 
     return multibodysystem(masses, positions, velocities, R=R, L=L, S=S, 
-                           R_core=R_core, m_core=m_vore, R_env=R_env, m_env=m_env, 
+                           R_core=R_core, m_core=m_core, R_env=R_env, m_env=m_env, 
                            stellar_types=stellar_types, time=time)
 
 end
