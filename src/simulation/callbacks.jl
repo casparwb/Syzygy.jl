@@ -8,6 +8,13 @@ using DiffEqCallbacks: ManifoldProjection
 
 abstract type AbstractSyzygyCallback end
 
+"""
+    SavingCB(save_every=1)
+
+A callback for saving the solution every `save_every` time step. Can be turned on by
+sending an integer value to the `save_every` keyword argument for `simulation` or `simulate`,
+or by creating an instance of this type and including it in the `callbacks` keyword argument.
+"""
 struct SavingCB{T} <: AbstractSyzygyCallback
     save_every::T
 end
@@ -17,11 +24,15 @@ struct FinalTimeCB{T} <: AbstractSyzygyCallback
 end
 
 """
+    CollisionCB(check_every=1, grav_rad_multiple=10_000)
 
-A callback for checking if collision has occured in system.
-If the two objects are stars, the callback checks for overlapping radii,
-if one of the objects is a compact object and the other is a star, the tidal
-radius of the CO is used, and finally if both objects are COs, we use 100 × gravitational radius.
+A callback for checking if collision has occured in system. Collision depends on the stellar types
+of the objects, and is triggered when the distance between two objects is smaller than some value.
+
+- If the two objects are stars or planets, the callback checks for overlapping radii
+- If one of the objects is a compact object (CO) and the other is a star, the tidal disruption radius is used. 
+- If both objects are COs, the code checks if the distance is smaller than `grav_rad_multiple` times their mutual gravitational radius.
+- If one object is a planet and one is a star, the roche limit is used.
 """
 struct CollisionCB         <: AbstractSyzygyCallback 
     check_every::Int
@@ -29,6 +40,25 @@ struct CollisionCB         <: AbstractSyzygyCallback
     CollisionCB(check_every=1, grav_rad_multiple=10_000) = new(check_every, grav_rad_multiple)
 end
 
+"""
+    EscapeCB(check_every=1, max_a_factor=100)
+
+A callback for checking if a body in a triple system has escaped (become unbound). The criterium for escape
+is based on three checks:
+
+    1. The distance between the body and the center of mass of the remaining binary is
+    larger than the semi-major axis of the binary multiplied by `max_a_factor`.
+    2. The body is moving away from the center of mass of the binary.
+    3. The body has a positive total energy.
+
+If criterium 1 and 2 are satisfied, but not 3, then the code checks if the body is more than 1
+parsec away from the binary, in which case it is classified as a `Drifter`.
+
+
+# Arguments
+- `check_every`: How often the solver should check for escape. Default is 1 (every time step).
+- `max_a_factor`: See above.
+"""
 struct EscapeCB{T}         <: AbstractSyzygyCallback 
     max_a_factor::T
     check_every::Int
@@ -40,6 +70,15 @@ struct RocheLobeOverflowCB <: AbstractSyzygyCallback
     RocheLobeOverflowCB(check_every=1) = new(check_every)
 end
 
+"""
+    CPUTimeCB(check_every=1)
+
+Check if the system has reached the maximum alloted CPU time, which can be set using the keyword
+argument `max_cpu_time` when calling `simulate` or `simulation`.
+
+# Arguments
+- `check_every`: How often the solver should check. Default is 1 (every time step).
+"""
 struct CPUTimeCB           <: AbstractSyzygyCallback 
     check_every::Int
     CPUTimeCB(check_every=1) = new(check_every)
@@ -190,7 +229,6 @@ end
 
 
 function collision_callback!(integrator, pairs, retcode, grav_rad_multiple)
-    # k = 1
     @inbounds for pair in pairs
         i, j = pair
         ri = SA[integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
@@ -257,7 +295,6 @@ function collision_check(d, R1, R2, m1, m2, stellar_type1::CompactObject, stella
     rg = UNITLESS_G*(m1 + m2)*c⁻² # mutual gravitational radius
     d <= grav_rad_multiple*rg
 end
-
 
 
 @inline function total_mass(masses, sibling_ids::SVector{N, Int}) where N
@@ -440,12 +477,10 @@ function move_to_com_callback!(integrator)
 end
 
 function max_cpu_time_callback!(integrator, retcode, start_time, max_cpu_time)
-
     if (time() - start_time) >= max_cpu_time
         retcode[:MaxCPUTime] = true
         terminate!(integrator)
     end
-
 end
 
 """
@@ -599,8 +634,8 @@ function ionization_callback!(integrator, retcodes, max_distance)
 
     K = 0.5*m .* SA[norm(v1)^2, norm(v2)^2, norm(v3)^2]
     U = -UNITLESS_G*m .* SA[m[2]/d12 + m[3]/d13,
-                   m[1]/d12 + m[3]/d23,
-                   m[1]/d13 + m[2]/d23]
+                            m[1]/d12 + m[3]/d23,
+                            m[1]/d13 + m[2]/d23]
 
     r1 = r1 + v1 .* integrator.dt
     r2 = r2 + v2 .* integrator.dt
