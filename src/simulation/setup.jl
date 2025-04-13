@@ -62,6 +62,7 @@ function parse_arguments!(kwargs::Dict)
     default_args = Dict(
                         :t0        => nothing,  :dt     => 1/10, :t_sim => 1.0,
                         :alg       => DPRKN8(), :saveat => [], :npoints => 0,
+                        :save_every => nothing,
                         :maxiters  => Inf,
                         :abstol    => 1.0e-10, :reltol  => 1.0e-10,
                         :potential => [PureGravitationalPotential()],
@@ -132,7 +133,6 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     dtype = get_datatype_from_precision(args[:precision])
     args[:dtype] = dtype
     particles = system.particles
-
     
     if any(x -> x isa SpinPotential, args[:potential])
         check_spins(system.particles.S)
@@ -178,13 +178,14 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     t0 = isnothing(t0) ? ustrip(unit_time, system.time) : ustrip(unit_time, t0)
     args[:t0] = t0
     t_sim = args[:t_sim]
-    tspan = setup_timespan(t0, t_sim, P_out, dtype)
-    args[:tspan] = tspan
+    # tspan = setup_timespan(t0, t_sim, P_out, dtype)
+    args[:tspan] = (t0, Inf)
 
     t_final = get_final_time(t0, t_sim, P_out, dtype)
     args[:callbacks] = AbstractSyzygyCallback[args[:callbacks]...]
     push!(args[:callbacks], FinalTimeCB(t_final))
 
+    ########################################### Set up saving ###########################################
     if haskey(args, :saveat)
         saveat = args[:saveat]
         if saveat isa Number
@@ -200,6 +201,18 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
         args[:saveat] = range(t0, t_final, length=args[:npoints])
     end
 
+    if !isnothing(args[:save_every])
+        save_every = args[:save_every]
+        if isone(save_every)
+            kwargs[:save_everystep] = true
+        else
+            save_every_cb = SavingCB(save_every)
+            push!(args[:callbacks], save_every_cb)
+            kwargs[:save_everystep] = false
+        end
+    end
+    ####################################################################################################
+
     # Setup parameters
     ode_params = setup_params(particles, system.time, dtype)
    
@@ -209,75 +222,6 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     return simulation
 end
 
-# """
-#     simulation(masses, positions, velocities; multiple_system_args=(;), kwargs...)
-
-# Setup a simulation with just `masses`, `positions`, and `velocities`, and optionally any other argument
-# accepted by [`multibodysystem`](@ref). The state vectors should be arrays of length `n`, where `n` is the number
-# of bodie in the system, in which each element is the state of each component.
-
-# See [`simulation`](@ref) for a complete overview of simulation-specific arguments.
-
-# # Example
-# ```jldoctest
-# julia> positions = [[1.5, 0.09, 0.0], [1.5, -0.09, 0.0], [-1.5, 0.00, 0.0]]u"AU"
-# julia> velocities = [[-22.2, 17.2, 0.0], [22.2, 17.2, 0.0], [0.0, -17.2, 0.0]]u"km/s"
-# julia> masses = [1.0, 1.0, 2.0]u"Msun"
-# julia> sim = simulation(masses, positions, velocities, t_sim=500u"kyr") # simulate for 500 kyr
-# julia> sim = simulation(masses, positions, velocities, multibodysystem_args = (;R = [1.0, 1.0, 5.0]u"Rsun")) # include stellar structure arguments
-
-# ```
-# """
-# function simulation(masses, positions, velocities, spins=nothing; multibodysystem_args=(;), kwargs...)
-
-#     kwargs = Dict{Symbol, Any}(kwargs)
-#     args = parse_arguments!(kwargs)
-
-#     dtype = get_datatype_from_precision(args[:precision])
-
-#     n = length(masses)
-#     multiple_system = multibodysystem(masses; multibodysystem_args...)
-
-#     pos_body = [zeros(3) for i ∈ 1:n]
-#     vel_body = [zeros(3) for i ∈ 1:n]
-#     mass_body = ustrip(upreferred.(masses))
-
-#     for i ∈ 1:n
-#         pos_body[i] .= upreferred.(positions[i]) |> ustrip
-#         vel_body[i] .= upreferred.(velocities[i]) |> ustrip
-#     end
-
-#     periods = [bin.elements.P |> upreferred for bin in values(multiple_system.binaries)]
-#     P_in, P_out = extrema(periods)
-
-#     if !(args[:dt] isa Quantity)
-#         args[:dt] *= P_in.val
-#     else
-#         args[:dt] = upreferred(args[:dt])
-#     end
-
-#     # Setup time span
-#     t0 = args[:t0]
-#     t0 = isnothing(t0) ? ustrip(unit_time, multiple_system.time) : ustrip(unit_time, t0)
-#     args[:t0] = t0
-#     t_sim = args[:t_sim]
-
-#     tspan = setup_timespan(t0, t_sim, P_out, dtype)
-#     args[:tspan] = tspan
-
-#     if any(x -> x isa SpinPotential, kwargs[:potentials])
-#         check_spins(spins)
-#     end
-
-#     # spins = isnothing(spins) ? [zeros(dtype, 3)*upreferred(u"kg/m^2/s") for i = 1:n] : spins
-
-#     mass_bodies = bodies(positions, velocities, spins, masses, dtype)
-#     pot_dict = get_potential_dict(kwargs[:potential])
-#     ode_params = setup_params(multiple_system.particles, multiple_system.time, dtype)
-
-    
-#     return MultiBodySimulation(multiple_system, mass_bodies, pot_dict, args[:tspan], ode_params, args, kwargs)
-# end
 
 function check_spins(spins)
     if isnothing(spins)
@@ -293,22 +237,17 @@ function check_spins(spins)
     end
 end
 
-function setup_timespan(t0, t_sim, P_out, datatype=Float64)
-    if t_sim isa Quantity
-        # t_sim *= one(t_sim)
-        # t_sim = ustrip(unit_time, t_sim) + t0
-        # tspan = (t0, t_sim)
-        tspan = (t0, Inf)
-    else
-        # P_out = ustrip(unit_time, P_out)
-        # tspan = (t0, t0 + t_sim*P_out)
-        tspan = (t0, Inf)
-    end
+# function setup_timespan(t0, t_sim, P_out, datatype=Float64)
+#     if t_sim isa Quantity
+#         tspan = (t0, Inf)
+#     else
+#         tspan = (t0, Inf)
+#     end
 
-    tspan = datatype.(tspan)
+#     tspan = datatype.(tspan)
 
-    return tspan
-end
+#     return tspan
+# end
 
 function get_final_time(t0, t_sim, P_out, datatype=Float64)
     if t_sim isa Quantity
@@ -322,13 +261,6 @@ end
 
 
 function setup_params(particles, time, datatype=Float64, stellar_evolution=false)
-
-    # masses        = typeof(upreferred(1.0u"Msun"))[]
-    # luminosities  = typeof(upreferred(1.0u"Lsun"))[]
-    # radii         = typeof(upreferred(1.0u"Rsun"))[]
-    # core_masses   = typeof(upreferred(1.0u"Msun"))[]
-    # core_radii    = typeof(upreferred(1.0u"Rsun"))[]
-    # ages          = typeof(upreferred(1.0u"yr"))[]
 
     masses        = datatype[]
     luminosities  = datatype[]
@@ -408,17 +340,10 @@ function get_datatype_from_precision(precision)
         setworkingprecision(ArbFloat, precision)
         return ArbFloat
     elseif precision isa Symbol
-        # if precision == :Float64
-        #     return Float64
-        # elseif precision == :Float32
-        #     return Float32
-        # elseif precision == :Double64
-        #     return Double64
-        # elseif precision == :Double32
-        #     return Double32
-        # else
-        #     @error "Datatype $precision not supported."
-        # end
+        if !(precision ∈ propertynames(DoubleFloats))
+            throw(ArgumentError("Given precision is not supported."))
+        end
+
         try 
             return eval(precision)
         catch e
