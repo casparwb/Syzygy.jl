@@ -100,7 +100,10 @@ struct MultiBodySimulation{tType, pType, aType, bType <: AbstractMassBody, potTy
     args::aType
     diffeq_args::aType
 end
+########################################################################################################
 
+
+####################################### Simulation postprocess #########################################
 struct SimulationResult{cType, rType <: Quantity{T} where T <: Real, opType, aType}
     solution::DiffEqBase.AbstractTimeseriesSolution
     simulation::MultiBodySimulation
@@ -121,12 +124,13 @@ struct MultiBodySolution{tT, rT, vT, ST, SvT, sT, oT, pT}
     ode_system::oT 
     ode_params::pT
 end
+########################################################################################################
+
 
 struct AccelerationFunctions{T}
     fs::T
     N::Int
 end
-########################################################################################################
 
 
 ################################ Framework for the different potentials ################################
@@ -135,15 +139,15 @@ function get_accelerating_function(potential::PureGravitationalPotential)
 end
 
 function get_accelerating_function(potential::DynamicalTidalPotential)
-    (dvi, dvj, rs, vs, pair, time, params) -> dynamical_tidal_drag_force!(dvi, dvj, rs, vs, pair, params, potential)
+    (dvi, dvj, rs, vs, pair, time, params) -> dynamical_tidal_acceleration!(dvi, dvj, rs, vs, pair, params, potential)
+end
+
+function get_accelerating_function(potential::TimeDependentEquilibriumTidalPotential)
+    (dvi, dvj, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration!(dvi, dvj, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::EquilibriumTidalPotential)
-    (dvi, dvj, rs, vs, pair, time, params) -> equilibrium_tidal_drag_force!(dvi, dvj, rs, vs, pair, params, potential)
-end
-
-function get_accelerating_function(potential::StaticEquilibriumTidalPotential)
-    (dvi, dvj, rs, vs, pair, time, params) -> equilibrium_tidal_drag_force!(dvi, dvj, rs, vs, pair, params, potential)
+    (dvi, dvj, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration!(dvi, dvj, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::PN1Potential)
@@ -158,45 +162,37 @@ function get_accelerating_function(potential::PN2p5Potential)
     (dvi, dvj, rs, vs, pair, time, params) -> PN2p5_acceleration!(dvi, dvj, rs, vs, pair, params)
 end
 
-# function get_accelerating_function(potential::PN3Potential)
-#     (dv, u, v, p, t, i) -> PN3_acceleration!(dv, u, v, p, i, n, potential)
-# end
-
-# function get_accelerating_function(potential::PN3_5Potential)
-#     (dv, u, v, p, t, i) -> PN3_5acceleration!(dv, u, v, p, i, n, potential)
-# end
-
 function get_accelerating_function(potential::PNPotential)
     (dvi, dvj, rs, vs, pair, time, params) -> PN1_to_2p5_acceleration!(dvi, dvj, rs, vs, pair, params)
 end
 
-function get_accelerating_function(potential::PN1p5SpinPotential)
-    (dvi, dvj, rs, vs, pair, time, params) -> PN1p5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
-end
+# function get_accelerating_function(potential::PN1p5SpinPotential)
+#     (dvi, dvj, rs, vs, pair, time, params) -> PN1p5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
+# end
 
-function get_accelerating_function(potential::PN2SpinPotential)
-    (dvi, dvj, rs, vs, pair, time, params) -> PN2_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
-end
+# function get_accelerating_function(potential::PN2SpinPotential)
+#     (dvi, dvj, rs, vs, pair, time, params) -> PN2_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
+# end
 
-function get_accelerating_function(potential::PN2p5SpinPotential)
-    (dvi, dvj, rs, vs, pair, time, params) -> PN2p5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
-end
+# function get_accelerating_function(potential::PN2p5SpinPotential)
+#     (dvi, dvj, rs, vs, pair, time, params) -> PN2p5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
+# end
 
-function get_accelerating_function(potential::SpinPrecessionPotential)
-    (dvi, dvj, dvs, rs, vs, pair, time, params) -> spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
-end
+# function get_accelerating_function(potential::SpinPrecessionPotential)
+#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+# end
 
-function get_accelerating_function(potential::PN1SpinPrecessionPotential)
-    (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN1_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
-end
+# function get_accelerating_function(potential::PN1SpinPrecessionPotential)
+#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN1_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+# end
 
-function get_accelerating_function(potential::PN1p5SpinPrecessionPotential)
-    (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN1p5_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
-end
+# function get_accelerating_function(potential::PN1p5SpinPrecessionPotential)
+#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN1p5_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+# end
 
-function get_accelerating_function(potential::PN2SpinPrecessionPotential)
-    (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN2_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
-end
+# function get_accelerating_function(potential::PN2SpinPrecessionPotential)
+#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN2_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+# end
 ######################################################################################################
 
 function gather_accelerations_for_potentials(simulation::MultiBodySimulation)
