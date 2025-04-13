@@ -437,9 +437,9 @@ using Test
     #     rs = [rs; Ss]
     #     vs = [vs; vSs]
 
-    #     pot = Syzygy.StaticEquilibriumTidalPotential()
+    #     pot = Syzygy.EquilibriumTidalPotential()
     #     pair = (1, 2)
-    #     Syzygy.Syzygy.equilibrium_tidal_drag_force!(dv1, dv2, rs, vs, pair, params, pot)
+    #     Syzygy.Syzygy.equilibrium_tidal_acceleration!(dv1, dv2, rs, vs, pair, params, pot)
 
     #     @test abs.(dv1) ≈ abs.(dv2)
 
@@ -477,9 +477,9 @@ using Test
         rs = [rs; Ss]
         vs = [vs; vSs]
 
-        pot = Syzygy.StaticEquilibriumTidalPotential(binary)
+        pot = Syzygy.EquilibriumTidalPotential(binary)
         pair = (1, 2)
-        Syzygy.Syzygy.equilibrium_tidal_drag_force!(dv1, dv2, rs, vs, pair, params, pot)
+        Syzygy.Syzygy.equilibrium_tidal_acceleration!(dv1, dv2, rs, vs, pair, params, pot)
 
         @test abs.(dv1) ≈ abs.(dv2)
 
@@ -516,7 +516,7 @@ using Test
         pot = DynamicalTidalPotential(n=4, γ=[1.5, 1.5])
 
         pair = (1, 2)
-        Syzygy.Syzygy.dynamical_tidal_drag_force!(dv1, dv2, rs, vs, pair, params, pot)
+        Syzygy.Syzygy.dynamical_tidal_acceleration!(dv1, dv2, rs, vs, pair, params, pot)
         @test abs.(dv1) ≈ abs.(dv2)
 
     end

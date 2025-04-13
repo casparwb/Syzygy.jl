@@ -44,7 +44,7 @@
     
     @testset "Callbacks" begin
 
-        callbacks = [EscapeCB(), CollisionCB(), RocheLobeOverflowCB(), DemocraticCheckCB(), CPUTimeCB(), HubbleTimeCB(), CentreOfMassCB(), IonizationCB()]
+        callbacks = [EscapeCB(), CollisionCB(), RocheLobeOverflowCB(), DemocraticCheckCB(), CentreOfMassCB(), IonizationCB()]
 
         
         @testset "Collision" begin
@@ -58,6 +58,22 @@
             binary = multibodysystem(masses, a=a, e=e, R = R)
 
             res = simulate(binary, t_sim=1.0, callbacks=[CollisionCB()])
+
+            @test :Collision in keys(res.retcode)
+            @test res.retcode[:Collision][1] == [1,2]
+        end
+
+        @testset "New collision" begin
+            
+            a = 5.0u"Rsun"
+            e = 0.6
+            ν = (π/2)u"rad"
+            rp = a*(1 - e)
+            R = [rp/2, rp/2] .* 1.01
+            masses = [2.0, 1.0]u"Msun"
+            binary = multibodysystem(masses, a=a, e=e, R = R)
+
+            res = simulate(binary, t_sim=1.0, callbacks=[Syzygy.NewCollisionCB()])
 
             @test :Collision in keys(res.retcode)
             @test res.retcode[:Collision][1] == [1,2]
