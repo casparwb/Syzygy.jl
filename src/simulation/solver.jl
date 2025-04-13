@@ -54,9 +54,9 @@ function simulate(simulation::MultiBodySimulation)
     # ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
 
     integrator = OrdinaryDiffEqRKN.init(ode_problem, args[:alg], saveat=args[:saveat], 
-                                     callback=callbacks, maxiters=args[:maxiters], 
-                                     abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
-                                     diffeq_args...)
+                                        callback=callbacks, maxiters=args[:maxiters], 
+                                        abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
+                                        diffeq_args...)
     
     start_time = time()
 
