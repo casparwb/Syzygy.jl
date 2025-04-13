@@ -26,7 +26,6 @@ module Syzygy
     
     include("setup/initialization.jl")
     
-#     include("simulation/callbacks.jl")
     include("simulation/solver.jl")
     
     include("analysis/postprocessing.jl")
@@ -44,10 +43,8 @@ module Syzygy
 
     export multibodysystem
     export PureGravitationalPotential, DynamicalTidalPotential, 
-           EquilibriumTidalPotential, StaticEquilibriumTidalPotential,
-           PN1Potential, PN2Potential, PN2p5Potential, PNPotential,
-           PN1SpinPrecessionPotential, PN1p5SpinPrecessionPotential, PN2SpinPrecessionPotential,
-           SpinPrecessionPotential
+           TimeDependentEquilibriumTidalPotential, EquilibriumTidalPotential,
+           PN1Potential, PN2Potential, PN2p5Potential, PNPotential
 
     export simulation, simulate
     export to_solution
@@ -74,7 +71,7 @@ module Syzygy
         #          potential=[PureGravitationalPotential(), DynamicalTidalPotential(4, [1.5, 1.5, 1.5])])
         # simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
         #          callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)],
-        #          potential=[PureGravitationalPotential(), StaticEquilibriumTidalPotential(triple)])
+        #          potential=[PureGravitationalPotential(), EquilibriumTidalPotential(triple)])
 
         sol = to_solution(res)
     end
