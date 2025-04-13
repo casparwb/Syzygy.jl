@@ -28,30 +28,27 @@ function tidal_ΔE(Mₜ, Rₜ, Mₚ, rₚ, γ, G)
     return ΔE
 end 
 
-function tidal_factor_n4(e)::Float64
+function tidal_factor_n4(e)
     return π/2*(2 + 7e^2 + e^4)
 end
 
-function tidal_factor_n10(e)::Float64
+function tidal_factor_n10(e)
     return π/128*(128 + 2944e^2 + 10528e^4 + 
                   8960e^6 + 1715e^8 + 35e^10)
 end
 
 function drag_force_coefficient(ΔE, J, a, e, M, n, G)
-    # @show a, e
     return ΔE*0.5*(((a*(1 - e^2))^(n - 0.5)))/(√(G*M)*J)
 end
 
 
 function tidal_structure_function(η, γ)
-    # @show γ
     l2 = tidal_structure_coefficients[(γ, 2)]# .* 1e-4
     l3 = tidal_structure_coefficients[(γ, 3)]# .* 1e-4
 
     all(iszero(l2)) && return 0.0, 0.0
 
     x = log10(η)
-    # @show x
     logT₂ = l2[1] + l2[2]*x + l2[3]*x^2 + l2[4]*x^3 + l2[5]*x^4 + l2[6]*x^5 
     logT₃ = l3[1] + l3[2]*x + l3[3]*x^2 + l3[4]*x^3 + l3[5]*x^4 + l3[6]*x^5 
     return 10^(logT₂), 10^(logT₃)
@@ -61,31 +58,24 @@ end
 # Equilibrium Tides
 ######################################
 """
-apsidal_motion_constant_over_tidal_timescale(mass, radius, core_mass, core_radius, 
-                                                    stellar_type, spin, luminosity, 
-                                                    mass_perturber,
-                                                    orbital_period, semi_major_axis)
+apsidal_motion_constant_over_tidal_timescale(mass::Unitful.Mass, radius,
+                                             envelope_mass, envelope_radius,
+                                             stellar_type, luminosity, 
+                                             mass_perturber,
+                                             semi_major_axis, Z=0.02)
 
-Calculate and return the fraction of the apsidal motion constant `k` over the 
-tidal timescale `T`. If the given stellar type is a type with a radiative envelope, such as 
+For a stellar object with the given properties `mass`, `radius`, `envelope_mass`, and `envelope_radius` being 
+perturbed by an object with mass `mass_perturber` in a binary with the given `semi_major_axis`,
+calculate and return the fraction of the apsidal motion constant `k` over the 
+tidal timescale `T`. If the stellar type of the tidal object is a type with a radiative envelope, such as 
 a core helium burning star, or a massive main sequence star, the prescription from 
-Hurley et al. 2002 will be used (Eq. 42). Otherwise, the the prescription from Preece et al. 2022 is used.                   
+Hurley et al. 2002 will be used (Eq. 42). Otherwise, the the prescription from Preece et al. 2022 is used.
 """
-function apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
-                                                      stellar_type, luminosity, 
-                                                      mass_perturber,
-                                                      semi_major_axis)::Float64
-    return k_over_T(mass, radius, core_mass, age,
-                    core_radius, stellar_type,
-                    luminosity,
-                    mass_perturber, semi_major_axis)
-end
-
 function apsidal_motion_constant_over_tidal_timescale(mass::Unitful.Mass, radius,
                                                       envelope_mass, envelope_radius,
                                                       stellar_type, luminosity, 
                                                       mass_perturber,
-                                                      semi_major_axis)::Float64
+                                                      semi_major_axis, Z=0.02)::Float64
 
     if !(stellar_type isa Star)
         return 0.0
@@ -104,38 +94,58 @@ function apsidal_motion_constant_over_tidal_timescale(mass::Unitful.Mass, radius
                                                  envelope_mass, envelope_radius,
                                                  stellar_type, luminosity, 
                                                  mass_perturber,
-                                                 semi_major_axis)
+                                                 semi_major_axis, Z)
 end
 
-
 """
-apsidal_motion_constant_over_tidal_timescale(mass, radius, core_mass, core_radius, 
-                                                    stellar_type, spin, luminosity, 
-                                                    mass_perturber,
-                                                    orbital_period, semi_major_axis)
+apsidal_motion_constant_over_tidal_timescale(mass::Real, radius, core_mass, core_radius, 
+                                             stellar_type, spin, luminosity, 
+                                             mass_perturber,
+                                             orbital_period, semi_major_axis)
 
+If the parameters are given without units, solar units are assumed.
 """
 function apsidal_motion_constant_over_tidal_timescale(mass::Real, radius,
                                                       envelope_mass, envelope_radius,
                                                       stellar_type, luminosity, 
                                                       mass_perturber,
-                                                      semi_major_axis; Z=0.02)::Float64
+                                                      semi_major_axis, Z=0.02)::Float64
 
     if !(stellar_type isa Star)
         return 0.0
     end
 
     if mass < 1.25
-        return k_over_T_convective(mass, radius, envelope_mass, envelope_radius, luminosity, Z) |> ustrip
+        return k_over_T_convective(mass, radius, envelope_mass, envelope_radius, luminosity, Z)
     else
-        return k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis) |> ustrip
+        return k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
     end
 end
 
+"""
+apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
+                                             stellar_type, luminosity, 
+                                             mass_perturber,
+                                             semi_major_axis, Z=0.02)
+
+If the envelope structure of the star is not fixed, the age, core_mass, and core_radius 
+can be supplied instead, which will calculate the envelope mass and radius using [`envelope_structure`](@ref).
+"""
+function apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
+                                                      stellar_type, luminosity, 
+                                                      mass_perturber,
+                                                      semi_major_axis, Z=0.02)::Float64
+    return k_over_T(mass, radius, core_mass, age,
+                    core_radius, stellar_type,
+                    luminosity,
+                    mass_perturber, semi_major_axis, Z)
+end
+
+
+
 
 function k_over_T(mass::Unitful.Mass, radius, core_mass, age,
-                  core_radius, stellar_type,
-                  luminosity,
+                  core_radius, stellar_type, luminosity,
                   mass_perturber, semi_major_axis, Z=0.02)
 
     if !(stellar_type isa Star)
@@ -176,9 +186,9 @@ function k_over_T(mass::Real, radius, core_mass, age,
         envelope_radius, envelope_mass = envelope_structure(mass, radius, core_mass, 
                                                             core_radius, stellar_type, age)
 
-        return k_over_T_convective(mass, radius, envelope_mass, envelope_radius, luminosity, Z) |> ustrip
+        return k_over_T_convective(mass, radius, envelope_mass, envelope_radius, luminosity, Z)
     else
-        return k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis) |> ustrip
+        return k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
     end
 end
 
@@ -229,8 +239,6 @@ function get_k_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multipli
 
     return k_itp
 end
-
-# const k_interpolator = get_k_interpolator()
 
 function asidal_motion_constant_interpolated(logm::Float64, logg::Float64)
     return k_interpolator(logm, logg)
