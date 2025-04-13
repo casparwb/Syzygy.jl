@@ -32,15 +32,23 @@ end
 
 ################################################ Potential structs ################################################
 
+"""
+    PureGravitationalPotential()
+
+
+Newtonian gravitational potential. Corresponds to the acceleration function [`pure_gravitational_acceleration!`](@ref)
+"""
 struct PureGravitationalPotential <: MultiBodyPotential end
+
 
 """
     DynamicalTidalPotential(tidal_force_power_index, polytropic_index)
 
 
 Set up the dynamical tidal potential for a system as defined by Samsing, Leigh & Trani 2018. 
+Corresponds to the acceleration function [`dynamical_tidal_acceleration!`](@ref)
 
-# Keyword arguments
+# Arguments
 
 - `n_t`: tidal force power index. Can be either 4 or 10.
 - `polytropic_index`: vector of polytropic indices of each body in the system
@@ -65,77 +73,129 @@ struct DynamicalTidalPotential{nType, fType <: Function} <: MultiBodyPotential
     end
 end
 
-struct EquilibriumTidalPotential <: MultiBodyPotential end
-
-struct StaticEquilibriumTidalPotential{T} <: MultiBodyPotential
-    M_env::T
-    R_env::T
-    apsidal_motion_constant::T
-    rotational_angular_velocity::T
-end
-
-function StaticEquilibriumTidalPotential(system; Z=0.02, lb_multiplier=1.1, ub_multiplier=1.1)
-
-    age = system.time
-    n_bodies = system.n
-    R_envs = Float64[]
-    m_envs = Float64[]
+"""
+    TimeDependentEquilibriumTidalPotential()
 
 
-    for i = 1:n_bodies
-        particle = system.particles[i]
-        envelope_radius, envelope_mass = if particle.structure.stellar_type isa Star && particle.mass < 1.25u"Msun"
-                                            envelope_structure(system.particles[i], age, Z)
-                                         else
-                                            0.0u"Rsun", 0.0u"Rsun"
-                                         end
+Equilibrium tidal potential, with the assumption that the stars are evolving over time, which means
+the internal structure changes. The envelope structure is calculated throughout the simulation, rather than being fixed
+from the start. 
 
-        push!(R_envs, ustrip(envelope_radius))
-        push!(m_envs, ustrip(envelope_mass))
-    end
-    
-    R_envs = SA[R_envs...]
-    m_envs = SA[m_envs...]
-
-    k_interpolator = get_k_interpolator(Z=Z, lb_multiplier=lb_multiplier, ub_multiplier=ub_multiplier)
-    apsidal_motion_constants = Float64[]
-    rotational_angular_velocities = Float64[]
-    for i = 1:n_bodies
-        particle = system.particles[i]
-        if !(particle.structure.stellar_type isa Star)
-            push!(apsidal_motion_constants, 0.0)
-            push!(rotational_angular_velocities, 0.0)
-            continue
-        else
-            m, R = particle.mass, particle.radius
-            # g = GRAVCONST*m/R^2
-
-            logg = log10(ustrip(u"cm/s^2", (GRAVCONST*m/R^2))) 
-            logm = log10(ustrip(u"Msun", m))
-            try
-                logk = k_interpolator(logm, logg)
-                push!(apsidal_motion_constants, 10^logk)
-            catch e
-                # if e isa ArgumentError
-                #     k = get_k_interpolator(Z=Z, lb_multiplier=1.1, ub_multiplier=1.1)
-                # end
-                throw(e)
-            end
-
-            Ω = stellar_spin(m, R)
-            push!(rotational_angular_velocities, ustrip(unit(1/unit_time), Ω))
-
+Corresponds to the acceleration function [`pure_gravitational_acceleration!`](@ref)
+"""
+struct TimeDependentEquilibriumTidalPotential <: MultiBodyPotential 
+    function TimeDependentEquilibriumTidalPotential()
+        if unit_system != "Solar"
+            @warn """Default unit system is not set to solar units, which is what the tidal prescription expects. Conversion is currently not supported. Set the units by calling `Syzygy.set_units("Solar")` """
         end
+
+        return new()
     end
-
-    apsidal_motion_constants = SA[apsidal_motion_constants...]
-    rotational_angular_velocities = SA[rotational_angular_velocities...]
-
-    StaticEquilibriumTidalPotential(m_envs, 
-                                    R_envs, 
-                                    apsidal_motion_constants, 
-                                    rotational_angular_velocities)
 end
+
+
+"""
+    EquilibriumTidalPotential(system; Z=0.02, lb_multiplier=1.1, ub_multiplier=1.1,
+                                      supplied_apsidal_motion_constants=nothing, 
+                                      supplied_rotational_angular_velocities=nothing)
+
+
+Set up the equilibrium tidal potential corresponding to the equilibrium tidal force prescription 
+from Hut 1981. The apsidal motion constant `k` for each stellar body is acquired by interpolating
+a grid of MESA models, using data from Claret 2023. If the structural properties of one or more of the 
+stellar objects fall outside the grid, the interpolator can extrapolate to the given boundaries, which can
+be adapted using the keyword arguments `lb_multiplier` for the lower bounds, and `ub_multiplier` for the upper bounds.
+
+Alternatively, the apsidal motion constants and rotational angular velocities can be supplied using the keyword arguments
+`supplied_apsidal_motion_constants` and `supplied_rotational_angular_velocities`.
+
+Corresponds to the acceleration function [`equilibrium_tidal_acceleration!`](@ref)
+
+# Arguments
+- `system`: an instance of a `HierarchicalMultiple` or `NonHierarchichalSystem` type.
+
+# Keyword arguments
+
+- `Z`: metallicity
+- `lb_multiplier`: multiplier for the lower bounds of the apsidal motion constant. 
+- `ub_multiplier`: multiplier for the upper bounds of the apsidal motion constant. 
+- `supplied_apsidal_motion_constants`
+- `supplied_rotational_angular_velocities`
+"""
+struct EquilibriumTidalPotential{T} <: MultiBodyPotential
+    Z::T 
+    M_env::T 
+    R_env::T 
+    apsidal_motion_constant::T 
+    rotational_angular_velocity::T
+
+    function EquilibriumTidalPotential(system; Z=0.02, lb_multiplier=1.1, ub_multiplier=1.1,
+                                               supplied_apsidal_motion_constants=nothing, 
+                                               supplied_rotational_angular_velocities=nothing)
+    
+        if unit_system != "Solar"
+            @warn """Default unit system is not set to solar units, which is what the tidal prescription expects. Conversion is currently not supported. Set the units by calling `Syzygy.set_units("Solar")` """
+        end
+
+        age = system.time
+        n_bodies = system.n
+        R_envs = Float64[]
+        m_envs = Float64[]
+    
+        for i = 1:n_bodies
+            particle = system.particles[i]
+            envelope_radius, envelope_mass = if particle.structure.stellar_type isa Star && particle.mass < 1.25u"Msun"
+                                                envelope_structure(system.particles[i], age, Z)
+                                             else
+                                                0.0u"Rsun", 0.0u"Rsun"
+                                             end
+    
+            push!(R_envs, ustrip(envelope_radius))
+            push!(m_envs, ustrip(envelope_mass))
+        end
+        
+        R_envs = SA[R_envs...]
+        m_envs = SA[m_envs...]
+    
+        logk_interpolator = get_k_interpolator(Z=Z, lb_multiplier=lb_multiplier, ub_multiplier=ub_multiplier)
+        apsidal_motion_constants = Float64[]
+        rotational_angular_velocities = Float64[]
+        for i = 1:n_bodies
+            particle = system.particles[i]
+    
+            if !(particle.structure.stellar_type isa Star)
+                push!(apsidal_motion_constants, 0.0)
+                push!(rotational_angular_velocities, 0.0)
+                continue
+            else
+                m, R = particle.mass, particle.radius
+    
+                if isnothing(supplied_apsidal_motion_constants)
+                    logg = log10(ustrip(u"cm/s^2", (GRAVCONST*m/R^2))) 
+                    logm = log10(ustrip(u"Msun", m))
+                    try
+                        logk = logk_interpolator(logm, logg)
+                        push!(apsidal_motion_constants, 10^logk)
+                    catch e
+                        throw(e)
+                    end
+                end
+    
+                if isnothing(supplied_rotational_angular_velocities)
+                    Ω = stellar_spin(m, R)
+                    push!(rotational_angular_velocities, ustrip(unit(1/unit_time), Ω))
+                end
+    
+            end
+        end
+    
+        apsidal_motion_constants      = isnothing(supplied_apsidal_motion_constants)      ? SA[apsidal_motion_constants...]      : SA[supplied_apsidal_motion_constants...]
+        rotational_angular_velocities = isnothing(supplied_rotational_angular_velocities) ? SA[rotational_angular_velocities...] : SA[supplied_rotational_angular_velocities...]
+    
+        new{typeof(Z)}(Z, m_envs, R_envs, apsidal_motion_constants, rotational_angular_velocities)
+    end
+end
+
 
 
 struct PN1Potential            <: MultiBodyPotential end
@@ -150,22 +210,6 @@ struct PN3_5Potential          <: MultiBodyPotential end
 
 struct PNPotential             <: MultiBodyPotential end
 
-##########################################################
-
-struct PN1p5SpinPotential         <: SpinPotential end
-
-struct PN2SpinPotential           <: SpinPotential end
-
-struct PN2p5SpinPotential         <: SpinPotential end
-
-struct PN1SpinPrecessionPotential <: SpinPotential end
-
-struct PN1p5SpinPrecessionPotential <: SpinPotential end
-
-struct PN2SpinPrecessionPotential <: SpinPotential end
-
-struct SpinPrecessionPotential    <: SpinPotential end
-
 ###################################################################################################################
 
 
@@ -177,9 +221,7 @@ struct SpinPrecessionPotential    <: SpinPotential end
 
 Gravitational acceleration on bodies i and j, with `(i, j) = pair`.
 """
-function pure_gravitational_acceleration!(dvi,
-                                          dvj,
-                                          rs,
+function pure_gravitational_acceleration!(dvi, dvj, rs,
                                           pair::Tuple{Int, Int},
                                           params::SimulationParams)
     
@@ -208,15 +250,12 @@ end
 
 
 """
-    dynamical_tidal_drag_force!(dv, rs, vs, params::SimulationParams, i::Int, n::Int, potential::DynamicalTidalPotential)
+    dynamical_tidal_acceleration!(dv, rs, vs, params::SimulationParams, i::Int, n::Int, potential::DynamicalTidalPotential)
 
 Acceleration function from dynamical tides. This model is adapted from 
 [Implementing Tidal and Gravitational Wave Energy Losses in Few-body Codes: A Fast and Easy Drag Force Model](https://arxiv.org/abs/1803.08215)
 """
-function dynamical_tidal_drag_force!(dvi,
-                                     dvj,
-                                     rs,
-                                     vs,
+function dynamical_tidal_acceleration!(dvi, dvj, rs, vs,
                                      pair::Tuple{Int, Int},
                                      params::SimulationParams,
                                      potential::DynamicalTidalPotential)
@@ -279,13 +318,10 @@ end
 """
 Acceleration function from equilibrium tides using the Hut 1981 prescription.
 """
-function equilibrium_tidal_drag_force!(dvi,
-                                       dvj,
-                                       rs,
-                                       vs,
+function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
                                        pair::Tuple{Int, Int},
                                        params::SimulationParams,
-                                       potential::EquilibriumTidalPotential) 
+                                       potential::TimeDependentEquilibriumTidalPotential) 
 
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -325,7 +361,7 @@ function equilibrium_tidal_drag_force!(dvi,
             core_mass   = params.M_cores[k]
             core_radius = params.R_cores[k]
             luminosity  = params.L[k]
-            age         = params.ages[k]
+            age_Myr     = params.ages[k]/1e6
 
             R = Rs[k]
 
@@ -337,7 +373,7 @@ function equilibrium_tidal_drag_force!(dvi,
 
             μ = UNITLESS_G*m₂/r²
             
-            k_T = apsidal_motion_constant_over_tidal_timescale(m₁, R, age, core_mass, core_radius, 
+            k_T = apsidal_motion_constant_over_tidal_timescale(m₁, R, age_Myr, core_mass, core_radius, 
                                                                stellar_type, luminosity, m₂, a)
 
             kτ = R^3/(UNITLESS_G*m₁)*k_T
@@ -358,7 +394,7 @@ function equilibrium_tidal_drag_force!(dvi,
             core_mass   = params.M_cores[k]
             core_radius = params.R_cores[k]
             luminosity  = params.L[k]
-            age         = params.ages[k]
+            age_Myr     = params.ages[k]/1e6
 
             R = Rs[k]
 
@@ -370,7 +406,7 @@ function equilibrium_tidal_drag_force!(dvi,
 
             μ = UNITLESS_G*m₁/r²
             
-            k_T = apsidal_motion_constant_over_tidal_timescale(m₂, R, age, core_mass, core_radius, 
+            k_T = apsidal_motion_constant_over_tidal_timescale(m₂, R, age_Myr, core_mass, core_radius, 
                                                                stellar_type, luminosity, m₁, a)
 
             kτ = R^3/(UNITLESS_G*m₂)*k_T
@@ -385,14 +421,10 @@ function equilibrium_tidal_drag_force!(dvi,
 end
 
 
-function equilibrium_tidal_drag_force!(dvi,
-                                       dvj,
-                                       rs,
-                                       vs,
+function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
                                        pair::Tuple{Int, Int},
                                        params::SimulationParams,
-                                       potential::StaticEquilibriumTidalPotential) 
-                               
+                                       potential::EquilibriumTidalPotential) 
 
     i, j = pair
     stellar_type_1 = params.stellar_types[i]
@@ -440,7 +472,7 @@ function equilibrium_tidal_drag_force!(dvi,
                 Ω = potential.rotational_angular_velocity[i]
                 k_T = apsidal_motion_constant_over_tidal_timescale(m₁, R, envelope_mass, envelope_radius,
                                                                    stellar_type_1, luminosity, 
-                                                                   m₂, a)
+                                                                   m₂, a, potential.Z)
                 k = potential.apsidal_motion_constant[i]
                 kτ = R^3/(UNITLESS_G*m₁)*k_T
     
@@ -463,7 +495,7 @@ function equilibrium_tidal_drag_force!(dvi,
                 Ω = potential.rotational_angular_velocity[j]
                 k_T = apsidal_motion_constant_over_tidal_timescale(m₂, R, envelope_mass, envelope_radius,
                                                                    stellar_type_2, luminosity, 
-                                                                   m₁, a)
+                                                                   m₁, a, potential.Z)
                 k = potential.apsidal_motion_constant[j]
                 kτ = R^3/(UNITLESS_G*m₂)*k_T
     
@@ -477,10 +509,7 @@ function equilibrium_tidal_drag_force!(dvi,
     nothing
 end
 
-function PN1_acceleration!(dvi, 
-                           dvj,
-                           rs,
-                           vs,
+function PN1_acceleration!(dvi, dvj, rs, vs,
                            pair::Tuple{Int, Int},
                            params::SimulationParams)
                            
@@ -529,10 +558,7 @@ end
 
 
 
-function PN2_acceleration!(dvi, 
-                           dvj,
-                           rs,
-                           vs,
+function PN2_acceleration!(dvi, dvj, rs, vs,
                            pair::Tuple{Int, Int},
                            params::SimulationParams)
                            
@@ -624,10 +650,7 @@ end
 
 
 
-function PN2p5_acceleration!(dvi,
-                             dvj,
-                             rs,
-                             vs,
+function PN2p5_acceleration!(dvi, dvj, rs, vs,
                              pair::Tuple{Int, Int},
                              params::SimulationParams)                            
     # i = 1, j = 2
@@ -685,10 +708,7 @@ function PN2p5_acceleration!(dvi,
 end
 
 
-function PN1_to_2p5_acceleration!(dvi,
-                                 dvj,
-                                 rs,
-                                 vs,
+function PN1_to_2p5_acceleration!(dvi, dvj, rs, vs,
                                  pair::Tuple{Int, Int},
                                  params::SimulationParams)                           
     i, j = pair
