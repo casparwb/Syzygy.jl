@@ -9,7 +9,15 @@
     </picture>
 </div>
 
-`Syzygy.jl` is a high-performance few-body simulator written in [Julia](https://julialang.org/). This code is mainly aimed at simulating and visualizing the dynamics of hierarchical multistar systems, but it also supports non-hierarchical few-body systems. The package uses the [DifferentialEquations.jl](https://diffeq.sciml.ai/) ecosystem to solve the governing differential equations. This makes the package highly performant and flexible, allowing for, e.g., both fixed and adaptive timestepping with adjustable error tolerances, and the flexibility of callbacks for code injection.
+`Syzygy.jl` is a fast and flexible few-body simulator for astrophysical applications written in [Julia](https://julialang.org/). This code is mainly aimed at simulating and visualizing the dynamics of hierarchical multistar systems and planetary systems, but it also supports non-hierarchical configurations. The package uses the [DifferentialEquations.jl](https://diffeq.sciml.ai/) ecosystem to solve the governing differential equations, making this code highly performant and flexible, allowing for, e.g., both fixed and adaptive timestepping with adjustable error tolerances, the flexibility of callbacks for code injection, and of the choice of a wide array of ODE solvers. 
+
+<!-- Some other features of `Syzygy.jl` include
+
+- Units: Syzygy supports and uses units when setting up and postprocessing simulations.
+- Composability: users can easily define their own callbacks, acceleration functions, and more, without changing the source code.
+- Higher precision arithmetic: this package allows you to simulate systems using higher precision numerics by leveraging DoubleFloats.jl and ArbFloats.
+- Support for adding extra forces in addition to gravity, such as post-Newtonian GR terms, and tidal dissipation. -->
+
 
 > [!CAUTION] 
 > This package is still being developed, so certain features may not work as expected. If you want to use this package, please ensure that you perform tests to ensure that your results are to be expected.
@@ -31,10 +39,18 @@ Alternatively, from your terminal run
 > julia -e 'import Pkg;  Pkg.add(url="https://github.com/casparwb/Syzygy.jl")'
 ```
 
+Or, if you want to make changes to the code, just clone the repo and do
+
+```julia
+julia> ]
+pkg> dev path/to/Syzygy.jl
+```
+
 ## Hierarchical system initialization
 
-A simulation in `Syzygy.jl` begins by setting up the system you want to simulate. This is done by the `multibodysystem` function, which takes in the structural arguments of the bodies in the system - masses, radii, stellar types, luminosities, etc... -, and the orbital parameters of the binaries - semi-major axes, eccentricities, etc.. . The masses are set as the first positional argument, while all other parameters are set using keyword arguments. `Syzygy.jl` uses units by utilizing [Unitful.jl](https://painterqubits.github.io/Unitful.jl/stable/) and [UnitfulAstro.jl](https://juliaastro.org/UnitfulAstro.jl/stable/), which of which are re-exported upon loading `Syzygy.jl`. Arguments that are not unitless need to be defined with a unit when initializing the system. The system is set up following [Hamers & Portegies Zwart 2016](https://doi.org/10.1093/mnras/stw784), with labeling being done as shown in this figure (Evans 1968):
+A simulation in `Syzygy.jl` begins by setting up the system you want to simulate. This is done by the `multibodysystem` function, which takes in the structural arguments of the bodies in the system - masses, radii, stellar types, luminosities, etc... -, and the orbital parameters of the binaries - semi-major axes, eccentricities, etc.. . The masses are set as the first positional argument, while all other parameters are set using keyword arguments. `Syzygy.jl` uses units by utilizing [Unitful.jl](https://painterqubits.github.io/Unitful.jl/stable/) and [UnitfulAstro.jl](https://juliaastro.org/UnitfulAstro.jl/stable/), both of which are re-exported upon loading `Syzygy.jl`. Arguments that are not unitless need to be defined with a unit when initializing the system. You can see which keyword arguments are accepted by using help _help_ functionality on the `multibodysystem` function, or printing the dictionary `Syzygy.multibodysystem_parameter_aliases`, which also shows the different aliases you can use for various parameters. 
 
+A hierarchical system is set up following [Hamers & Portegies Zwart 2016](https://doi.org/10.1093/mnras/stw784), with labeling being done as shown in this figure (Evans 1968):
 
 <img src="https://github.com/casparwb/Syzygy.jl/assets/42641901/971bfd0d-d206-4912-963c-5edd2eeee186" width="500" />
 
@@ -43,10 +59,10 @@ A simulation in `Syzygy.jl` begins by setting up the system you want to simulate
 
 ### Examples
 
-
 ```julia
 
 binary = multibodysystem([1.0, 1.0]u"Msun", a=1.0u"AU", e=0.4) # set up a binary system with two 1 solar-mass stars, in an orbit with 1 semi-major axis of 1 AU and an eccentricity of 0.4
+multibodysystem([1.0, 1.0]u"Msun", semi_major_axis=1.0u"AU", eccentricity=0.4) == binary # parameter aliases
 triple = multibodysystem([2.0, 1.0, 3.0]u"Msun", a=[0.1, 0.5]u"Rsun", e=[0.1, 0.4], i=[π/2, 0.0]u"rad") # hierarchical triple
 quadruple = multibodysystem([1.0, 1.0, 1.0, 1.0]u"Msun", a=[0.1, 0.5, 10.0]u"Rsun", e=[0.1, 0.4, 0.2], i=[90.0, 45.0, 0.0]u"degree", hierarchy=[4, 2, 1]) # 2+2 quadruple
 
@@ -54,13 +70,14 @@ quadruple = multibodysystem([1.0, 1.0, 1.0, 1.0]u"Msun", a=[0.1, 0.5, 10.0]u"Rsu
 bh1_mass = 9.62u"Msun"
 bh2_mass = 8.4u"Msun"
 
-bh1_radius = 2*GRAVCONST*bh1_mass/c² # the gravitational constant G can be accessed using GRAVCONST in the REPL. 
-bh2_radius = 2*GRAVCONST*bh2_mass/c²
+G, c = GRAVCONST, Syzygy.speed_of_light # constants
+bh1_radius = 2*G*bh1_mass/c^2 
+bh2_radius = 2*G*bh2_mass/c^2
 
 binary_blackholes = multibodysystem([bh1_mass, bh2_mass], a=15.3u"Rsun", R=[bh1_radius, bh2_radius], stellar_type=[14, 14]) 
 ```
 
-If you wanted to set up the system in the above figure, a quintuple system, you would do
+If you wanted to set up the system in the above figure - a quintuple system - you would do
 
 ```julia
 masses = ones(5)u"Msun"
@@ -75,6 +92,18 @@ quintuple = multibodysystem(masses, a=[r1, r2, r3, r4], hierarchy=hierarchy)
 
 The components of the system can be accessed via `system.binaries[index]`, with `index` being an integer from 1 to number of binaries, and `system.particles[index]`, for the individual particles. A binary or particle are instances of the `Binary` or `Particle` type, both of which have a number of fields containing information about their state and internal structure.
 
+Example of a 4-planet system:
+
+```julia
+
+planet_masses = rand(4)u"Mearth"
+star_mass = 1.2u"Msun"
+semi_major_axes = [1, 2, 3, 4]u"AU"
+
+plantery_system = multibodysystem([star_mass, planet_masses...], sma=semi_major_axes)
+
+````
+
 ## Arbitrary system initialization
 
 A system can also be initialized using just masses, positions, and velocities (in addition to structural arguments like radius etc.). To do this, call `multibodysystem` with positional arguments masses, positions, velocities.
@@ -86,6 +115,7 @@ A system can also be initialized using just masses, positions, and velocities (i
 masses = [2.0, 1.0]u"Msun"
 r1 = [-1.0, 0.0, 0.0]u"Rsun"
 r2 = [1.0, 0.0, 0.0]u"Rsun"
+
 v1 = [0.0, -25.0, 0.0]u"km/s"
 v2 = [0.0, 25.0, 0.0]u"km/s"
 
@@ -94,7 +124,7 @@ twobody = multibodysystem(masses, [r1, r2], [v1, v2], R=[1.5, 0.5]u"Rsun")
 
 
 > [!NOTE]
-> `Syzygy.jl` uses units when initializing a system and when postprocessing a simulation results. The units are discarded before the actual simulation begins in order to ensure performance. The initial conditions and parameters that are sent to the ODE solver are always the preferred units of the respective dimensions. The default unit system is solar mass ($M_\odot$), solar radii ($R_\odot$), and year. If you want to change the default unit system, you have to call the `preferunits` function from `Unitful.jl` BEFORE importing `Syzygy.jl`.
+> `Syzygy.jl` uses units when initializing a system and when postprocessing a simulation results. The units are discarded before the actual simulation begins in order to ensure performance. The initial conditions and parameters that are sent to the ODE solver are always the preferred units of the respective dimensions. The default unit system is solar mass ($M_\odot$), solar radii ($R_\odot$), and year. If you want to change the default unit system, you have to call the `set_units`, which accepts a string with the name of the unit system, i.e. "SI", "CGS", "Solar".
 
 ## Simulation setup
 
@@ -102,11 +132,14 @@ Once the system has been initialized, you can set up the parameters of the n-bod
 
 ### Important keyword arguments
 - `t_sim`: total simulation time, which can either be a `Number`, in which case the simulation time will be `t_sim` multiplied by the period of the outermost binary, or it can be a `Quantity`, i.e., a number with a (time) unit, in which case the simulation time is simply `t_sim`.
-- `npoints`: number of snapshots to save. With this parameter, a snapshot will be taken every `(t_end - t_start)/npoints`, and will therefore be uniformly distributed in time. You can also use the `saveat` argument from `DiffEq`, which can take in an array of specific times, or other types.
+- `npoints`: See section on Saving controls.
+- `saveat`: See section on Saving controls.
+- `save_every`: See section on Saving controls.
 - `alg`: the solver to use. Default is the 8-th order Runge-Kyutta-Nyström method as described in the DiffEq 2nd order ODE solver [docs](https://docs.sciml.ai/DiffEqDocs/stable/solvers/dynamical_solve/). This is an adaptive solver, thus the only solver arguments are the absolute and relative error tolerances, which can be set using `abs_tol` and `rel_tol` respectively. By default they are both set to  `1e-10`.
-- `dt`: time step. Only used if the solver is not adaptive, such as `VerletLeapfrog`, `McAte5`, `Yoshida6`, etc.. Can either be a `Number` or a `Quantity`, where a `Number` would specify a timestep equal to `dt` multiplied by the innermost orbital period.
+- `dt`: time step. Only used if the solver is not adaptive, such as `VerletLeapfrog`, `McAte5`, `Yoshida6`, etc.. Can either be a `Real` or a `Quantity`, where a `Real` would specify a timestep equal to `dt` multiplied by the innermost orbital period.
 - `showprogress`: whether to display a progress tracker, showing the current absolute system time and its percentage of `t_sim`. Will slow down the simulation.
 - `verbose`: whether to output information about the setup and the final outcome, including total runtime and energy loss.
+- `max_cpu_time`: Maximum amount of CPU time a simulation should run. Default is Inf.
 - `callbacks`: see section on callbacks.
 - `potentials`: see section on potentials.
 
@@ -115,37 +148,45 @@ Once the system has been initialized, you can set up the parameters of the n-bod
 sim = simulation(triple, t_sim=10, npoints=10_000) # simulate for 10 outer orbits, and save 10 000 snapshots uniformly distributed
 sim = simulation(triple, t_sim=10u"kyr", save_everystep=false) # simulate for 10 000 years, and only save the initial and final state of the system
 sim = simulation(triple, t_sim=1, alg=Syzygy.McAte5(), dt=1e-5) # use a timestep of 1e-5 * P_in
+sim = simulation(triple, t_sim=1, alg=Syzygy.McAte5(), dt=1.0u"s") # use a timestep of 1 second
 ```
+
+## Saving controls
+
+Syzygy provides flexibility in how to save the output of a simulation. By default, the solver takes a snapshot at each time step. The output will also be dense, meaning you can interpolate into new time points. To set other saving options, you can send the following keyword arguments to `simulation`:
+
+- `npoints`: number of snapshots to save. With this parameter, a snapshot will be taken every `(t_end - t_start)/npoints`, and will therefore be uniformly distributed in time. 
+- `saveat`: Times at which to save a snapshot. If given as a number with a time unit, a snapshot will be taken every `saveat`. If given as an array, a snapshot will be taken at those times.
+- `save_every`: Specify that you want to save a snapshot every `save_every`-th time step. A value of e.g. 2 will save a snapshot every 2nd time step. 
+- `save_everystep`: only save the initial and final steps of the solution.
 
 ## Callbacks
 
-The package contains several pre-defined callbacks that can be specified when setting up the simulation. These mostly define stopping conditions, but can also be e.g, flags or events. Callbacks can be specified using the `callbacks` keyword argument when calling `simulation`, and be given as a `Vector{<:AbstractSyzygyCallback}`. There are number of pre-defined callbacks, but you can also define your own. (see Advanced usage for more details). The most important pre-defined callbacks are
+The package contains several pre-defined callbacks that can be specified when setting up the simulation. These mostly define stopping conditions, but can also be e.g, flags or events. Callbacks can be specified using the `callbacks` keyword argument when calling `simulation`, and be given as a `Vector{<:AbstractSyzygyCallback}`. There are number of pre-defined callbacks, but you can also define your own. (see Advanced usage for more details). Some of the more important pre-defined callbacks are:
 
-- `CollisionCB`: a stopping condition that terminates the integration when two objects gets close enough. The exact condition for specifying a collision depends on the stellar types of the objects. If the two objects are both stars, then the code simply checks if the radii overlap. If the objects are stellar remnants (black holes, neutron stars, white dwarfs), then the code checks if the distance is smaller than some multiple of their mutual gravitational radius. By default, this multiple value is set to 1000. If the two objects contain one star and one remnant, then the code checks if the star is within the tidal disruption radius of the remnant object.
+- `CollisionCB`: a stopping condition that terminates the integration when two objects gets close enough. The exact condition for specifying a collision depends on the stellar types of the objects. If the two objects are both stars, then the code simply checks if the radii overlap. If the objects are stellar remnants (black holes, neutron stars, white dwarfs), then the code checks if the distance is smaller than some multiple of their mutual gravitational radius. By default, this multiple value is set to 10000. If the two objects contain one star and one remnant, then the code checks if the star is within the tidal disruption radius of the remnant object.
 - `EscapeCB`: a stopping condition for checking whether an object has been ejected from the system. The callback has three checks that need to be passed in order for the condition to be invoked. See Standish & Myles 1971 for more details. Currently this callback is only possible to use for a triple system.
 
-Certain callbacks accepts argument when instantiating them. This can include how often the solver should check for the condition (for every n-th step). This is implemented as the field `check_every`. 
 
-> [!INFO]
-> To get the full list of callbacks, you can call `Syzygy.callbacks()`, or you can do e.g. `?CollisionCB` to see the documentation for each callback.
+Certain callbacks accept arguments when instantiating them. This can include how often the solver should check for the condition (for every n-th step). This is implemented as the field `check_every`. 
 
 
 ### Examples
 ```julia
-callbacks = [CollisionCB(), EscapeCB()]
+callbacks = [CollisionCB(5, 10_000), EscapeCB()]
 sim = simulation(system, t_sim=1, callbacks=callbacks)
 ```
 
 ## Potentials
 
-`Syzygy.jl` has support for including/varying the potentials and corresponding acceleration functions in a simulation.  In this package, you can specify the acceleration functions to include by setting the `potentials` keyword argument when calling `simulate` or `simulation`. This argument accepts a `Vector{MultiBodyPotential}` where `MultiBodyPotential` is a supertype of all the potentials defined in the package, and for each of which there exists a unique acceleration function. The total acceleration of a particle at each time step is thus a sum of all the acceleration functions defined by the `potential` vector.
+`Syzygy.jl` has support for including/varying the potentials and corresponding acceleration functions in a simulation.  In this package, you can specify the acceleration functions to include by setting the `potential` keyword argument when calling `simulate` or `simulation`. This argument accepts a `Vector{MultiBodyPotential}` where `MultiBodyPotential` is a supertype of all the potentials defined in the package, and for each of which there exists a unique acceleration function. The total acceleration of a particle at each time step is thus a sum of all the acceleration functions defined by the `potential` vector.
 
 Currently, there are a number of possible potentials:
 
 - `PureGravitationalAcceleration`: Newtonian gravitational acceleration
 - `DynamicalTidalAcceleration`: energy dissipation from dynamical tides, following the prescription of [Samsing et al. 2018](http://arxiv.org/abs/1803.08215).
-- `EquilbriumTidalAcceleration`: tidal drag force from equilibrium tides, as described by [Hurley at al. 2002](http://arxiv.org/abs/astro-ph/0201220), using the model of [Hut 1981](https://ui.adsabs.harvard.edu/abs/1981A&A....99..126H).
-- `StaticEquilibriumTidalAcceleration`: same as above, but with the assumption that masses, radii, and other structural parameters of the particles do not change during the simulation. This is more efficient as it only calculates certain quantities once, and re-uses them throughout the simulation.
+- `EquilibriumTidalAcceleration`: tidal drag force from equilibrium tides, as described by [Hurley at al. 2002](http://arxiv.org/abs/astro-ph/0201220), using the model of [Hut 1981](https://ui.adsabs.harvard.edu/abs/1981A&A....99..126H).
+- `TimeDependentEquilbriumTidalAcceleration`: same as above, but with the assumption that masses, radii, and other structural parameters of the particles can change during the simulation, which means that structural properties such as envelope mass and radius are calculated during the simulation.
 
 There are also potentials for various general relatistic effects via post-Newtonian expansion. See [section on post-Newtonian physics](#post-newtonian-physics)
 
@@ -164,16 +205,16 @@ res = simulate(system, potential=[grav_pot, tidal_pot])
 
 ## Post-Newtonian expansion
 
-For systems where general relativistic effects can become important, `Syzygy.jl` supports post-Newtonian acceleration potential up to order 2.5. It also has support for evolving the precession of the spins of compact objects, up to order 2. The full list of post-Newtonian potentials are given here:
+For systems where general relativistic effects can become important, `Syzygy.jl` supports post-Newtonian acceleration potential up to order 2.5, following the formalism of [Blanchet 2015](http://arxiv.org/abs/1310.1528).
 
 - `PN1Potential`: post-Newtonian acceleration of order 1.
 - `PN2Potential`: post-Newtonian acceleration of order 2.
 - `PN2p5Potential`: post-Newtonian acceleration of order 2.5.
 - `PNPotential`: post-Newtonian acceleration of order 1 to 2.5. This is more efficient than including all of the above potentials individually.
-- `PN1SpinPrecessionPotential`: spin precession potential of order 1.
+<!-- - `PN1SpinPrecessionPotential`: spin precession potential of order 1.
 - `PN1p5SpinPrecessionPotential`: spin precession potential of order 1.5.
 - `PN2SpinPrecessionPotential`: spin precession potential of order 2.
-- `SpinPrecessionPotential`: spin precession potential of order 1 to 2. 
+- `SpinPrecessionPotential`: spin precession potential of order 1 to 2.  -->
 
 ## Running a simulation
 
@@ -186,7 +227,7 @@ res = simulate(triple, t_sim=10, npoints=1000)
 
 ## Analysis and visualization
 
-Once a simulation has finished, it can be analyzed and converted to a `MultiBodySolution` type, which allows for easy access to the state vectors and other parameters. This is done using the `analyse_simulation` function, which only takes in the resulting output from `simulate` as its argument. In the `MultiBodySolution` type, the state vectors are stored in 3-dimensional `AxisArray` from [AxisArrays.jl](https://github.com/JuliaArrays/AxisArrays.jl), with the axes being (dimension, particle, time). 
+Once a simulation has finished, it can be analyzed and converted to a `MultiBodySolution` type, which allows for easy access to the state vectors and other parameters. This is done using the `to_solution` function, which only takes in the resulting output from `simulate` as its argument. In the `MultiBodySolution` type, the state vectors are stored in 3-dimensional `AxisArray` from [AxisArrays.jl](https://github.com/JuliaArrays/AxisArrays.jl), with the axes being (dimension, particle, time). 
 
 ```julia
 sol = to_solution(res)
@@ -208,7 +249,7 @@ orbitplot(sol, bodies=[1, 2], dims=[1, 2]) # plot only particles 1 and 2 in the 
 
 ## Arbitrary precision
 
-By default `Syzygy.jl` uses `Float64` datatypes for the variables of integration, which means that we can not set the error tolerances for the ODE solver lower than $\sim 10^{-14}$ (see [DiffEq docs](https://docs.sciml.ai/DiffEqDocs/stable/basics/faq/#How-to-get-to-zero-error)). While this is generally pretty good, for longer simulation times or systems with very close passages, this might not be enough. Therefore, `Syzygy.jl` supports higher and arbitracy arithmetic, which means you can essentially get as small error as you want aT the cost of speed. This is done through the (DoubleFloats.jl)[] and (ArbNumerics.jl)[] packages. You get the best performance using the `Double64` type from the former package, which has twice the precision of `Float64`s. If you need even higher precision, you can use the arbitrary precision floating point numbers from (ArbNumerics.jl)[https://github.com/JeffreySarnoff/ArbNumerics.jl]. However, using these will dramatically slow down the code. To use this functionality, simply specify the `precision` keyword when calling either `simulation` or `simulate`. Fixed-bit types are specified with symbols, while arbitrary precision are specified with an integer, determining the number of bits to use. 
+By default `Syzygy.jl` uses `Float64` datatypes for the variables of integration, which means that we can not set the error tolerances for the ODE solver lower than $\sim 10^{-14}$ (see [DiffEq docs](https://docs.sciml.ai/DiffEqDocs/stable/basics/faq/#How-to-get-to-zero-error)). While this is generally pretty good, for longer simulation times or systems with very close passages, this might not be enough. Therefore, `Syzygy.jl` supports higher and arbitracy arithmetic, which means you can essentially get as small error as you want tT the cost of speed. This is done through the (DoubleFloats.jl)[] and (ArbNumerics.jl)[] packages. You get the best performance using the `Double64` type from the former package, which has twice the precision of `Float64`s. If you need even higher precision, you can use the arbitrary precision floating point numbers from (ArbNumerics.jl)[https://github.com/JeffreySarnoff/ArbNumerics.jl]. However, using these will dramatically slow down the code. To use this functionality, simply specify the `precision` keyword when calling either `simulation` or `simulate`. Fixed-bit types are specified with symbols, while arbitrary precision are specified with an integer, determining the number of bits to use. 
 
 ```julia
 binary = multibodysystem([2.0, 1.0]u"Msun", a=1.0u"AU")
@@ -228,7 +269,7 @@ To define you own callback, first define a struct which is a subtype of `Syzygy.
 struct MyCallback <: Syzygy.AbstractSyzygyCallback end
 ```
 
-You can then add a method to the `Syzygy.get_callback` function, which has the signature `get_callback(cb, system, retcodes, args)`, where `cb` is an object with a type of your callback struct, `system` is the system that is simulated, retcodes is a dictionary in which you can add return codes/flags, and args can be any dictionary with additional arguments. Inside this function, you set up your `affect` and `condition` functions, which determine when the callback is triggered, and what should happen when it does. It should then return a callback type from the SciMLBase package.
+You can then add a method to the `Syzygy.get_callback` function, which has the signature `get_callback(cb, system, retcodes, args)`, where `cb` is an object with a type of your callback struct, `system` is the system that is simulated, retcodes is a dictionary in which you can add return codes/flags, and args is a dictionary with additional arguments. Inside this function, you set up your `affect!` and `condition` functions, which determine when the callback is triggered, and what should happen when it does. It should then return a callback type from the SciMLBase package.
 
 For example, if you want to add a callback that terminates the integration if it runs for a certain amount of time, you would do:
 
@@ -246,13 +287,12 @@ function Syzygy.get_callback(cb::MyCallback, system, retcodes, args)
             terminate!(integrator)
         end
     end
-    
 
     affect_cpu_time!(integrator) = max_cpu_time_callback!(integrator)
     
     callback_cpu_time = DiscreteCallback(condition_cpu_time, affect_cpu_time!, save_positions=(false, false))
 
-    callback_cpu_time
+    return callback_cpu_time
 end
 ```
 
@@ -267,8 +307,8 @@ function my_acceleration_function!(dvi, dvj, rs, vs, pair, params)
 
     i, j = pair
     mi, mj = params.M[i], params.M[j]
-    ai = acceleration(i, mj)
-    aj = acceleration(j, mi)
+    ai = some_acceleration(i, mj)
+    aj = some_acceleration(j, mi)
 
     dvi .+= ai
     dvj .+= aj
