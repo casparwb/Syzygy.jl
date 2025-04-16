@@ -27,16 +27,16 @@ end
 
 OrbitalElements(;a=0.0u"AU", P=0.0u"d", e=0.0, ω=0.0u"°", i=0.0u"°", Ω=0.0u"°", ν=0.0u"°") = OrbitalElements(a, P, e, ω, i, Ω, ν)
 
-struct StellarStructure{tT, mT, RT, ST, LT}
+struct StellarStructure{tT, m1T, m2T, m3T, RT, ST, LT}
     stellar_type::tT   
-    mass::mT             # total mass
+    mass::m1T             # total mass
     radius::RT           # total radius
     spin::ST             # spin
     luminosity::LT       # total luminosity
     core_radius::RT      # core radius
-    core_mass::mT        # core mass
+    core_mass::m2T        # core mass
     envelope_radius::RT  # envelope radius
-    envelope_mass::mT    # envelope mass
+    envelope_mass::m3T    # envelope mass
 end
 
 struct Particle{siblingType, posType, velType, structType} <: AbstractParticle
