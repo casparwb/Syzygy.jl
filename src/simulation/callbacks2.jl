@@ -538,7 +538,11 @@ end
 
 
 
-function check_escape!(integrator, retcode, candidate_index, r_candidate, v_candidate, r_remaining_comp1, r_remaining_comp2, m_candidate, m_remaining_comp1, m_remaining_comp2)
+function check_escape!(integrator, retcode, candidate_index, 
+                       r_candidate, v_candidate, 
+                       r_remaining_comp1, r_remaining_comp2, 
+                       m_candidate, m_remaining_comp1, m_remaining_comp2)
+                       
     r_bin = centre_of_mass(SA[r_remaining_comp1, r_remaining_comp2], m_bin)
     r_rel = r_candidate - r_bin
 

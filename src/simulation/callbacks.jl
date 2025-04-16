@@ -4,7 +4,7 @@
 # roche-lobe overflows checks.
 ####################################################
 
-using DiffEqCallbacks: ManifoldProjection
+using DiffEqCallbacks: ManifoldProjection, FunctionCallingCallback
 
 abstract type AbstractSyzygyCallback end
 
@@ -19,6 +19,7 @@ struct SavingCB{T} <: AbstractSyzygyCallback
     save_every::T
 end
 
+## Make this a FunctionCallingCallback https://docs.sciml.ai/DiffEqCallbacks/stable/output_saving/
 struct FinalTimeCB{T} <: AbstractSyzygyCallback 
     t_final::T
 end
@@ -124,23 +125,28 @@ function get_callback(cb::SavingCB, system, retcodes, args)
 end
 
 function get_callback(cb::FinalTimeCB, system, retcodes, args)
-    condition_final_time(u, t, integrator) = integrator.t >= cb.t_final
-    
-    function affect!(integrator) 
-        retcodes[:FinalTime] = true
-        terminate!(integrator)
+    function final_time_reached(u, t, integrator)
+        if integrator.t >= cb.t_final
+            retcodes[:FinalTime] = true
+            terminate!(integrator)
+        end
     end
 
-    return DiscreteCallback(condition_final_time, affect!, save_positions=(false, false))
+    return FunctionCallingCallback(final_time_reached, funcat=SA[cb.t_final])
 end
 
 function get_callback(cb::CollisionCB, system, retcodes, args)
-    pairs = system.pairs
-    condition_collision(u, t, integrator) = true
-    affect_collision!(integrator) = collision_callback!(integrator, system.pairs, retcodes, cb.grav_rad_multiple)
-    callback_collision = DiscreteCallback(condition_collision, affect_collision!, save_positions=(false, false))
-    
-    return callback_collision
+    check_every = cb.check_every
+    if isone(check_every)
+        func(u, t, integrator) = collision_callback!(integrator, system.pairs, retcodes, cb.grav_rad_multiple)
+        return FunctionCallingCallback(func, func_everystep=true)
+    else
+        condition_collision(u, t, integrator) = iszero(integrator.iter % check_every)
+        affect_collision!(integrator) = collision_callback!(integrator, system.pairs, retcodes, cb.grav_rad_multiple)
+        callback_collision = DiscreteCallback(condition_collision, affect_collision!, save_positions=(false, false))
+        
+        return callback_collision
+    end
 end
 
 
@@ -178,14 +184,19 @@ function get_callback(cb::RocheLobeOverflowCB, system, retcodes, args)
 end
 
 function get_callback(cb::CPUTimeCB, system, retcodes, args)
-    condition_cpu_time(u, t, integrator) = true
-    
     t_start = time()
-    affect_cpu_time!(integrator) = max_cpu_time_callback!(integrator, retcodes, t_start, args[:max_cpu_time])
-    
-    callback_cpu_time = DiscreteCallback(condition_cpu_time, affect_cpu_time!, save_positions=(false, false))
-    
-    return callback_cpu_time
+
+    check_every = cb.check_every
+    if isone(check_every)
+        func(u, t, integrator) = max_cpu_time_callback!(integrator, retcodes, t_start, args[:max_cpu_time])
+        return FunctionCallingCallback(func, func_everystep=true)
+    else
+        condition_collision(u, t, integrator) = iszero(integrator.iter % check_every)
+        affect_collision!(integrator) = max_cpu_time_callback!(integrator, retcodes, t_start, args[:max_cpu_time])
+        callback_collision = DiscreteCallback(condition_collision, affect_collision!, save_positions=(false, false))
+        
+        return callback_collision
+    end
 end
 
 function get_callback(cb::CentreOfMassCB, system, retcodes, args)
@@ -219,7 +230,7 @@ end
 function get_callback(cb::IonizationCB, system, retcodes, args)
 
     condition_ionization(u, t, integrator) = true
-    max_distance =  cb.max_a_factor*upreferred(system.binaries[2].elements.a).val
+    max_distance =  cb.max_a_factor*ustrip(unit_length, system.binaries[2].elements.a)
     affect_ionization!(integrator) = ionization_callback!(integrator, retcodes, max_distance)
     callback_ionization = DiscreteCallback(condition_ionization, affect_ionization!, save_positions=(false, false))
 
@@ -292,7 +303,7 @@ end
 
 # two compact objects: multiple of mutual gravitational radius
 function collision_check(d, R1, R2, m1, m2, stellar_type1::CompactObject, stellar_type2::CompactObject, grav_rad_multiple)
-    rg = UNITLESS_G*(m1 + m2)*c⁻² # mutual gravitational radius
+    rg = UNITLESS_G*(m1 + m2)*c⁻² 
     d <= grav_rad_multiple*rg
 end
 
@@ -318,9 +329,6 @@ end
 end
 
 
-"""
-Returns a callback for checking if system has become unbound.
-"""
 function unbound_callback!(integrator, retcode; max_a_factor=100)
 
     u = integrator.u
@@ -374,9 +382,7 @@ function unbound_callback!(integrator, retcode; max_a_factor=100)
                 terminate!(integrator)
             end
         end
-
     end
-
 end
 
 
