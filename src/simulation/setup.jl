@@ -340,7 +340,9 @@ function get_datatype_from_precision(precision)
         setworkingprecision(ArbFloat, precision)
         return ArbFloat
     elseif precision isa Symbol
-        if !(precision ∈ propertynames(DoubleFloats))
+        if precision == :Float64
+            return Float64
+        elseif !(precision ∈ propertynames(DoubleFloats))
             throw(ArgumentError("Given precision is not supported."))
         end
 
