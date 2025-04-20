@@ -85,7 +85,7 @@ function Base.show(io::IO, particle::Particle)
     # print(io,  " "^indent, "Particle type: ")
     printstyled(io,  " "^indent, "Particle ", color=:yellow)
     print(io, "type: ")
-    print(io, stellar_type_index[particle.structure.stellar_type.number])
+    print(io, particle.stellar_type)
     println(io)
 
     # println(io,  " "^indent, "Particle structure: ")
