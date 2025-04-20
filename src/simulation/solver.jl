@@ -105,10 +105,10 @@ function simulate(simulation::MultiBodySimulation)
     if args[:verbose]
         println()
 
-        E0 = total_energy(result, simulation.tspan[1])
-        E1 = total_energy(result, simulation.tspan[2])
+        E0 = total_energy(result, result.solution.t[1])
+        E1 = total_energy(result, result.solution.t[end])
 
-        @info "Energy loss: " 1 - E1/E0
+        @info "Energy loss: " E1/E0 - 1
 
         runtime = runtime
         @info "Total runtime: " runtime
@@ -135,9 +135,9 @@ end
 
 function total_energy(result::SimulationResult, time)
     masses = result.ode_params.M
-    idx = argmin(abs.(result.solution.t .- time))
+    idx = findmin(x -> abs(x - time), result.solution.t)[2]
 
-    total_energy([result.solution.u[idx].x[2][1:3,i] for i ∈ eachindex(masses)], 
-                 [result.solution.u[idx].x[1][1:3,i] for i ∈ eachindex(masses)],
+    total_energy([result.solution.u[idx].x[2][1:3, i] for i ∈ eachindex(masses)], 
+                 [result.solution.u[idx].x[1][1:3, i] for i ∈ eachindex(masses)],
                  masses)  
 end
