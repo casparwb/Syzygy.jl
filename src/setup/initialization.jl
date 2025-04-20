@@ -174,7 +174,7 @@ function multibodysystem(masses::Vector{<:Unitful.Mass};
 
     @unpack R, S, L, stellar_types, R_core, m_core, R_env, m_env, a, e, ω, i, Ω, ν = system_params
     
-    R = ifelse(L isa Number, repeat([R], n_bodies), R)
+    R = ifelse(R isa Number, repeat([R], n_bodies), R)
     L = ifelse(L isa Number, repeat([L], n_bodies), L)
     R_core = ifelse(R_core isa Number, repeat([R_core], n_bodies), R_core)
     m_core = ifelse(m_core isa Number, repeat([m_core], n_bodies), m_core)
