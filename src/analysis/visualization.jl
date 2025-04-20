@@ -427,7 +427,7 @@ end
     ic = sol.ic
     time = sol.t
     p = sol.ode_params
-    
+    n = sol.ic.n
     tspan = isnothing(tspan) ? extrema(time) : tspan
     
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
@@ -447,8 +447,8 @@ end
             fill!(dvi, 0.0)
             fill!(dvj, 0.0)
 
-            r = SMatrix{3, 3}(sol.r[:,:,t]) .|> upreferred |> ustrip
-            v = SMatrix{3, 3}(sol.v[:,:,t]) .|> upreferred |> ustrip
+            r = SMatrix{3, n}(sol.r[:,:,t]) .|> upreferred |> ustrip
+            v = SMatrix{3, n}(sol.v[:,:,t]) .|> upreferred |> ustrip
 
             a_func(dvi, dvj, r, v, pair, time[t], p)
             accel[:, i, t] .+= dvi .* unit_length/unit_time^2
