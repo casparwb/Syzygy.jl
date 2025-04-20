@@ -1,7 +1,7 @@
 using StaticArrays
 
 const GRAVCONST = 6.6743015e-11u"m^3/kg/s^2" |> upreferred
-const UNITLESS_G = GRAVCONST.val
+const UNITLESS_G = ustrip(unit(upreferred(GRAVCONST)), GRAVCONST)
 const G² = UNITLESS_G^2
 const G³ = UNITLESS_G^3
 const G⁴ = UNITLESS_G^4
