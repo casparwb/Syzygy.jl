@@ -1,6 +1,7 @@
 using DiffEqBase, StaticArrays
 using FunctionWranglers
 using ArbNumerics
+using RecursiveArrayTools: ArrayPartition
 
 abstract type MultiBodyInitialConditions end
 abstract type AbstractBinary end
@@ -488,14 +489,6 @@ end
 function sodeprob_static(simulation::MultiBodySimulation, u0, v0, ai, aj, a_spin, dv)
     acc_funcs = gather_accelerations_for_potentials(simulation)
     pairs = simulation.ic.pairs
-    
-    # spin_precession = false
-    # d²Sdt²! = if any(x -> x isa SpinPotential, values(simulation.potential))
-    #     spin_precession = true
-    #     spinpot = first([k for (k, v) in simulation.potential if v isa SpinPotential])
-    #     get_accelerating_function(simulation.potential[spinpot])
-    # end
-
 
     N = acc_funcs.N
     fs = acc_funcs.fs
@@ -516,18 +509,6 @@ function sodeprob_static(simulation::MultiBodySimulation, u0, v0, ai, aj, a_spin
                 dv[1:3, j] .= aj
             end
 
-            # if spin_precession
-            #     @inbounds for pair in pairs
-            #         i, j = pair
-            #         fill!(ai, dtype_0)
-            #         fill!(aj, dtype_0)
-
-            #         d²Sdt²!(ai, aj, dv, u, v, pair, t, p)
-            #         dv[4:6, i] = ai
-            #         dv[4:6, j] = aj
-            #     end
-            # end
-
             SMatrix(dv)
         end
     end
@@ -537,6 +518,120 @@ end
 
 #################################################################################################
 
+function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
+                                          acc_funcs::AccelerationFunctions, 
+                                          dtype::Type{ArbFloat})
+                                          
+    u0, v0 = get_initial_conditions(simulation, dtype)
+    ai     = SizedVector{3, dtype}(zeros(dtype, 3)...)
+    aj     = SizedVector{3, dtype}(zeros(dtype, 3)...)
+
+    ODEProblem(simulation, acc_funcs, u0, v0, ai, aj)
+end
+
+function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
+                                          acc_funcs::AccelerationFunctions, 
+                                          dtype::Type{<:AbstractFloat})
+
+    u0, v0 = get_initial_conditions(simulation, dtype)
+    ai     = MVector{3, dtype}(zeros(dtype, 3)...)
+    aj     = MVector{3, dtype}(zeros(dtype, 3)...)
+
+    ODEProblem(simulation, acc_funcs, u0, v0, ai, aj)
+end
+
+function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
+                                          acc_funcs::AccelerationFunctions, 
+                                          spin_acc_funcs::AccelerationFunctions, 
+                                          dtype::Type{ArbFloat})
+                                          
+    u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
+    ai     = SizedVector{3, dtype}(zeros(dtype, 3)...)
+    aj     = SizedVector{3, dtype}(zeros(dtype, 3)...)
+    ODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0, ai, aj)
+end
+
+function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
+                                          acc_funcs::AccelerationFunctions, 
+                                          spin_acc_funcs::AccelerationFunctions, 
+                                          dtype::Type{<:AbstractFloat})
+
+    u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
+    ai     = MVector{3, dtype}(zeros(dtype, 3)...)
+    aj     = MVector{3, dtype}(zeros(dtype, 3)...)
+    ODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0, ai, aj)
+end
+
+
+function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
+                               acc_funcs::AccelerationFunctions, 
+                               r0, v0, ai, aj)
+    pairs = simulation.ic.pairs
+
+    n = size(r0, 2)
+    N = acc_funcs.N
+    accelerations = FunctionWrangler(acc_funcs.fs)
+    output = Vector{Nothing}(undef, N)
+
+    dtype = eltype(r0)
+    dtype_0 = zero(dtype)
+    function ode_system!(du, u, p, t)
+        fill!(du, dtype_0)
+        @inbounds for pair in pairs
+            i, j = pair
+            fill!(ai, dtype_0)
+            fill!(aj, dtype_0)
+
+            r = u.x[2]
+            v = u.x[1]
+
+            smap!(output, accelerations, ai, aj, r, v, pair, t, p)
+
+            du.x[1][1, i] += ai[1]
+            du.x[1][2, i] += ai[2]
+            du.x[1][3, i] += ai[3]
+            
+            du.x[1][1, j] += aj[1]
+            du.x[1][2, j] += aj[2]
+            du.x[1][3, j] += aj[3]
+
+        end
+
+        du.x[2] .= u.x[1]
+        nothing
+    end
+
+    # dv = MMatrix{3, n}(zeros(3, n))
+    # function ode_system(u, p, t)
+    #     fill!(dv, dtype_0)
+    #     @inbounds for pair in pairs
+    #         i, j = pair
+    #         fill!(ai, dtype_0)
+    #         fill!(aj, dtype_0)
+
+    #         r = u.x[2]
+    #         v = u.x[1]
+
+    #         smap!(output, accelerations, ai, aj, r, v, pair, t, p)
+
+    #         dv[1, i] += ai[1]
+    #         dv[2, i] += ai[2]
+    #         dv[3, i] += ai[3]
+            
+    #         dv[1, j] += aj[1]
+    #         dv[2, j] += aj[2]
+    #         dv[3, j] += aj[3]
+    #     end
+
+    #     # dr .= u.x[1]
+    #     return ArrayPartition(copy(dv), copy(u.x[1]))
+    # end
+
+
+    u0 = ArrayPartition(v0, r0)
+
+    ODEProblem(ode_system!, u0, simulation.tspan, simulation.params)
+end
 
 ######################################## Helper functions #######################################
 
