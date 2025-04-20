@@ -239,72 +239,144 @@ end
 
 
 
+# function collision_callback!(integrator, pairs, retcode, grav_rad_multiple)
+#     @inbounds for pair in pairs
+#         i, j = pair
+#         rs = integrator.u.x[2]
+
+#         ri = SA[rs[1, i], rs[2, i], rs[3, i]]
+#         Ri = integrator.p.R[i]
+#         Mi = integrator.p.M[i]
+
+#         stellar_type_i = integrator.p.stellar_types[i]
+
+#         rj = SA[rs[1, j], rs[2, j], rs[3, j]]
+#         d = norm(ri - rj)
+        
+#         Rj = integrator.p.R[j]
+#         Mj = integrator.p.M[j]
+
+#         stellar_type_j = integrator.p.stellar_types[j]
+
+#         collision::Bool = collision_check(d, Ri, Rj, Mi, Mj, 
+#                                           stellar_type_i, stellar_type_j, 
+#                                           grav_rad_multiple)
+
+#         if collision
+#             t = integrator.t * unit_time
+#             retcode[:Collision] = (SA[i, j], t)
+#             terminate!(integrator)
+#         end
+#     end
+#     nothing
+# end
+
+
+# # two stars: overlapping radii
+# function collision_check(d, R1, R2, m1, m2, stellar_type1::Star, stellar_type2::Star, _)
+#     d <= (R1 + R2) 
+# end
+
+# # two sub-stellar objects: overlapping radii
+# function collision_check(d, R1, R2, m1, m2, stellar_type1::SubStellarObject, stellar_type2::SubStellarObject, _)
+#     d <= (R1 + R2) 
+# end
+
+# # one star and a sub-stellar objects: roche limit
+# function collision_check(d, R1, R2, m1, m2, stellar_type1::Star, stellar_type2::SubStellarObject, _)
+#     roche_limit_radius = R2*cbrt(2m1/m2)
+#     d <= roche_limit_radius
+# end
+
+# function collision_check(d, R1, R2, m1, m2, stellar_type1::SubStellarObject, stellar_type2::Star)
+#     collision_check(d, R2, R1, m2, m1, stellar_type2, stellar_type1)
+# end
+
+# # a compact object and a star: tidal disruption radius
+# function collision_check(d, R1, R2, m1, m2, stellar_type1::StellarType{T1}, stellar_type2::StellarType{T2}, _)  where {T1 <: CompactObject, T2 <: Star}
+#     tidal_disruption_radius = R2*cbrt(m1/m2) 
+
+#     d <= (tidal_disruption_radius + R2)
+# end
+
+# function collision_check(d, R1, R2, m1, m2, stellar_type1::StellarType{T1}, stellar_type2::StellarType{T2}) where {T1 <: Star, T2 <: CompactObject}
+#     return collision_check(d, R2, R1, m2, m1, stellar_type2, stellar_type1)  
+# end
+
+# # two compact objects: multiple of mutual gravitational radius
+# function collision_check(d, R1, R2, m1, m2, stellar_type1::StellarType{T}, stellar_type2::StellarType{T}, grav_rad_multiple) where {T <: CompactObject}
+#     rg = UNITLESS_G*(m1 + m2)*c⁻² 
+#     d <= grav_rad_multiple*rg
+# end
+
+"""
+
+Returns a callback for checking if collision has occured in system.
+If the two objects are stars, the callback checks for overlapping radii,
+if one of the objects is a compact object and the other is a star, the tidal
+radius of the CO is used, and finally if both objects are COs, we use 100 × gravitational radius.
+"""
 function collision_callback!(integrator, pairs, retcode, grav_rad_multiple)
+    # k = 1
     @inbounds for pair in pairs
         i, j = pair
         ri = SA[integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
         Ri = integrator.p.R[i]
         Mi = integrator.p.M[i]
 
-        stellar_type_i = integrator.p.stellar_types[i]
-
+        stellar_type_i = integrator.p.stellar_types[i].number
         rj = SA[integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
         d = norm(ri - rj)
         
         Rj = integrator.p.R[j]
         Mj = integrator.p.M[j]
 
-        stellar_type_j = integrator.p.stellar_types[j]
+        stellar_type_j = integrator.p.stellar_types[j].number
 
-        collision::Bool = collision_check(d, Ri, Rj, Mi, Mj, 
-                                          stellar_type_i, stellar_type_j, 
-                                          grav_rad_multiple)
-
+        collision = collision_check(d, Ri, Rj, Mi, Mj, stellar_type_i, stellar_type_j, 
+                                            grav_rad_multiple)::Bool
         if collision
             t = integrator.t * unit_time
             retcode[:Collision] = (SA[i, j], t)
             terminate!(integrator)
         end
+        # k += 1
     end
-    nothing
 end
 
-
-# two stars: overlapping radii
-function collision_check(d, R1, R2, m1, m2, stellar_type1::Star, stellar_type2::Star, _)
-    d <= (R1 + R2) 
+function collision_check(d, R1, R2, m1, m2, stellar_type1::Int, stellar_type2::Int, grav_rad_multiple)
+    
+    if (0 <= stellar_type1 <= 9) && (0 <= stellar_type2 <= 9) # two stars
+        return collision_check_radius(d, R1, R2)
+    elseif  (0 <= stellar_type1 <= 9) && (10 <= stellar_type2 <= 14) # one star, one CO
+        return collision_check_tidal_disruption(d, R1, m2, m1)
+    elseif (10 <= stellar_type1 <= 14) && (0 <= stellar_type2 <= 9) # one star, one CO
+        return collision_check_tidal_disruption(d, R2, m1, m2)
+    elseif (10 <= stellar_type1 <= 14) && (10 <= stellar_type2 <= 14) # two COs
+        return collision_check_gravitational_radius(d, m1, m2, grav_rad_multiple)
+    elseif (18 <= stellar_type1 <= 18) && (18 <= stellar_type2 <= 19) # two planets
+        return collision_check_radius(d, R1, R2)
+    end
 end
 
-# two sub-stellar objects: overlapping radii
-function collision_check(d, R1, R2, m1, m2, stellar_type1::SubStellarObject, stellar_type2::SubStellarObject, _)
-    d <= (R1 + R2) 
+function collision_check_radius(d, R1, R2)
+    d <= (R1 + R2)
 end
 
-# one star and a sub-stellar objects: roche limit
-function collision_check(d, R1, R2, m1, m2, stellar_type1::Star, stellar_type2::SubStellarObject, _)
-    roche_limit_radius = R2*cbrt(2m1/m2)
-    d <= roche_limit_radius
+function collision_check_tidal_disruption(d, R_star, m_CO, m_star)
+    tidal_disruption_radius = R_star*cbrt(m_CO/m_star)
+    if d <= (tidal_disruption_radius + R_star)
+        println(d, " ", tidal_disruption_radius)
+        return true
+    end
+
+    return false
 end
 
-function collision_check(d, R1, R2, m1, m2, stellar_type1::SubStellarObject, stellar_type2::Star)
-    collision_check(d, R2, R1, m2, m1, stellar_type2, stellar_type1)
-end
+function collision_check_gravitational_radius(d, m1, m2, grav_rad_multiple) 
+    rg = UNITLESS_G*(m1 + m2)*c⁻² # mutual gravitational radius
 
-# a compact object and a star: tidal disruption radius
-function collision_check(d, R1, R2, m1, m2, stellar_type1::CompactObject, stellar_type2::Star, _)
-    tidal_disruption_radius = R2*cbrt(m1/m2) 
-
-    d <= (tidal_disruption_radius + R2)
-end
-
-function collision_check(d, R1, R2, m1, m2, stellar_type1::Star, stellar_type2::CompactObject)
-    return collision_check(d, R2, R1, m2, m1, stellar_type2, stellar_type1)  
-end
-
-# two compact objects: multiple of mutual gravitational radius
-function collision_check(d, R1, R2, m1, m2, stellar_type1::CompactObject, stellar_type2::CompactObject, grav_rad_multiple)
-    rg = UNITLESS_G*(m1 + m2)*c⁻² 
-    d <= grav_rad_multiple*rg
+    return d <= rg*grav_rad_multiple
 end
 
 
