@@ -11,6 +11,7 @@ using RecipesBase
 @userplot AccelerationPlot
 @userplot KozaiLidovPlot
 @userplot ElementPlot
+@userplot PrecessionPlot
 
 # function animate_threebody(sol::TripleSolution, name; 
 #                            max_diff=100, nframes=200, fps=20,
@@ -756,31 +757,26 @@ end
     # end
 end
 
-@recipe function f(kP::ElementPlot; loge=false, t_unit=u"yr")
+@recipe function f(kP::ElementPlot; bodies=SA[1, 2], 
+                                    loge=false, 
+                                    loga=false,
+                                    t_unit=u"yr")
 
     sol = kP.args[1]
-    triple = sol.ic
+    system = sol.ic
     time = sol.t
 
-    @assert sol.ic.n == 3 "Only valid for triples."
+    i, j = bodies
+    m = system.particles.mass[bodies]
 
-    m1, m2, m3 = triple.particles.mass
-
-    r12 = sol.r[particle=1] .- sol.r[particle=2]
-    v12 = sol.v[particle=1] .- sol.v[particle=2]
+    r12 = sol.r[particle=i] .- sol.r[particle=j]
+    v12 = sol.v[particle=i] .- sol.v[particle=j]
     d12 = norm.(eachcol(r12))
 
-    # e_in = eccentricity.(eachcol(r12), eachcol(v12), d12, m1+m2)
-    com_in = center_of_mass(sol, [1, 2])
-    v_com_in = centre_of_mass_velocity(sol, [1, 2])
-    r123 = sol.r[particle=3] .- com_in
-    v123 = sol.v[particle=3] .- v_com_in
-    d123 = norm.(eachcol(r123))
-    # e_out = eccentricity.(eachcol(r123), eachcol(v123), d123, m1+m2+m3)
-
-    a_in = semi_major_axis.(d12, norm.(eachcol(v12)) .^ 2, m1+m2)
-    a_out = semi_major_axis.(d123, norm.(eachcol(v123)) .^ 2, m1+m2+m3)
-
+    # μ = GRAVCONST*sum(m)
+    # e0 = norm(e_vec_0)
+    e = norm.(eccentricity_vector.(eachcol(r12), eachcol(v12), d12, Ref(sum(m))))
+    a = semi_major_axis.(d12, norm.(eachcol(v12)) .^2 , Ref(sum(m)))
     layout --> (2, 1)
     size --> (800, 900)
 
@@ -791,10 +787,10 @@ end
 
     t = ustrip.(t_unit, time)
 
-    # Inner sma plot
+    # Eccentricity plot
     @series begin
         seriestype --> :line
-        label := "e_in"
+        label := nothing
         subplot := 1
 
         yscale --> ifelse(loge, :log10, :identity)
@@ -803,26 +799,77 @@ end
         xticks --> nothing
         # title --> "sma"
 
-        t, a_in
+        t, e
     end
 
-    # Outer sma plot
-    # @series begin
-    #     seriestype --> :line
-    #     label := "e_out"
-    #     subplot := 1
+    # sma pllot
+    @series begin
+        seriestype --> :line
+        label := nothing
+        subplot := 2
 
-    #     yscale --> ifelse(loge, :log10, :identity)
-    #     # @show plotattributes[:yscale]
-    #     # edata = ifelse(loge, 1 .- e_out, e_out)
-    #     ylabel := ifelse(loge,"log (1 - e)", "e_out")
-    #     xticks --> nothing
-    #     # title --> "Eccentricity"
+        yscale --> ifelse(loga, :log10, :identity)
+        # @show plotattributes[:yscale]
+        # edata = ifelse(loge, 1 .- e_out, e_out)
+        ylabel := "a"
+        xticks --> nothing
+        # title --> "Eccentricity"
 
-    #     t, a_out
-    # end
+        t, a
+    end
 
 end
+
+@recipe function f(kP::PrecessionPlot; bodies=SA[1, 2], t_unit=u"yr")
+
+    sol = kP.args[1]
+    system = sol.ic
+    time = sol.t
+
+    i, j = bodies
+    m = system.particles.mass[bodies]
+
+    r12 = sol.r[particle=i] .- sol.r[particle=j]
+    v12 = sol.v[particle=i] .- sol.v[particle=j]
+    d12 = norm.(eachcol(r12))
+
+    M = sum(m)
+    e_vec_0 = eccentricity_vector(r12[:,1], v12[:,1], d12[1], M)
+    e0 = norm(e_vec_0)
+    e_vec = eccentricity_vector.(eachcol(r12[:,2:end]),
+                                 eachcol(v12[:,2:end]),
+                                 d12[2:end],
+                                 M)
+
+    e_vec_angle = map(x -> acos(dot(x, e_vec_0)/(norm(x)*e0)), e_vec) .|> rad2deg
+    pushfirst!(e_vec_angle, 0.0)
+    layout --> (1, 1)
+    size --> (600, 600)
+
+    # legend := loge ? :topright : :topleft
+    legendfontsize --> 12
+    titlefontsize --> 20
+    tickfontsize --> 10
+
+    t = ustrip.(t_unit, time)
+
+    # Inner sma plot
+    @series begin
+        seriestype --> :line
+        label := nothing
+
+        ylabel := "e_vec precession [°]"
+        xlabel = "t [$(t_unit)]"
+        xticks --> nothing
+        # title --> "sma"
+
+        t, e_vec_angle
+    end
+
+
+end
+
+
 
 # anim = @animate for i in eachindex(sol.t)[1:100:end]
 #     sidx = i > 1000 ? i-1000 : 1
@@ -1023,8 +1070,8 @@ end
 #         scatter!(p, [[sol.r[dim,2,i] - com[dim,k] |> u"AU"] for dim in dims]...,
 #                     label="Secondary", c=:green)
 
-#         scatter!(p, [[sol.r[dim,3,i] - com[dim,k] |> u"AU"] for dim in dims]...,
-#                     label="Tertiary", c=:red)
+#         # scatter!(p, [[sol.r[dim,3,i] - com[dim,k] |> u"AU"] for dim in dims]...,
+#         #             label="Tertiary", c=:red)
 
 #         k += 1
 #     end every step
