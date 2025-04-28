@@ -45,29 +45,39 @@ velocity `v`, and standard gravitational parameter `μ`, where `μ ≡ G(m₁ + 
     \\vec{e} = \\frac{\\vec{v} \\times (\\vec{r} \\times \\vec{v})}{\\mu} - \\frac{\\vec{r}}{d} 
 ```
 """
-function eccentricity_vector(r, v, d::T1, μ::T2) where {T1 <: Number, T2 <: Number}
+function eccentricity_vector(r, v, d, M, G)
+    μ = G*M
     (v × (r × v))/μ - r/d
 end
 
 """
     eccentricity_vector(r, v, d, m::AbstractVector, G=GRAVCONST)
 """
-function eccentricity_vector(r, v, d, masses::AbstractVector, G)
-    μ = G*(masses[1] + masses[2])
-    eccentricity_vector(r, v, d, μ)
-end
+# function eccentricity_vector(r, v, d, masses::AbstractVector, G)
+#     μ = G*(masses[1] + masses[2])
+#     eccentricity_vector(r, v, d, μ)
+# end
 
-eccentricity_vector(r, v, d::Unitful.Length, masses::AbstractVector) = eccentricity_vector(r, v, d, masses, GRAVCONST)
-eccentricity_vector(r, v, d::Real, masses::AbstractVector) = eccentricity_vector(r, v, d, masses, UNITLESS_G)
+eccentricity_vector(r, v, d::Unitful.Length, M) = eccentricity_vector(r, v, d, M, GRAVCONST)
+eccentricity_vector(r, v, d::Real, M) = eccentricity_vector(r, v, d, M, UNITLESS_G)
 
 
+# function eccentricity(r, v, d, m::AbstractVector, G)
+#     μ = G*(m[1] + m[2])
+#     return norm(eccentricity_vector(r, v, d, μ))
+# end
+"""
+    eccentricity(r, v, d, M)
 
-function eccentricity(r, v, d, m::AbstractVector, G)
-    μ = G*(m[1] + m[2])
-    return norm(eccentricity_vector(r, v, d, μ))
-end
+Eccentricity of binary orbit with relative position vector `r`, relative
+velocity `v`,  separation `d`, and total mass `M`, where `M ≡ m₁ + m₂`.
+The eccentricity is calculated as the norm of the eccentricity vector
 
-function eccentricity(r, v, d, M::Number, G)
+```math
+    e = |\\vec{e}| = \\frac{\\vec{v} \\times (\\vec{r} \\times \\vec{v})}{\\mu} - \\frac{\\vec{r}}{d} 
+```
+"""
+function eccentricity(r, v, d, M, G)
     μ = G*M
     return norm(eccentricity_vector(r, v, d, μ))
 end
