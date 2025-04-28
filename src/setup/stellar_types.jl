@@ -1,11 +1,12 @@
 
 abstract type StellarType end
 abstract type Star                 <: StellarType end
+abstract type Giant                <: Star        end
 abstract type StellarRemnant       <: StellarType end
 abstract type SubStellarObject     <: StellarType end
 abstract type Other                <: StellarType end
-abstract type WhiteDwarf       <: StellarRemnant end
-abstract type CompactObject    <: StellarRemnant end
+abstract type WhiteDwarf           <: StellarRemnant  end
+abstract type CompactObject        <: StellarRemnant  end
 
 """
 Deeply or fully convective low main sequence star with index 0. 
@@ -26,7 +27,7 @@ end
 """
 Hertzsprung gap star with index 2. 
 """
-struct HertzsprungGap <: Star
+struct HertzsprungGap <: Star# Giant
     number::Int
     HertzsprungGap() = new(2)
 end
@@ -34,7 +35,7 @@ end
 """
 First giant branch star with index 3. 
 """
-struct FirstGiantBranch <: Star
+struct FirstGiantBranch <: Star# Giant
     number::Int
     FirstGiantBranch() = new(3)
 end
@@ -42,7 +43,7 @@ end
 """
 Core helium burning star with index 4. 
 """
-struct CoreHeliumBurning <: Star
+struct CoreHeliumBurning <: Star# Giant
     number::Int
     CoreHeliumBurning() = new(4)
 end
@@ -50,7 +51,7 @@ end
 """
 First asymptotic gant branch star with index 5.
 """
-struct FirstAsymptoticGiantBranch <: Star
+struct FirstAsymptoticGiantBranch <: Star# Giant
     number::Int
     FirstAsymptoticGiantBranch() = new(5)
 end
@@ -58,7 +59,7 @@ end
 """
 Second asymptotic giant branch star with index 6.
 """
-struct SecondAsymptoticGiantBranch <: Star
+struct SecondAsymptoticGiantBranch <: Star# Giant
     number::Int
     SecondAsymptoticGiantBranch() = new(6)
 end
@@ -74,7 +75,7 @@ end
 """
 Hertzsprung gap naked helium star with index 8.
 """
-struct HertzsprungGapNakedHelium <: Star
+struct HertzsprungGapNakedHelium <: Star# Giant
     number::Int
     HertzsprungGapNakedHelium() = new(8)
 end
@@ -82,7 +83,7 @@ end
 """
 Giant branch naked helium star with index 9.
 """
-struct GiantBranchNakedHelium <: Star
+struct GiantBranchNakedHelium <: Star# Giant
     number::Int
     GiantBranchNakedHelium() = new(9)
 end
