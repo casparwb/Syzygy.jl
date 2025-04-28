@@ -377,27 +377,67 @@ function roche_radius_fraction(m₁, m₂)
 end
 
 function roche_radius_fraction(q::Real)
-    cbrt_q² = cbrt(q)^2
-    return 0.49cbrt_q²/(0.6cbrt_q² + log(1 + q^(1/3)))
+    cbrt_q = cbrt(q)
+    cbrt_q² = cbrt_q^2
+    return 0.49cbrt_q²/(0.6cbrt_q² + log(1 + cbrt_q))
 end
 
 """ 
-    stellar_spin(m::Unitful.Mass, R::Unitful.Length)
+    stellar_rotational_frequency(m::Unitful.Mass, R::Unitful.Length)
 
-Return the stellar rotation of a star with mass 'm [M⊙]' and radius 'R [R⊙]', as
+Return the stellar rotation frequency of a star with mass 'm [M⊙]' and radius 'R [R⊙]', as
 described by Hurley, Pols, & Tout 2000, eq 107-108.
 """
-function stellar_spin(m::Unitful.Mass, R::Unitful.Length)
-    stellar_spin(ustrip(u"Msun", m), ustrip(u"Rsun", R))*u"1/yr"
+function stellar_rotational_frequency(m::Unitful.Mass, R::Unitful.Length)
+    m = ustrip(u"Msun", m)
+    v_rot = ((330m^3.3)/(15 + m^3.45))#u"km/s"
+    Ω = (45.35v_rot/ustrip(u"Rsun", R))
+    return u"yr^-1"*(Ω)
 end
 
-function stellar_spin(m::T, R::T) where T <: Real
-    vᵣₒₜ = 330m^3.3/(15 + m^3.45)
-    Ω = (45.35vᵣₒₜ/R)
+""" 
+    stellar_rotational_frequency(m::Real, R::Real)
+
+If `m` and `R` are given without units, they must be [`M⊙`] and [`R⊙`] respectively.
+"""
+function stellar_rotational_frequency(m::Real, R::Real)
+    v_rot = (330m^3.3)/(15 + m^3.45) # km/s
+    Ω = (45.35v_rot/R)
     return Ω
 end
 
+function stellar_angular_momentum(star::Particle, black_hole_spin_parameter=0.9)
+    star_type = star.stellar_type
+    mass = star.mass
+    radius = star.radius
 
+    k₂ = 0.1
+    k₃ = 3/4
+    if star_type isa Star
+        Ω_zams = stellar_rotational_frequency(mass, radius)
+        core_mass = star.core_mass
+        return (k₂*(mass - core_mass)*radius^2 + k₃*core_mass*core_radius^2)*Ω_zams
+    elseif (star_type isa WhiteDwarf) || (star_type isa NeutronStar)
+        return k₃*mass*radius^2*Ω_zams
+    elseif star_type isa BlackHole
+        return (GRAVCONST*mass^2/speed_of_light)*black_hole_spin_parameter
+    end
+end
+
+
+""" 
+    compact_object_spin(m::Unitful.Mass, χ=0.1)
+
+Return the spin angular momentum of a compact object with mass 'm [M⊙]' and spinning with a
+fraction `χ` of its critical spin velocity.
+"""
+function compact_object_spin(m::Unitful.Mass, χ=1.0)
+    return (GRAVCONST*m^2/speed_of_light)*χ
+end
+
+function compact_object_spin(m::Real, χ=1.0)
+    return (UNITLESS_G*m^2/UNITLESS_c)*χ
+end
 
 """
     stability_criterion_ma01(m₂, m₂, m₃, i, eout)
