@@ -132,9 +132,43 @@ function simulate(system::MultiBodyInitialConditions; args...)
     simulate(simulation(system; args...))
 end
 
+function simulate(res::SimulationResult, time; args...)
+    t_idx = findmin(x -> abs(x - time), res.solution.t)[2]
+    t = res.solution.t[t_idx]*unit_time
+    u = res.solution[t_idx]
+    rs = u.x[2] .* unit_length
+    vs = u.x[1] .* unit_length/unit_time
+
+    ic = res.simulation.ic
+    masses = ic.particles.mass
+    R = ic.particles.R
+    # stellar_types = ic.particles.stellar_type
+
+    structure_args = propertynames(ic.particles[1].structure)
+    stellar_structure_params = Dict(sa => getproperty(ic.particles, sa) for sa in structure_args)
+    
+    pop!(stellar_structure_params, :mass)
+    stellar_structure_params[:core_masses] = pop!(stellar_structure_params, :core_mass)
+    stellar_structure_params[:envelope_masses] = pop!(stellar_structure_params, :envelope_mass)
+    stellar_structure_params[:spins] = pop!(stellar_structure_params, :spin)
+    stellar_structure_params[:radii] = pop!(stellar_structure_params, :radius)
+    stellar_structure_params[:stellar_types] = getfield.(pop!(stellar_structure_params, :stellar_type), :number)
+    stellar_structure_params[:core_radii] = pop!(stellar_structure_params, :core_radius)
+    stellar_structure_params[:envelope_radii] = pop!(stellar_structure_params, :envelope_radius)
+    stellar_structure_params[:L] = pop!(stellar_structure_params, :luminosity)
+
+    sys = multibodysystem(masses, eachcol(rs), eachcol(vs), time=t; stellar_structure_params...)
+
+    simulate(sys; args...)
+end
+
+
+function simulate(sol::MultiBodySolution, time)
+
+end
 
 function total_energy(result::SimulationResult, time)
-    masses = result.ode_params.M
+    masses = result.ode_params.masses
     idx = findmin(x -> abs(x - time), result.solution.t)[2]
 
     total_energy([result.solution.u[idx].x[2][1:3, i] for i ∈ eachindex(masses)], 

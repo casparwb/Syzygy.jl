@@ -31,7 +31,7 @@ function get_stellar_structure(result)
         end
 
         tmp[:stellar_type] = [t.number for t in tmp[:stellar_types]] 
-        tmp[:m] = pop!(tmp, :M)
+        tmp[:m] = pop!(tmp, :masses)
         tmp
     end
 

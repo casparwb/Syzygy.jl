@@ -68,6 +68,7 @@ function parse_arguments!(kwargs::Dict)
                         :potential => [PureGravitationalPotential()],
                         :callbacks => AbstractSyzygyCallback[CollisionCB()], 
                         :showprogress => false,
+                        :params => DefaultSimulationParams,
                         :verbose   => false, :max_cpu_time => Inf,
                         :precision => :Float64, :stellar_evolution => false,
                         )
@@ -137,6 +138,12 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     if any(x -> x isa SpinPotential, args[:potential])
         check_spins(system.particles.S)
     end
+
+    # if any(x -> typoef(x) in SA[PN1Potential, PN2Potential, PN2p5Potential, PNPotential]) && 
+    #    (kwargs[:alg] == DPRKN6() || kwargs[:alg] == DPRKN8() || kwargs[:alg] == DPRKN10() || kwargs[:alg] == DPRKN12())
+    #    @warn "The chosen solver is not compatible with a post-Newtonian potential. Recommendations are: Feagin10, Tsit5, Vern6/7/8/9."
+    #    return nothing
+    # end
 
     periods = if system isa NonHierarchicalSystem
         periods_ = typeof(1.0*unit_time)[]
@@ -214,7 +221,12 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     ####################################################################################################
 
     # Setup parameters
-    ode_params = setup_params(particles, system.time, dtype)
+    if any(x -> any(pot -> x isa pot, [EquilibriumTidalPotential, TimeDependentEquilibriumTidalPotential, DynamicalTidalPotential]), args[:potential])
+        if args[:params] == DefaultSimulationParams
+            args[:params] = TidalSimulationParams
+        end
+    end
+    ode_params = setup_params(args[:params], system, dtype)
    
     simulation = multibodysimulation(system, args[:tspan], args[:potential], 
                                      ode_params, args, kwargs)
@@ -237,18 +249,6 @@ function check_spins(spins)
     end
 end
 
-# function setup_timespan(t0, t_sim, P_out, datatype=Float64)
-#     if t_sim isa Quantity
-#         tspan = (t0, Inf)
-#     else
-#         tspan = (t0, Inf)
-#     end
-
-#     tspan = datatype.(tspan)
-
-#     return tspan
-# end
-
 function get_final_time(t0, t_sim, P_out, datatype=Float64)
     if t_sim isa Quantity
         t_sim *= one(t_sim)
@@ -259,8 +259,39 @@ function get_final_time(t0, t_sim, P_out, datatype=Float64)
     end
 end
 
+function setup_params(::Type{<:DefaultSimulationParams}, system, datatype=Float64)
+    particles = system.particles
 
-function setup_params(particles, time, datatype=Float64, stellar_evolution=false)
+    masses        = datatype[]
+    radii         = datatype[]
+    stellar_types = StellarType[]
+
+    particle_keys = keys(particles) |> collect |> sort
+
+
+    for i in particle_keys
+        p = particles[i]
+        
+        mass         = p.structure.m      |> upreferred |> ustrip 
+        radius       = p.structure.R      |> upreferred |> ustrip 
+        stellar_type = p.structure.stellar_type 
+
+        push!(masses,        mass)
+        push!(radii,         radius)
+        push!(stellar_types, stellar_type)
+    end
+
+    masses = SVector(masses...)
+    radii = SVector(radii...)
+    stellar_types = SVector(stellar_types...)
+
+    ode_params = DefaultSimulationParams(radii, masses, stellar_types)
+
+    return ode_params
+end
+
+function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64)
+    particles, time = system.particles, system.time
 
     masses        = datatype[]
     luminosities  = datatype[]
@@ -272,7 +303,7 @@ function setup_params(particles, time, datatype=Float64, stellar_evolution=false
 
     particle_keys = keys(particles) |> collect |> sort
 
-    luminosity_unit = if upreferred(u"kg") == u"Msun"
+    luminosity_unit = if unit_mass == u"Msun"
         u"Lsun"
     else
         upreferred(u"Lsun")
@@ -290,46 +321,35 @@ function setup_params(particles, time, datatype=Float64, stellar_evolution=false
 
         push!(core_masses,   core_mass)
         push!(core_radii,    core_radius)
-        push!(ages,          upreferred(time).val)
+        push!(ages,          ustrip(unit_time, time))
         push!(masses,        mass)
         push!(luminosities,  luminosity)
         push!(radii,         radius)
         push!(stellar_types, stellar_type)
     end
 
-    if stellar_evolution
-        masses = MVector(masses...)
-        luminosities = MVector(luminosities...)
-        radii = MVector(radii...)
-        stellar_types = MVector(stellar_types...)
-        core_masses = MVector(core_masses...)
-        core_radii = MVector(core_radii...)
-        ages = MVector(ages...)
-    else
-        masses = SVector(masses...)
-        luminosities = SVector(luminosities...)
-        radii = SVector(radii...)
-        stellar_types = SVector(stellar_types...)
-        core_masses = SVector(core_masses...)
-        core_radii = SVector(core_radii...)
-        ages = SVector(ages...)
-    end
+    masses = SVector(masses...)
+    luminosities = SVector(luminosities...)
+    radii = SVector(radii...)
+    stellar_types = SVector(stellar_types...)
+    core_masses = SVector(core_masses...)
+    core_radii = SVector(core_radii...)
+    ages = SVector(ages...)
 
-    all_params = Dict(:R            => radii, 
-                      :M            => masses, 
-                      :L            => luminosities,
-                      :stellar_type => stellar_types,
-                      :core_masses  => core_masses,
-                      :core_radii   => core_radii,
-                      :ages         => ages)
-
-    ode_params = DefaultSimulationParams(all_params[:R], 
-                                         all_params[:M], 
-                                         all_params[:L], 
-                                         all_params[:stellar_type],
-                                         all_params[:core_masses], 
-                                         all_params[:core_radii], 
-                                         all_params[:ages])
+    ode_params = TidalSimulationParams(radii, 
+                                       masses, 
+                                       luminosities, 
+                                       stellar_types,
+                                       core_masses, 
+                                       core_radii, 
+                                       ages)
+    # ode_params = DefaultSimulationParams(all_params[:R], 
+    #                                      all_params[:M], 
+    #                                      all_params[:L], 
+    #                                      all_params[:stellar_type],
+    #                                      all_params[:core_masses], 
+    #                                      all_params[:core_radii], 
+    #                                      all_params[:ages])
 
     return ode_params
 end

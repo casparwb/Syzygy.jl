@@ -8,13 +8,29 @@ abstract type MultiBodyPotential end
 abstract type SpinPotential <: MultiBodyPotential end
 abstract type SimulationParams end
 
+# struct DefaultSimulationParams{FloatVecType, stpVecType} <: SimulationParams
+#     R::FloatVecType # radii
+#     M::FloatVecType # masses
+#     L::FloatVecType # luminosities
+#     stellar_types::stpVecType 
+#     M_cores::FloatVecType # core masses
+#     R_cores::FloatVecType # core radii
+#     ages::FloatVecType 
+# end
+
 struct DefaultSimulationParams{FloatVecType, stpVecType} <: SimulationParams
-    R::FloatVecType # radii
-    M::FloatVecType # masses
-    L::FloatVecType # luminosities
+    radii::FloatVecType # radii
+    masses::FloatVecType # masses
     stellar_types::stpVecType 
-    M_cores::FloatVecType # core masses
-    R_cores::FloatVecType # core radii
+end
+
+struct TidalSimulationParams{FloatVecType, stpVecType} <: SimulationParams
+    radii::FloatVecType # radii
+    masses::FloatVecType # masses
+    luminosities::FloatVecType # luminosities
+    stellar_types::stpVecType 
+    core_masses::FloatVecType # core masses
+    core_radii::FloatVecType # core radii
     ages::FloatVecType 
 end
 
@@ -123,7 +139,7 @@ Corresponds to the acceleration function [`equilibrium_tidal_acceleration!`](@re
 - `supplied_rotational_angular_velocities`
 """
 struct EquilibriumTidalPotential{T} <: MultiBodyPotential
-    Z::T 
+    Z::Float64 
     M_env::T 
     R_env::T 
     apsidal_motion_constant::T 
@@ -131,7 +147,8 @@ struct EquilibriumTidalPotential{T} <: MultiBodyPotential
 
     function EquilibriumTidalPotential(system; Z=0.02, lb_multiplier=1.1, ub_multiplier=1.1,
                                                supplied_apsidal_motion_constants=nothing, 
-                                               supplied_rotational_angular_velocities=nothing)
+                                               supplied_rotational_angular_velocities=nothing,
+                                               set_spin=false)
     
         if unit_system != "Solar"
             @warn """Default unit system is not set to solar units, which is what the tidal prescription expects. Conversion is currently not supported. Set the units by calling `Syzygy.set_units("Solar")` """
@@ -181,18 +198,26 @@ struct EquilibriumTidalPotential{T} <: MultiBodyPotential
                     end
                 end
     
-                if isnothing(supplied_rotational_angular_velocities)
-                    Ω = stellar_spin(m, R)
-                    push!(rotational_angular_velocities, ustrip(unit(1/unit_time), Ω))
+                if isnothing(supplied_rotational_angular_velocities) && set_spin
+                    Ω = stellar_rotational_frequency(m, R)
+                    push!(rotational_angular_velocities, ustrip(unit(1/unit_time), 2π*Ω))
                 end
     
             end
         end
+
+        if !set_spin
+            rotational_angular_velocities = 2π*ustrip.(unit_time^(-1), system.particles.spin)
+        end
     
         apsidal_motion_constants      = isnothing(supplied_apsidal_motion_constants)      ? SA[apsidal_motion_constants...]      : SA[supplied_apsidal_motion_constants...]
-        rotational_angular_velocities = isnothing(supplied_rotational_angular_velocities) ? SA[rotational_angular_velocities...] : SA[supplied_rotational_angular_velocities...]
+        rotational_angular_velocities = if isnothing(supplied_rotational_angular_velocities) 
+            SA[rotational_angular_velocities...] 
+            else
+                SA[ustrip.(unit_time^-1, supplied_rotational_angular_velocities)...]
+            end
     
-        new{typeof(Z)}(Z, m_envs, R_envs, apsidal_motion_constants, rotational_angular_velocities)
+        new{typeof(m_envs)}(Z, m_envs, R_envs, apsidal_motion_constants, rotational_angular_velocities)
     end
 end
 
@@ -233,8 +258,8 @@ function pure_gravitational_acceleration!(dvi, dvj, rs,
     r = norm(r̄)
     n̂ = r̄/r
 
-    m₁ = params.M[i]
-    m₂ = params.M[j]
+    m₁ = params.masses[i]
+    m₂ = params.masses[j]
     G_r² = -UNITLESS_G/r^2
 
     a = G_r²*n̂
@@ -275,8 +300,8 @@ function dynamical_tidal_acceleration!(dvi, dvj, rs, vs,
     r = norm(r̄)
     v = norm(v̄)
 
-    ms = params.M
-    Rs = params.R
+    ms = params.masses
+    Rs = params.radii
 
     m₁, m₂ = ms[i], ms[j]
     M = m₁ + m₂
@@ -330,8 +355,8 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
     r̄₂ = @SVector [rs[1, j], rs[2, j], rs[3, j]]
     v̄₂ = @SVector [vs[1, j], vs[2, j], vs[3, j]]
     
-    ms = params.M
-    Rs = params.R
+    ms = params.masses
+    Rs = params.radii
 
     m₁, m₂ = ms[i], ms[j]
     
@@ -358,17 +383,17 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
         else
             S̄₁  = @SVector [rs[4, k], rs[5, k], rs[6, k]]
 
-            core_mass   = params.M_cores[k]
-            core_radius = params.R_cores[k]
-            luminosity  = params.L[k]
-            age_Myr     = params.ages[k]/1e6
+            core_mass   = params.core_masses[k]
+            core_radius = params.core_radii[k]
+            luminosity  = params.luminosities[k]
+            age_Myr     = params.ages[k]*to_Myr_conversion_factor
 
             R = Rs[k]
 
             Ω = norm(S̄₁)
             
-            logg = potential.logg[i]#log10(surface_gravity_unit_conversion_factor*(UNITLESS_G*m₁/R^2)) # convert from default units to cm/s²
-            logm = potential.logm[j]#log10(m₁)
+            logg = potential.logg[k]
+            logm = potential.logm[k]
             k = asidal_motion_constant_interpolated(logm, logg)
 
             μ = UNITLESS_G*m₂/r²
@@ -391,17 +416,17 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
         else
             S̄₂  = @SVector [rs[4, k], rs[5, k], rs[6, k]]
 
-            core_mass   = params.M_cores[k]
-            core_radius = params.R_cores[k]
-            luminosity  = params.L[k]
-            age_Myr     = params.ages[k]/1e6
+            core_mass   = params.core_masses[k]
+            core_radius = params.core_radii[k]
+            luminosity  = params.luminosities[k]
+            age_Myr     = params.ages[k]*to_Myr_conversion_factor
 
             R = Rs[k]
 
             Ω = norm(S̄₂)
             
-            logg = log10(surface_gravity_unit_conversion_factor*(UNITLESS_G*m₂/R^2)) # convert from R⊙/yr² to cm/s²
-            logm = log10(m₂)
+            logg = potential.logg[k]
+            logm = potential.logm[k]
             k = asidal_motion_constant_interpolated(logm, logg)
 
             μ = UNITLESS_G*m₁/r²
@@ -449,8 +474,8 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
     r⁻¹ = 1/r
     r_hat = r̄*r⁻¹
 
-    m₁ = params.M[i]
-    m₂ = params.M[j]
+    m₁ = params.masses[i]
+    m₂ = params.masses[j]
 
     θ_dot = (r̄ × v̄)*r⁻¹*r⁻¹
     θ_dot_norm = norm(θ_dot)
@@ -467,8 +492,8 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
     
                 envelope_mass = potential.M_env[i]
                 envelope_radius = potential.R_env[i]
-                luminosity = params.L[i]
-                R = params.R[i]
+                luminosity = params.luminosities[i]
+                R = params.radii[i]
                 Ω = potential.rotational_angular_velocity[i]
                 k_T = apsidal_motion_constant_over_tidal_timescale(m₁, R, envelope_mass, envelope_radius,
                                                                    stellar_type_1, luminosity, 
@@ -490,8 +515,8 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
     
                 envelope_mass = potential.M_env[j]
                 envelope_radius = potential.R_env[j]
-                luminosity  = params.L[j]
-                R = params.R[j]
+                luminosity  = params.luminosities[j]
+                R = params.radii[j]
                 Ω = potential.rotational_angular_velocity[j]
                 k_T = apsidal_motion_constant_over_tidal_timescale(m₂, R, envelope_mass, envelope_radius,
                                                                    stellar_type_2, luminosity, 
@@ -522,8 +547,8 @@ function PN1_acceleration!(dvi, dvj, rs, vs,
     v̄₂ = @SVector [vs[1, j], vs[2, j], vs[3, j]]
     v₂ = norm(v̄₂)
     
-    m₁ = params.M[i]
-    m₂ = params.M[j]
+    m₁ = params.masses[i]
+    m₂ = params.masses[j]
         
     v₁² = v₁^2
     v₂² = v₂^2
@@ -578,8 +603,8 @@ function PN2_acceleration!(dvi, dvj, rs, vs,
     v₂ = norm(v̄₂)
     v₂² = v₂^2
 
-    m₁ = params.M[i]
-    m₂ = params.M[j]
+    m₁ = params.masses[i]
+    m₂ = params.masses[j]
     
     # i = 1, j = 2
     # add @fastmath?
@@ -589,7 +614,7 @@ function PN2_acceleration!(dvi, dvj, rs, vs,
 
     r = norm(r̄) # r₁₂
     r⁻¹ = 1/r
-    r² = r^2
+    # r² = r^2
     n = r̄*r⁻¹
 
     v₁v₂ = v₂v₁ = dot(v̄₁, v̄₂) 
@@ -631,6 +656,7 @@ function PN2_acceleration!(dvi, dvj, rs, vs,
     ai = a₂1 + a₂2
 
 
+    # acceleration for body 2 (j)
     aj = let nv₁ = -nv₁, nv₂ = -nv₂
         a_num = G³_r⁴*(-57*m₂²m₁/4 - 69*m₂m₁²/2 - 9*m₁^3) 
         a_num += G_r²*m₁*(-15/8*nv₁⁴ + 3/2*nv₁²*v₂² - 6*nv₁²*v₂v₁ - 2*v₂v₁² + 9/2*nv₁²*v₁² + 
@@ -643,7 +669,6 @@ function PN2_acceleration!(dvi, dvj, rs, vs,
         a_num += G_r²*m₁*(-6*nv₂*nv₁² + 9/2*nv₁^3 + nv₁*v₂² - 4*nv₂*v₂v₁ + 
                             4*nv₁*v₂v₁ + 4*nv₂*v₁² - 5*nv₁*v₁²)
         a₂2 = (-v̄)*a_num
-        # aj = a₁1 + a₂2
         a₁1 + a₂2
     end
 
@@ -666,10 +691,8 @@ function PN2p5_acceleration!(dvi, dvj, rs, vs,
     r̄₂ = @SVector [rs[1, j], rs[2, j], rs[3, j]]
     v̄₂ = @SVector [vs[1, j], vs[2, j], vs[3, j]]
     
-    m₁ = params.M[i]
-    m₂ = params.M[j]
-
-    # add @fastmath?
+    m₁ = params.masses[i]
+    m₂ = params.masses[j]
 
     r̄ = r̄₁ - r̄₂
     v̄ = v̄₁ - v̄₂
@@ -678,7 +701,6 @@ function PN2p5_acceleration!(dvi, dvj, rs, vs,
     v = norm(v̄) # v₁₂
 
     r⁻¹ = 1/r
-
     v² = v^2
 
     n = r̄*r⁻¹
@@ -692,7 +714,7 @@ function PN2p5_acceleration!(dvi, dvj, rs, vs,
     G²_r³ = G²*r⁻¹^3
     G³_r⁴ = G³*r⁻¹^4
 
-    # # PN-2.5 acceleration
+    #################### PN-2.5 acceleration ####################
     # acceleration for body 1 (i)
     a_num = 208G³_r⁴*m₁m₂²/15*nv - 24G³_r⁴*m₁²m₂/5*nv + 12G²_r³*m₁m₂/5*v²
     a1 = a_num*n
@@ -700,18 +722,14 @@ function PN2p5_acceleration!(dvi, dvj, rs, vs,
     a2 = a_num*v̄
     ai = a1 + a2
 
-    # acceleration for body 2 (j)
-    # a_num = 208G³_r⁴*m₁²m₂/15*nv - 24G³_r⁴*m₁m₂²/5*nv + 12G²_r³*m₁m₂/5*v²
-    # a1 = a_num*(-n)
-    # a_num = 8G³_r⁴*m₁m₂²/5 - 32G³_r⁴*m₁²m₂/5 - 4G²_r³*m₁m₂/5*v²
-    # a2 = a_num*(-v̄)
-    # aj = a1 + a2
 
+    # acceleration for body 2 (j)
     a_num = 208G³_r⁴*m₂m₁²/15*nv - 24G³_r⁴*m₂²m₁/5*nv + 12G²_r³*m₂m₁/5*v²
     a1 = a_num*(-n)
     a_num = 8G³_r⁴*m₂²m₁/5 - 32G³_r⁴*m₂m₁²/5 - 4G²_r³*m₂m₁/5*v²
     a2 = a_num*(-v̄)
     aj = a1 + a2
+    ###############################################################
 
 
     dvi .+= ai*c⁻⁵
@@ -719,162 +737,9 @@ function PN2p5_acceleration!(dvi, dvj, rs, vs,
     nothing
 end
 
-
-# function PN1_to_2p5_acceleration!(dvi, dvj, rs, vs,
-#                                   pair::Tuple{Int, Int},
-#                                   params::SimulationParams)                           
-#     i, j = pair
-
-#     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
-#     v̄₁ = @SVector [vs[1, i], vs[2, i], vs[3, i]]
-    
-#     r̄₂ = @SVector [rs[1, j], rs[2, j], rs[3, j]]
-#     v̄₂ = @SVector [vs[1, j], vs[2, j], vs[3, j]]
-        
-#     m₁ = params.M[i]
-#     m₂ = params.M[j]
-    
-#     # m = m₁ + m₂
-
-#     # com = (m₁*r̄₁ + m₂*r̄₂)/m
-#     # v_com = (m₁*v̄₁ + m₂*v̄₂)/m
-
-#     # r̄₁ = r̄₁ - com
-#     # v̄₁ = v̄₁ - v_com
-
-#     # r̄₂ = r̄₂ - com
-#     # v̄₂ = v̄₂ - v_com
-
-#     # println(r̄₁)
-
-#     v₁ = norm(v̄₁)
-#     v₂ = norm(v̄₂)
-    
-#     v₁² = v₁^2
-#     v₂² = v₂^2
-
-#     r̄ = r̄₁ - r̄₂
-#     v̄ = v̄₁ - v̄₂
-
-#     r = norm(r̄) # r₁₂
-#     v = norm(v̄) # v₁₂
-
-#     r⁻¹ = 1/r
-#     r² = r^2
-#     v² = v^2
-#     n = r̄*r⁻¹
-
-#     v₁v₂ = v₂v₁ = dot(v̄₁, v̄₂) 
-#     nv₁ = dot(n, v̄₁)
-#     nv₂ = dot(n, v̄₂)
-#     nv = dot(n, v̄)
-
-#     v₁v₂² = v₂v₁² = v₁v₂^2 
-
-#     nv₁² = nv₁^2
-#     nv₂² = nv₂^2
-
-#     nv₁⁴ = nv₁^4
-#     nv₂⁴ = nv₂^4
-
-#     m₁m₂ = m₂m₁ = m₁*m₂
-#     m₁²m₂ = m₂m₁² = m₁^2*m₂
-#     m₁m₂² = m₂²m₁ = m₁*m₂^2
-
-
-#     G_r = UNITLESS_G*r⁻¹
-#     G_r² = G_r*r⁻¹
-#     G²_r³ = G²*r⁻¹^3
-#     G³_r⁴ = G³*r⁻¹^4
-
-#     ################## PN-1 acceleration ##################
-#     ai_PN1 = n*(G_r²*m₂)*(5*G_r*m₁ + 4*G_r*m₂ + 3/2*nv₂^2 - v₁² + 4*v₁v₂ - 2*v₂²) +
-#          (4*nv₁ - 3*nv₂)*v̄
-
-#     aj_PN1 = (-n)*(G_r²*m₁)*(5*G_r*m₂ + 4*G_r*m₁ + 3/2*nv₁^2 - v₂² + 4*v₁v₂ - 2*v₁²) +
-#          (4*(-nv₂) - 3*(-nv₁))*(-v̄)
-    
-#     dvi .+= ai_PN1*c⁻²
-#     dvj .+= aj_PN1*c⁻²
-#     #########################################################
-
-
-#     ################## PN-2 acceleration ##################
-#     # acceleration for body 1 (i)
-#     a_num = G³_r⁴*(-57*m₁²m₂/4 - 69*m₁m₂²/2 - 9*m₂^3) 
-#     a_num += UNITLESS_G*m₂/r²*(-15/8*nv₂⁴ + 3/2*nv₂²*v₁² - 6*nv₂²*v₁v₂ - 2*v₁v₂² + 9/2*nv₂²*v₂² + 
-#                         4*v₁v₂*v₂² - 2v₂^4)
-#     a_num += G²_r³*m₁m₂*(39/2*nv₁² - 39*nv₁*nv₂ + 17/2*nv₂² - 15/4*v₁² - 5/2*v₁v₂ + 5/4*v₂²) 
-#     a_num += G²_r³*m₂^2*(2*nv₁² - 4*nv₁*nv₂ - 6*nv₂² - 8*v₁v₂ + 4v₂²) 
-#     a₂1 = n*a_num
-
-#     a_num = G²_r³*m₂^2*(-2*nv₁ - 2*nv₂) + G²_r³*m₁m₂*(-63/4*nv₁ + 55/4*nv₂) 
-#     a_num += G_r²*m₂*(-6*nv₁*nv₂² + 9/2*nv₂^3 + nv₂*v₁² - 4*nv₁*v₁v₂ + 
-#                         4*nv₂*v₁v₂ + 4*nv₁*v₂² - 5*nv₂*v₂²)
-#     a₂2 = v̄*a_num
-#     ai_PN2 = a₂1 + a₂2
-
-
-#     # acceleration for body 2 (j)
-#     aj_PN2 = let nv₁ = -nv₁, nv₂ = -nv₂
-#         a_num = G³_r⁴*(-57*m₂²m₁/4 - 69*m₂m₁²/2 - 9*m₁^3) 
-#         a_num += UNITLESS_G*m₁/r²*(-15/8*nv₁⁴ + 3/2*nv₁²*v₂² - 6*nv₁²*v₂v₁ - 2*v₂v₁² + 9/2*nv₁²*v₁² + 
-#                             4*v₂v₁*v₁² - 2v₁^4)
-#         a_num += G²_r³*m₂m₁*(39/2*nv₂² - 39*nv₂*nv₁ + 17/2*nv₁² - 15/4*v₂² - 5/2*v₂v₁ + 5/4*v₁²) 
-#         a_num += G²_r³*m₁^2*(2*nv₂² - 4*nv₂*nv₁ - 6*nv₁² - 8*v₂v₁ + 4v₁²) 
-#         a₁1 = (-n)*a_num
-
-#         a_num = G²_r³*m₁^2*(-2*nv₂ - 2*nv₁) + G²_r³*m₂m₁*(-63/4*nv₂ + 55/4*nv₁) 
-#         a_num += G_r²*m₁*(-6*nv₂*nv₁² + 9/2*nv₁^3 + nv₁*v₂² - 4*nv₂*v₂v₁ + 
-#                             4*nv₁*v₂v₁ + 4*nv₂*v₁² - 5*nv₁*v₁²)
-#         a₂2 = (-v̄)*a_num
-#         # aj = a₁1 + a₂2
-#         a₁1 + a₂2
-#     end
-#     # a_num = G³_r⁴*(-57*m₂²m₁/4 - 69*m₂m₁²/2 - 9*m₁^3) 
-#     # a_num += UNITLESS_G*m₁/r²*(-15/8*nv₁⁴ + 3/2*nv₁²*v₂² - 6*nv₁²*v₂v₁ - 2*v₂v₁² + 9/2*nv₁²*v₁² + 
-#     #                     4*v₂v₁*v₁² - 2v₁^4)
-#     # a_num += G²_r³*m₂m₁*(39/2*nv₂² - 39*nv₂*nv₁ + 17/2*nv₁² - 15/4*v₂² - 5/2*v₂v₁ + 5/4*v₁²) 
-#     # a_num += G²_r³*m₁^2*(2*nv₂² - 4*nv₂*nv₁ - 6*nv₁² - 8*v₂v₁ + 4v₁²) 
-#     # a₁1 = (-n)*a_num
-
-#     # a_num = G²_r³*m₁^2*(-2*nv₂ - 2*nv₁) + G²_r³*m₂m₁*(-63/4*nv₂ + 55/4*nv₁) 
-#     # a_num += G_r²*m₁*(-6*nv₂*nv₁² + 9/2*nv₁^3 + nv₁*v₂² - 4*nv₂*v₂v₁ + 
-#     #                     4*nv₁*v₂v₁ + 4*nv₂*v₁² - 5*nv₁*v₁²)
-#     # a₂2 = (-v̄)*a_num
-#     # aj = a₁1 + a₂2
-#     # aj_PN2 = a₂1 + a₂2
-
-#     dvi .+= ai_PN2*c⁻⁴
-#     dvj .+= aj_PN2*c⁻⁴
-#     #########################################################
-
-
-#     ################## PN-2.5 acceleration ##################
-#     # acceleration for body 1 (i)
-#     a_num = 208G³_r⁴*m₁m₂²/15*nv - 24G³_r⁴*m₁²m₂/5*nv + 12G²_r³*m₁m₂/5*v²
-#     a1 = a_num*n
-#     a_num = 8G³_r⁴*m₁²m₂/5 - 32G³_r⁴*m₁m₂²/5 - 4G²_r³*m₁m₂/5*v²
-#     a2 = a_num*v̄
-#     ai_PN2p5 = a1 + a2
-
-#     # acceleration for body 2 (j)
-#     a_num = 208G³_r⁴*m₁²m₂/15*nv - 24G³_r⁴*m₁m₂²/5*nv + 12G²_r³*m₁m₂/5*v²
-#     a1 = a_num*(-n)
-#     a_num = 8G³_r⁴*m₁m₂²/5 - 32G³_r⁴*m₁²m₂/5 - 4G²_r³*m₁m₂/5*v²
-#     a2 = a_num*(-v̄)
-#     aj_PN2p5 = a1 + a2
-
-#     dvi .+= ai_PN2p5*c⁻⁵
-#     dvj .+= aj_PN2p5*c⁻⁵
-#     #########################################################
-
-#     nothing
-# end
-
 function PN1_to_2p5_acceleration!(dvi, dvj, rs, vs,
-    pair::Tuple{Int, Int},
-    params::SimulationParams)                           
+                                  pair::Tuple{Int, Int},
+                                  params::SimulationParams)                           
     i, j = pair
 
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -883,21 +748,8 @@ function PN1_to_2p5_acceleration!(dvi, dvj, rs, vs,
     r̄₂ = @SVector [rs[1, j], rs[2, j], rs[3, j]]
     v̄₂ = @SVector [vs[1, j], vs[2, j], vs[3, j]]
 
-    m₁ = params.M[i]
-    m₂ = params.M[j]
-
-    # m = m₁ + m₂
-
-    # com = (m₁*r̄₁ + m₂*r̄₂)/m
-    # v_com = (m₁*v̄₁ + m₂*v̄₂)/m
-
-    # r̄₁ = r̄₁ - com
-    # v̄₁ = v̄₁ - v_com
-
-    # r̄₂ = r̄₂ - com
-    # v̄₂ = v̄₂ - v_com
-
-    # println(r̄₁)
+    m₁ = params.masses[i]
+    m₂ = params.masses[j]
 
     v₁ = norm(v̄₁)
     v₂ = norm(v̄₂)
