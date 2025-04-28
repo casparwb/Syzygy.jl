@@ -46,7 +46,7 @@ function Base.show(io::IO, binary::T where T <: Binary)
 
     # println(io, " "^indent, "Binary elements: ")
     printstyled(io, " "^indent, "Binary ", color=:blue)
-    printstyled(io, "elements:\n")
+    printstyled(io, "elements:\n\n")
     show(IOContext(io, :indent => indent+2), binary.elements)
     println(io)
 
@@ -63,35 +63,26 @@ function Base.show(io::IO, particle::Particle)
     indent = get(io, :indent, 2)
 
 
-    # print(io,  " "^indent, "Particle key: ")
-    printstyled(io,  " "^indent, "Particle ", color=:yellow)
-    print(io, "key: ")
-    print(io, particle.key)
-    println(io)
-
-    # print(io,  " "^indent, "Particle parent: ")
-    printstyled(io,  " "^indent, "Particle ", color=:yellow)
-    print(io, "parent: ")
-    print(io, particle.parent)
-    println(io)
-
-    # print(io,  " "^indent, "Particle mass: ")
     printstyled(io,  " "^indent, "Particle ", color=:yellow)
     print(io, "mass: ")
     print(io, particle.mass)
     println(io)
 
+    printstyled(io,  " "^indent, "Particle ", color=:yellow)
+    print(io, "radius: ")
+    print(io, particle.radius)
+    println(io)
 
-    # print(io,  " "^indent, "Particle type: ")
     printstyled(io,  " "^indent, "Particle ", color=:yellow)
     print(io, "type: ")
     print(io, particle.stellar_type)
     println(io)
 
-    # println(io,  " "^indent, "Particle structure: ")
-    # printstyled(io,  " "^indent, "Particle ", color=:yellow)
-    # print(io, "structure: ")
-    # show(io, particle.structure)
+    printstyled(io,  " "^indent, "Particle ", color=:yellow)
+    print(io, "key: ")
+    print(io, particle.key.i)
+    println(io)
+
 
 end
 
@@ -209,10 +200,14 @@ function Base.show(io::IO, params::DefaultSimulationParams)
     println()
     for prop in propertynames(params)
         val = getproperty(params, prop) 
-        un = unit(val[1])
-        val = ustrip(val)
+        # un, val = if val[1] isa Quantity
+        #     unit(val[1]), ustrip(val)
+        # else
+        #     "1", val
+        # end
+        # # val = ustrip(val)
 
-        @printf(io, "   %-16s %s %s", "$prop", "$val", "$un")
+        @printf(io, "   %-16s %s", "$prop", "$val")
         println(io)
     end
 end
@@ -234,4 +229,13 @@ function Base.show(io::IO, sol::MultiBodySolution)
             println()
         end
     end
+end
+
+function Base.show(io::IO, stp::StellarType)
+
+    n = String(nameof(typeof(stp)))
+    num = stp.number
+
+    print("$n ($num)")
+
 end
