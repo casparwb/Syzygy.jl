@@ -176,6 +176,7 @@ function multibodysystem(masses::Vector{<:Unitful.Mass};
     
     R = ifelse(R isa Number, repeat([R], n_bodies), R)
     L = ifelse(L isa Number, repeat([L], n_bodies), L)
+    S = ifelse(S isa Number, repeat([S], n_bodies), S)
     R_core = ifelse(R_core isa Number, repeat([R_core], n_bodies), R_core)
     m_core = ifelse(m_core isa Number, repeat([m_core], n_bodies), m_core)
     R_env  = ifelse(R_env  isa Number, repeat([R_env ], n_bodies), R_env )
@@ -183,13 +184,19 @@ function multibodysystem(masses::Vector{<:Unitful.Mass};
     stellar_types = ifelse(stellar_types isa Number, repeat([stellar_types], n_bodies), stellar_types)
 
 
-    S = if S isa Number 
-        [[S, zero(S), zero(S)] for i in 1:n_bodies]
-    elseif S isa Vector{<:Number}
-       [[ss, zero(ss), zero(ss)] for ss in S]
-    else
-        S
-    end
+    R_core = eltype(R).(R_core)
+    R_env = eltype(R).(R_env)
+    m_core = eltype(masses).(m_core)
+    m_env = eltype(masses).(m_env)
+
+
+    # S = if S isa Number 
+    #     [[S, zero(S), zero(S)] for i in 1:n_bodies]
+    # elseif S isa Vector{<:Number}
+    #    [[ss, zero(ss), zero(ss)] for ss in S]
+    # else
+    #     S
+    # end
 
     a = ifelse(a isa Number, repeat([a], n_bins), a)
     e = ifelse(e isa Number, repeat([e], n_bins), e)
