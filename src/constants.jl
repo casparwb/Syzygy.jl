@@ -21,6 +21,7 @@ const c⁻⁷ = c⁻⁶/UNITLESS_c
 const π² = π^2
 
 const surface_gravity_unit_conversion_factor = ustrip(u"cm/s^2", 1.0*unit_length/unit_time^2)
+const to_Myr_conversion_factor = upreferred(1unit_time/1u"Myr")
 
 const stellar_type = Dict(  "deeply or fully convective low mass MS star" => 0,
                             "Main Sequence Star" => 1,
