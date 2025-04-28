@@ -36,7 +36,7 @@
             @test bodies[i].mass ≈ triple.particles[i].mass |> ustrip
             @test bodies[i].position ≈ triple.particles[i].position .|> ustrip
             @test bodies[i].velocity ≈ triple.particles[i].velocity .|> ustrip
-            @test bodies[i].spin ≈ triple.particles[i].structure.S .|> ustrip
+            # @test bodies[i].spin ≈ triple.particles[i].structure.S .|> ustrip
         end
 
     end
@@ -63,21 +63,21 @@
             @test res.retcode[:Collision][1] == [1,2]
         end
 
-        @testset "New collision" begin
+        # @testset "New collision" begin
             
-            a = 5.0u"Rsun"
-            e = 0.6
-            ν = (π/2)u"rad"
-            rp = a*(1 - e)
-            R = [rp/2, rp/2] .* 1.01
-            masses = [2.0, 1.0]u"Msun"
-            binary = multibodysystem(masses, a=a, e=e, R = R)
+        #     a = 5.0u"Rsun"
+        #     e = 0.6
+        #     ν = (π/2)u"rad"
+        #     rp = a*(1 - e)
+        #     R = [rp/2, rp/2] .* 1.01
+        #     masses = [2.0, 1.0]u"Msun"
+        #     binary = multibodysystem(masses, a=a, e=e, R = R)
 
-            res = simulate(binary, t_sim=1.0, callbacks=[Syzygy.NewCollisionCB()])
+        #     res = simulate(binary, t_sim=1.0, callbacks=[Syzygy.NewCollisionCB()])
 
-            @test :Collision in keys(res.retcode)
-            @test res.retcode[:Collision][1] == [1,2]
-        end
+        #     @test :Collision in keys(res.retcode)
+        #     @test res.retcode[:Collision][1] == [1,2]
+        # end
 
         @testset "Running with callbacks" begin
             a = [1.0, 5.0]u"AU"

@@ -12,15 +12,11 @@ using Test
         n = 2
         masses = [2.0, 1.0]
         radii = zeros(2)
-        luminosities = zeros(2)
         stellar_types = [14, 14]
-        core_masses = zeros(2)
-        core_radii = zeros(2)
 
         ages = zeros(2)
 
-        params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
-                                                stellar_types, core_masses, core_radii, ages)
+        params = Syzygy.DefaultSimulationParams(radii, masses, stellar_types)
 
         dv1 = zeros(3)
         dv2 = zeros(3)

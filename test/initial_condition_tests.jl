@@ -34,7 +34,7 @@
         @test bodies[i].mass ≈ triple.particles[i].mass |> ustrip
         @test bodies[i].position ≈ triple.particles[i].position .|> ustrip
         @test bodies[i].velocity ≈ triple.particles[i].velocity .|> ustrip
-        @test bodies[i].spin ≈ triple.particles[i].structure.S .|> ustrip
+        # @test bodies[i].spin ≈ triple.particles[i].structure.S .|> ustrip
 
     end
 

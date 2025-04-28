@@ -6,16 +6,10 @@ using Test
     @testset "Pure gravity" begin
 
         masses = 1.0*ones(3)
-        radii = zeros(3)#5.0*ones(2)u"Rsun"
-        luminosities = zeros(3)
+        radii = 1.0*ones(3)u"Rsun"
         stellar_types = [14, 14]
-        M_cores = zeros(3)
-        R_cores = zeros(3)
 
-        ages = zeros(3)
-
-        params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
-                                                stellar_types, M_cores, R_cores, ages)
+        params = Syzygy.DefaultSimulationParams(radii, masses, stellar_types)
 
         dv1 = zeros(3)
         dv2 = zeros(3)
@@ -46,15 +40,11 @@ using Test
 
         masses = 10.0*ones(2)
         radii = zeros(2)#5.0*ones(2)u"Rsun"
-        luminosities = zeros(2)
         stellar_types = [14, 14]
-        M_cores = zeros(2)
-        R_cores = zeros(2)
 
         ages = zeros(2)
 
-        params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
-                                                stellar_types, M_cores, R_cores, ages)
+        params = Syzygy.DefaultSimulationParams(radii, masses, stellar_types)
 
         dv1 = zeros(3)
         dv2 = zeros(3)
@@ -78,15 +68,11 @@ using Test
 
         masses = 10.0*ones(2)
         radii = zeros(2)#5.0*ones(2)u"Rsun"
-        luminosities = zeros(2)
         stellar_types = [14, 14]
-        M_cores = zeros(2)
-        R_cores = zeros(2)
 
         ages = zeros(2)
 
-        params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
-                                                stellar_types, M_cores, R_cores, ages)
+        params = Syzygy.DefaultSimulationParams(radii, masses, stellar_types)
 
         dv1 = zeros(3)
         dv2 = zeros(3)
@@ -110,15 +96,11 @@ using Test
 
         masses = 10.0*ones(2)
         radii = zeros(2)#5.0*ones(2)u"Rsun"
-        luminosities = zeros(2)
         stellar_types = [14, 14]
-        M_cores = zeros(2)
-        R_cores = zeros(2)
 
         ages = zeros(2)
 
-        params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
-                                                stellar_types, M_cores, R_cores, ages)
+        params = Syzygy.DefaultSimulationParams(radii, masses, stellar_types)
 
         dv1 = zeros(3)
         dv2 = zeros(3)
@@ -142,15 +124,11 @@ using Test
 
         masses = 10.0*ones(2)
         radii = zeros(2)#5.0*ones(2)u"Rsun"
-        luminosities = zeros(2)
         stellar_types = [14, 14]
-        M_cores = zeros(2)
-        R_cores = zeros(2)
 
         ages = zeros(2)
 
-        params = Syzygy.DefaultSimulationParams(radii, masses, luminosities, 
-                                                stellar_types, M_cores, R_cores, ages)
+        params = Syzygy.DefaultSimulationParams(radii, masses, stellar_types)
 
         dv1 = zeros(3)
         dv2 = zeros(3)
@@ -459,25 +437,17 @@ using Test
 
         binary = multibodysystem(masses, a=10.0u"Rsun", R=radii, m_core = M_cores, R_core = R_cores)
 
-        params = Syzygy.DefaultSimulationParams(Float64.(ustrip.(radii)), Float64.(ustrip.(masses)), 
+        params = Syzygy.TidalSimulationParams(Float64.(ustrip.(radii)), Float64.(ustrip.(masses)), 
                                                 Float64.(ustrip.(luminosities)), stellar_types, 
                                                 Float64.(ustrip.(M_cores)), Float64.(ustrip.(R_cores)), Float64.(ustrip.(ages)))
 
         dv1 = zeros(3)
         dv2 = zeros(3)
 
-
         rs = reduce(hcat, binary.particles.position) .|> ustrip
         vs = reduce(hcat, binary.particles.velocity) .|> ustrip
 
-        Ss = Syzygy.stellar_spin.(masses, radii)
-        Ss = reduce(hcat, [[upreferred(S).val, 0.0, 0.0] for S in Ss])
-        vSs = reduce(hcat, [zeros(3) for i = 1:2])
-
-        rs = [rs; Ss]
-        vs = [vs; vSs]
-
-        pot = Syzygy.EquilibriumTidalPotential(binary)
+        pot = EquilibriumTidalPotential(binary, set_spin=true)
         pair = (1, 2)
         Syzygy.Syzygy.equilibrium_tidal_acceleration!(dv1, dv2, rs, vs, pair, params, pot)
 
@@ -499,7 +469,7 @@ using Test
 
         binary = multibodysystem(masses, a=5.0u"Rsun", e=0.4, R=radii, m_core = M_cores, R_core = R_cores)
 
-        params = Syzygy.DefaultSimulationParams(Float64.(ustrip.(radii)), 
+        params = Syzygy.TidalSimulationParams(Float64.(ustrip.(radii)), 
                                                 Float64.(ustrip.(masses)), 
                                                 Float64.(ustrip.(luminosities)), 
                                                 stellar_types, 
@@ -513,7 +483,7 @@ using Test
         rs = reduce(hcat, binary.particles.position) .|> u"Rsun" .|> ustrip
         vs = reduce(hcat, (binary.particles.velocity)) .|> u"Rsun/yr" .|> ustrip
 
-        pot = DynamicalTidalPotential(n=4, γ=[1.5, 1.5])
+        pot = DynamicalTidalPotential(4, [1.5, 1.5])
 
         pair = (1, 2)
         Syzygy.Syzygy.dynamical_tidal_acceleration!(dv1, dv2, rs, vs, pair, params, pot)
