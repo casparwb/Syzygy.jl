@@ -324,14 +324,14 @@ function collision_callback!(integrator, pairs, retcode, grav_rad_multiple)
         Ri = integrator.p.radii[i]
         Mi = integrator.p.masses[i]
 
-        stellar_type_i = integrator.p.stellar_types[i].number
+        stellar_type_i = integrator.p.stellar_type_numbers[i]
         rj = SA[integrator.u.x[2][1, j], integrator.u.x[2][2, j], integrator.u.x[2][3, j]]
         d = norm(ri - rj)
         
         Rj = integrator.p.radii[j]
         Mj = integrator.p.masses[j]
 
-        stellar_type_j = integrator.p.stellar_types[j].number
+        stellar_type_j = integrator.p.stellar_type_numbers[j]
 
         collision = collision_check(d, Ri, Rj, Mi, Mj, stellar_type_i, stellar_type_j, 
                                             grav_rad_multiple)::Bool

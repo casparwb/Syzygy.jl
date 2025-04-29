@@ -18,10 +18,11 @@ abstract type SimulationParams end
 #     ages::FloatVecType 
 # end
 
-struct DefaultSimulationParams{FloatVecType, stpVecType} <: SimulationParams
+struct DefaultSimulationParams{FloatVecType, IntVecType, stpVecType} <: SimulationParams
     radii::FloatVecType # radii
     masses::FloatVecType # masses
     stellar_types::stpVecType 
+    stellar_type_numbers::IntVecType
 end
 
 struct TidalSimulationParams{FloatVecType, stpVecType} <: SimulationParams

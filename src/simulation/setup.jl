@@ -186,11 +186,11 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     args[:t0] = t0
     t_sim = args[:t_sim]
     # tspan = setup_timespan(t0, t_sim, P_out, dtype)
-    args[:tspan] = (t0, Inf)
-
     t_final = get_final_time(t0, t_sim, P_out, dtype)
-    args[:callbacks] = AbstractSyzygyCallback[args[:callbacks]...]
-    push!(args[:callbacks], FinalTimeCB(t_final))
+    args[:tspan] = (t0, t_final)
+
+    # args[:callbacks] = AbstractSyzygyCallback[args[:callbacks]...]
+    # push!(args[:callbacks], FinalTimeCB(t_final))
 
     ########################################### Set up saving ###########################################
     if haskey(args, :saveat)
@@ -265,6 +265,7 @@ function setup_params(::Type{<:DefaultSimulationParams}, system, datatype=Float6
     masses        = datatype[]
     radii         = datatype[]
     stellar_types = StellarType[]
+    stellar_type_nums = Int[]
 
     particle_keys = keys(particles) |> collect |> sort
 
@@ -279,13 +280,16 @@ function setup_params(::Type{<:DefaultSimulationParams}, system, datatype=Float6
         push!(masses,        mass)
         push!(radii,         radius)
         push!(stellar_types, stellar_type)
+        push!(stellar_type_nums, stellar_type.number)
     end
 
     masses = SVector(masses...)
     radii = SVector(radii...)
-    stellar_types = SVector(stellar_types...)
+    # stellar_types = SVector{length(particles), Union{unique(typeof.(stellar_types))...}}(stellar_types...)
+    stellar_types = tuple(stellar_types...)
+    stellar_type_nums = SVector(stellar_type_nums...)
 
-    ode_params = DefaultSimulationParams(radii, masses, stellar_types)
+    ode_params = DefaultSimulationParams(radii, masses, stellar_types, stellar_type_nums)
 
     return ode_params
 end
