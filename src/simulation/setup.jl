@@ -304,6 +304,8 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64)
     core_radii    = datatype[]
     ages          = datatype[]
     stellar_types = StellarType[]
+    stellar_type_nums = Int[]
+
 
     particle_keys = keys(particles) |> collect |> sort
 
@@ -330,6 +332,8 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64)
         push!(luminosities,  luminosity)
         push!(radii,         radius)
         push!(stellar_types, stellar_type)
+        push!(stellar_type_nums, stellar_type.number)
+
     end
 
     masses = SVector(masses...)
@@ -339,11 +343,14 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64)
     core_masses = SVector(core_masses...)
     core_radii = SVector(core_radii...)
     ages = SVector(ages...)
+    stellar_type_nums = SVector(stellar_type_nums...)
+
 
     ode_params = TidalSimulationParams(radii, 
                                        masses, 
                                        luminosities, 
                                        stellar_types,
+                                       stellar_type_nums,
                                        core_masses, 
                                        core_radii, 
                                        ages)
