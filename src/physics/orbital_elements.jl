@@ -78,8 +78,7 @@ The eccentricity is calculated as the norm of the eccentricity vector
 ```
 """
 function eccentricity(r, v, d, M, G)
-    μ = G*M
-    return norm(eccentricity_vector(r, v, d, μ))
+    return norm(eccentricity_vector(r, v, d, M, G))
 end
 
 eccentricity(r, v, d::Unitful.Length, M) = eccentricity(r, v, d, M, GRAVCONST)
