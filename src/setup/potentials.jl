@@ -25,11 +25,12 @@ struct DefaultSimulationParams{FloatVecType, IntVecType, stpVecType} <: Simulati
     stellar_type_numbers::IntVecType
 end
 
-struct TidalSimulationParams{FloatVecType, stpVecType} <: SimulationParams
+struct TidalSimulationParams{FloatVecType, IntVecType, stpVecType} <: SimulationParams
     radii::FloatVecType # radii
     masses::FloatVecType # masses
     luminosities::FloatVecType # luminosities
     stellar_types::stpVecType 
+    stellar_type_numbers::IntVecType
     core_masses::FloatVecType # core masses
     core_radii::FloatVecType # core radii
     ages::FloatVecType 
@@ -180,7 +181,8 @@ struct EquilibriumTidalPotential{T} <: MultiBodyPotential
         rotational_angular_velocities = Float64[]
         for i = 1:n_bodies
             particle = system.particles[i]
-    
+            
+            
             if !(particle.structure.stellar_type isa Star)
                 push!(apsidal_motion_constants, 0.0)
                 push!(rotational_angular_velocities, 0.0)
@@ -453,10 +455,10 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
                                        potential::EquilibriumTidalPotential) 
 
     i, j = pair
-    stellar_type_1 = params.stellar_types[i]
-    stellar_type_2 = params.stellar_types[j]
+    stellar_type_1 = params.stellar_type_numbers[i]
+    stellar_type_2 = params.stellar_type_numbers[j]
 
-    if !(stellar_type_1 isa Star) && !(stellar_type_2 isa Star) # tides are (currently) only for stars
+    if !(stellar_type_1 > 9) && !(stellar_type_2 > 9) # tides are (currently) only for stars
         return nothing
     end
 
@@ -486,7 +488,7 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
 
     # tidal force on 1 by 2
     a₁ = let
-        if !(stellar_type_1 isa Star)
+        if stellar_type_1 > 9
                 SA[0.0, 0.0, 0.0]
             else    
                 μ = UNITLESS_G*m₂*r⁻¹*r⁻¹
@@ -509,7 +511,7 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
 
     # # tidal force on 2 by 1
     a₂ = let 
-        if !(stellar_type_2 isa Star)
+        if stellar_type_2 > 9 
                 SA[0.0, 0.0, 0.0]
             else    
                 μ = UNITLESS_G*m₁*r⁻¹*r⁻¹
