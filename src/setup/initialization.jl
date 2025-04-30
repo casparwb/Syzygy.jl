@@ -625,7 +625,6 @@ function multibodysystem(system::HierarchicalMultiple; new_params...)
     new_kwargs = Dict(new_params)
     unchanched_kwargs = [kw for kw in possible_kwargs if (!in(kw, keys(new_kwargs)))]
 
-
     particle_keys = collect(keys(system.particles)) |> sort
     binary_keys = collect(keys(system.binaries)) |> sort
     all_args = Dict{Symbol, Any}()
@@ -641,6 +640,8 @@ function multibodysystem(system::HierarchicalMultiple; new_params...)
             all_args[arg] = system.hierarchy
         elseif arg === :time
             all_args[arg] = system.time
+        elseif arg === :stellar_types
+            all_args[arg] = [system.particles[p].stellar_type.number for p in particle_keys]
         else
             continue
         end
