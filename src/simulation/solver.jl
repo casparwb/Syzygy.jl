@@ -32,12 +32,12 @@ function simulate(simulation::MultiBodySimulation)
     # ##############################################################################################################
     let
         ode_prob_static = sodeprob_static(simulation, args[:dtype])
+
         integrator_static = OrdinaryDiffEqRKN.init(ode_prob_static, args[:alg], saveat=args[:saveat], maxiters=args[:maxiters], 
                                                 abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                                 diffeq_args...)
         step!(integrator_static)
         terminate!(integrator_static)
-
     end
     # ##############################################################################################################
 
@@ -50,14 +50,13 @@ function simulate(simulation::MultiBodySimulation)
                   else
                     SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
                   end
-                
-    # ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
 
     integrator = OrdinaryDiffEqRKN.init(ode_problem, args[:alg], saveat=args[:saveat], 
                                         callback=callbacks, maxiters=args[:maxiters], 
                                         abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                         diffeq_args...)
-    
+
+
     start_time = time()
 
     prog = ProgressUnknown("Evolving system:", showspeed=true, spinner=true, enabled=args[:showprogress])
@@ -84,6 +83,7 @@ function simulate(simulation::MultiBodySimulation)
             throw(e)
         end
     end
+    
 
     ProgressMeter.finish!(prog)
     runtime =  (time() - start_time) * u"s"
