@@ -230,12 +230,3 @@ function Base.show(io::IO, sol::MultiBodySolution)
         end
     end
 end
-
-function Base.show(io::IO, stp::StellarType)
-
-    n = String(nameof(typeof(stp)))
-    num = stp.number
-
-    print("$n ($num)")
-
-end
