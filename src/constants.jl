@@ -7,6 +7,8 @@ const G³ = UNITLESS_G^3
 const G⁴ = UNITLESS_G^4
 
 const speed_of_light = 299_792_458u"m/s" |> upreferred
+const SPEED_OF_LIGHT = speed_of_light
+const LIGHTSPEED = speed_of_light
 const UNITLESS_c = ustrip(unit_length/unit_time, speed_of_light)
 const c² = UNITLESS_c*UNITLESS_c
 const c³ = c²*UNITLESS_c
