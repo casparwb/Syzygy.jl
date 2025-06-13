@@ -512,6 +512,56 @@ function quadrupole_timescale(triple::HierarchicalMultiple)
     return 16/30π*sum(m)/m[3]*P_out^2/P_in*cbrt(1 - e_out^2)^2 |> unit_time
 end
 
+function total_energy_2PN(r1, r2, v1, v2, m1, m2, G, c)
+
+    r = r1 - r2
+    r12 = norm(r1 - r2)
+    n12 = r/r12
+
+    vv1 = norm(v1)
+    vv2 = norm(v2)
+
+    n12v1 = dot(n12, v1)
+    n12v2 = dot(n12, v2)
+    v1v2 = dot(v1, v2)
+
+    E_Newt = 0.5*m1*vv1^2 - G*m1*m2/2r12
+    E_1PN = 1/c²*(G^2*m1^2*m2/2r12^2 + 3m1*vv1^4/8 + G*m1*m2/r12*(-0.25*n12v1*n12v2 + 1.5*vv1^2 - 7/4*v1v2))
+    E_2PN = 1/c⁴*(-G^3*m1^3*m2/2r12^3 - 19*G^3*m1^2*m2^2/8r12^3 + 5m1*vv1^6/16 + 
+                  G*m1*m2/r12*(3/8*n12v1^3*n12v2 + 3/16*n12v1^2*n12v2^2 - 9/8*n12v1*n12v2*vv1^2 -
+                               13/8*n12v2^2*vv1^2 + 21/8*vv1^4 + 13/8*n12v1^2*v1v2 + 3/4*n12v1*n12v2*v1v2 -
+                               -55/8*vv1^2*v1v2 + 17/8*v1v2^2 + 31/16*vv1^2*vv2^2) +
+                  G^2*m1^2*m2/r12^2*(29/4*n12v1^2 - 13/4*n12v1*n12v2 + 0.5*(n12v2^2 - 3/2*vv1^2 + 7/4*vv2^2))
+                  )
+    E = E_Newt + E_1PN + E_2PN
+    E_2p5PN = E + 4*G^2*m1^2*m2/(5*c^5*r12^2)*n12v1*(norm(v1 - v2)^2 - 2*G*(m1 - m2)/r12)
+    return E + E_2p5PN
+end
+
+total_energy_2PN(r1, r2, v1, v2, m1, m2::Quantity) = total_energy_2PN(r1, r2, v1, v2, m1, m2, GRAVCONST, speed_of_light)
+total_energy_2PN(r1, r2, v1, v2, m1, m2::Real) = total_energy_2PN(r1, r2, v1, v2, m1, m2, UNITLESS_G, UNITLESS_c)
+
+function total_energy_2PN(res::SimulationResult, time, bodies=[1, 2])
+    masses = res.ode_params.masses
+    idx = findmin(x -> abs(x - time), res.solution.t)[2]
+    E = 0.0
+    i, j = bodies
+    E += total_energy_2PN(SVector{3}(res.solution.u[idx].x[2][1:3, i]),
+                            SVector{3}(res.solution.u[idx].x[2][1:3, j]), 
+                            SVector{3}(res.solution.u[idx].x[1][1:3, i]),
+                            SVector{3}(res.solution.u[idx].x[1][1:3, j]),
+                            masses[i], masses[j])
+
+    E += total_energy_2PN(SVector{3}(res.solution.u[idx].x[2][1:3, j]),
+                            SVector{3}(res.solution.u[idx].x[2][1:3, i]), 
+                            SVector{3}(res.solution.u[idx].x[1][1:3, j]),
+                            SVector{3}(res.solution.u[idx].x[1][1:3, i]),
+                            masses[j], masses[i])
+        
+    E
+end
+
+
 # """
 #     PN1_energy(r1, r2, v1, v2, m1, m2; G=GRAVCONST)
 
