@@ -266,7 +266,7 @@ function setup_params(::Type{<:DefaultSimulationParams}, system, datatype=Float6
 
     masses        = datatype[]
     radii         = datatype[]
-    stellar_types = StellarType[]
+    stellar_types = AbstractStellarType[]
     stellar_type_nums = Int[]
 
     particle_keys = keys(particles) |> collect |> sort
@@ -305,7 +305,7 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64)
     core_masses   = datatype[]
     core_radii    = datatype[]
     ages          = datatype[]
-    stellar_types = StellarType[]
+    stellar_types = AbstractStellarType[]
     stellar_type_nums = Int[]
 
 

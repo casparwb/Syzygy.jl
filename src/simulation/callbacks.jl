@@ -379,7 +379,7 @@ function collision_check(d, R1, R2, m1, m2, stellar_type1::Int, stellar_type2::I
         return collision_check_tidal_disruption(d, R2, m1, m2)
     elseif (10 <= stellar_type1 <= 14) && (10 <= stellar_type2 <= 14) # two COs
         return collision_check_gravitational_radius(d, m1, m2, grav_rad_multiple)
-    elseif (18 <= stellar_type1 <= 18) && (18 <= stellar_type2 <= 19) # two planets
+    elseif (18 <= stellar_type1 <= 19) && (18 <= stellar_type2 <= 19) # two planets
         return collision_check_radius(d, R1, R2)
     end
 end

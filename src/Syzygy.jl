@@ -15,7 +15,7 @@ module Syzygy
 
     include("ode_solvers.jl")
     
-    include("setup/stellar_types.jl")
+    include("setup/stellar_types2.jl")
     include("setup/potentials.jl")
     include("setup/framework.jl")
     

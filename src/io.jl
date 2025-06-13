@@ -125,7 +125,7 @@ function Base.show(io::IO, structure::StellarStructure)
         if prop isa AbstractArray
             # show(io, prop)
             print("["*join(prop,",")*"]")
-        elseif prop isa StellarType
+        elseif prop isa AbstractStellarType
             show(io, prop.number)
         else
             prop = prop isa Quantity ? round(prop.val, digits=2)*unit(prop) : round(prop, digits=2)
@@ -229,13 +229,4 @@ function Base.show(io::IO, sol::MultiBodySolution)
             println()
         end
     end
-end
-
-function Base.show(io::IO, stp::StellarType)
-
-    n = String(nameof(typeof(stp)))
-    num = stp.number
-
-    print("$n ($num)")
-
 end
