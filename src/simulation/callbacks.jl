@@ -19,6 +19,11 @@ struct SavingCB{T} <: AbstractSyzygyCallback
     save_every::T
 end
 
+struct SaveToFileCB{T} <: AbstractSyzygyCallback
+    filename::String
+    save_every::T
+end
+
 ## Make this a FunctionCallingCallback https://docs.sciml.ai/DiffEqCallbacks/stable/output_saving/
 struct FinalTimeCB{T} <: AbstractSyzygyCallback 
     t_final::T
@@ -209,6 +214,26 @@ function get_callback(cb::CentreOfMassCB, system, retcodes, args)
     return callback_com
 end
 
+function get_callback(cb::SaveToFileCB, system, retcodes, args)
+    save_every = cb.save_every
+    # struct SaveToFileCB{T} <: AbstractSyzygyCallback
+    #     filename
+    #     save_every::T
+    # end
+
+    condition(u, t, integrator) = iszero(integrator.iter % save_every)
+
+    function affect!(integrator)
+        println(Base.gc_live_bytes()/2^20)
+        empty!(integrator.sol.t)
+        empty!(integrator.sol.u)
+        GC.gc()
+        println(Base.gc_live_bytes()/2^20)
+        println()
+
+    end
+    DiscreteCallback(condition, affect!, save_positions=(false, false))
+end
 
 function get_callback(cb::DemocraticCheckCB, system, retcodes, args)
     @assert system.n == 3 "Democratic interaction callback is currently only available for triples."
