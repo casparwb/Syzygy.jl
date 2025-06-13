@@ -141,9 +141,11 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
 
     # if any(x -> typoef(x) in SA[PN1Potential, PN2Potential, PN2p5Potential, PNPotential]) && 
     #    (kwargs[:alg] == DPRKN6() || kwargs[:alg] == DPRKN8() || kwargs[:alg] == DPRKN10() || kwargs[:alg] == DPRKN12())
-    #    @warn "The chosen solver is not compatible with a post-Newtonian potential. Recommendations are: Feagin10, Tsit5, Vern6/7/8/9."
+    #    @warn "The chosen solver is not compatible with a post-Newtonian potential. Recommendations are: Feagin10, Tsit5, Vern6/7/8/9, FineRKN5"
     #    return nothing
     # end
+
+    args[:callbacks] = AbstractSyzygyCallback[args[:callbacks]...]
 
     periods = if system isa NonHierarchicalSystem
         periods_ = typeof(1.0*unit_time)[]
