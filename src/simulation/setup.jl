@@ -187,12 +187,8 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     t0 = isnothing(t0) ? ustrip(unit_time, system.time) : ustrip(unit_time, t0)
     args[:t0] = t0
     t_sim = args[:t_sim]
-    # tspan = setup_timespan(t0, t_sim, P_out, dtype)
     t_final = get_final_time(t0, t_sim, P_out, dtype)
-    args[:tspan] = (t0, t_final)
-
-    # args[:callbacks] = AbstractSyzygyCallback[args[:callbacks]...]
-    # push!(args[:callbacks], FinalTimeCB(t_final))
+    args[:tspan] = promote((t0, t_final)...)
 
     ########################################### Set up saving ###########################################
     if haskey(args, :saveat)
