@@ -60,7 +60,7 @@ struct PureGravitationalPotential <: MultiBodyPotential end
 
 
 """
-    DynamicalTidalPotential(tidal_force_power_index, polytropic_index)
+    DynamicalTidalPotential(n_t, polytropic_index)
 
 
 Set up the dynamical tidal potential for a system as defined by Samsing, Leigh & Trani 2018. 

@@ -138,7 +138,7 @@ respectively, or as numbers, in which case the same value will be used for each 
 - `R = 1.0u"Rsun"`: radius of each particle.
 - `S = 0.0u"1/yr"`: spin magnitude of each particle. If given as a negative number, the spin will be calculated using [`stellar_spin`](@ref).
 - `L = 1.0u"Lsun"`: luminosity of each particle.
-- `stellar_types = 1`: type of each particle. See [`Syzygy.stellar_type_index`](@ref).
+- `stellar_types = 1`: type of each particle. See `Syzygy.stellar_types` for all the supported types.
 - `R_core = 0.0u"Rsun"`: stellar core radius. Only used if tidal potential is included.
 - `m_core = 0.0u"Msun"`: stellar core mass. Only used if tidal potential is included.
 - `R_env = 0.0u"Rsun"`: stellar envelope radius. Only used if tidal potential is included.
@@ -153,7 +153,7 @@ respectively, or as numbers, in which case the same value will be used for each 
 ...
 
 # Examples
-```jldoctest
+```
 julia> binary = multibodysystem([1.0, 1.0]u"Msun");
 julia> binary = multibodysystem([1.0, 1.3]u"Msun", R=[1.0, 0.13]u"Rsun", a=1.0u"AU", e=0.4);
 julia> triple = multibodysystem([1.0, 1.0, 1.0]u"Msun", a=[0.1, 1.0]u"AU", e=[0.1, 0.7], i=[π/2, 0.0]u"rad");
@@ -541,7 +541,7 @@ end
 Create a NonHierarchicalSystem from masses, positions, and velocities. 
 
 # Examples
-```jldoctest
+```
 julia> masses = rand(3)u"kg"
 julia> positions = [rand(3)u"m" for i = 1:3]
 julia> velocities = [rand(3)u"m/s" for i = 1:3]
@@ -662,7 +662,7 @@ end
 Remake a system at a specific point in time from a solution object.
 
 # Examples
-```jldoctest
+```
 julia> triple = multibodysystem([3, 2, 1]u"Msun")
 julia> result = simulate(triple, t_sim=10u"yr", save_everystep=true)
 julia> solution = to_solution(result)

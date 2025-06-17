@@ -20,7 +20,7 @@ semi_major_axis(d::Quantity, v², M) = semi_major_axis(d, v², M, GRAVCONST)
 semi_major_axis(d::Real, v², M) = semi_major_axis(d, v², M, UNITLESS_G)
 
 """
-    orbital_period(a, M, G)
+    orbital_period(a, M)
 
 Get the orbital period of binary with semi-major axis `a` and total mass `M`.
 """
@@ -36,10 +36,10 @@ orbital_period(a, M::Unitful.Mass) = orbital_period(a, M, GRAVCONST)
 orbital_period(a, M::Real) = orbital_period(a, M, UNITLESS_G)
 
 """
-    eccentricity_vector(r, v, d, μ)
+    eccentricity_vector(r, v, d, M)
 
 Eccentricity vector of binary orbit with relative position vector `r`, separation `d`, relative
-velocity `v`, and standard gravitational parameter `μ`, where `μ ≡ G(m₁ + m₂)`.
+velocity `v`, and total mass `M`.
 
 ```math
     \\vec{e} = \\frac{\\vec{v} \\times (\\vec{r} \\times \\vec{v})}{\\mu} - \\frac{\\vec{r}}{d} 
@@ -119,7 +119,7 @@ end
     argument_of_periapsis(r, v, h, m, G)
 
 Return the argument of periapsis of a body in an orbit with relative position `r`,
-velocity `r`, angular momentum `h` and mass `m`.
+velocity `v`, angular momentum `h` and mass `m`.
 """
 function argument_of_periapsis(r, v, h, m, G)
     μ = G*m
@@ -219,7 +219,7 @@ end
     binary_elements(positions, velocities, masses)
 
 Calculate binary properties of bodies with given positions and velocities.
-Assumes the bodies are gravitationally bound.
+Assumes the bodies are gravitationally bound. Returns an instance of [`OrbitalElements`](@ref).
 """
 function binary_elements(positions, velocities, masses)
 

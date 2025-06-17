@@ -117,7 +117,7 @@ The function also accepts all keyword arguments supported by the `CommonSolve.so
 
 
 # Example
-```jldoctest
+```
 julia> triple = multibodysystem([1.0, 1.0, 1.0]u"Msun")
 julia> sim = simulation(triple, t_sim=10) # simulate for 10 outer orbits
 julia> sim = simulation(triple, t_sim=500u"kyr") # simulate for 500 kyr

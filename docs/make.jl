@@ -1,11 +1,34 @@
 using Documenter
 using DocumenterVitepress
+using Syzygy
 # makedocs(;
-#     format=DocumenterVitepress.MarkdownVitepress(repo = "...", devbranch = "...", devurl = "dev"),
+#             format=format=DocumenterVitepress.MarkdownVitepress(
+#                 repo = "https://github.com/casparwb/Syzygy.jl", # this must be the full URL!
+#                 devbranch = "main",
+#                 devurl = "dev";
+#             ),
 #     )
 
+makedocs(;  sitename = "Syzygy", 
+            authors = "Caspar William Bruenech",
+            format=format=DocumenterVitepress.MarkdownVitepress(
+                repo = "https://github.com/casparwb/Syzygy.jl", # this must be the full URL!
+                devbranch = "main",
+                md_output_path = ".",
+                build_vitepress = false;
+                                                               ),
+            clean = false,
+            modules=[Syzygy],
+            source = "src",
+            build = "build",
+             warnonly = true,
+            pages = ["Home" => "index.md",
+                    "Getting started" => "getting_started.md",
+                    "Guide" => "guide.md",
+                    "API" =>"api.md",],
+    )
 
-# makedocs(sitename="My Documentation")
+# makedocs(sitename="Syzygy")
 
 # makedocs(; 
 #     sitename = "Syzygy", 

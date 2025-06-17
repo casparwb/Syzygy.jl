@@ -3,3 +3,4 @@
 .git_old
 *.mem
 docs/build
+docs/node_modules
