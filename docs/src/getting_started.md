@@ -28,9 +28,11 @@ A system can be set up using the [`multibodysystem`](@ref) function, which takes
 
 ```julia
 binary = multibodysystem([2.0, 1.0]u"Msun", semi_major_axis=1.0u"AU", eccentricity=0.1)
-triple = multibodysystem([2.0, 1.0, 3.0]u"Msun", a=[0.1, 1.0]u"AU", e=[0.1, 0.2]) 
-# the orbital element keyword arguments have several aliases 
+triple = multibodysystem([2.0, 1.0, 3.0]u"Msun", a=[0.1, 1.0]u"AU", e=[0.1, 0.2])
 ```
+
+!!! tip "Argument aliases"
+    Many of the keyword arguments for `multibodysystem` have several alises. For example, for the semi-major axis, you can specify any of `sma, a, semi_major_axis, semi_major_axes, semimajor_axis`, or `semimajor_axes`. To see all the alises for all the parameters, call `Syzygy.multibodysystem_parameter_aliases`.
 
 You can also specify a system using only masses, positions, and velocities as positional arguments.
 
@@ -45,7 +47,7 @@ res = simulate(binary, t_sim=1) # simulate for 1 period
 res = simulate(binary, t_sim=1u"yr") # simulate for 1 year
 ```
 
-Finally, you can postprocess the result to make it easier for further analysis by calling [`to_solution](@ref). This allows you to access the positions and velocities of each body using the fields `r` and `v`, in addition to other structural arguments. 
+Finally, you can postprocess the result to make it easier for further analysis by calling [`to_solution`](@ref). This allows you to access the positions and velocities of each body using the fields `r` and `v`, in addition to other structural arguments. 
 
 ```julia
 sol = to_solution(res)

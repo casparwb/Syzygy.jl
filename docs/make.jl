@@ -11,7 +11,7 @@ using Syzygy
 
 makedocs(;  sitename = "Syzygy", 
             authors = "Caspar William Bruenech",
-            format=format=DocumenterVitepress.MarkdownVitepress(
+            format=DocumenterVitepress.MarkdownVitepress(
                 repo = "https://github.com/casparwb/Syzygy.jl", # this must be the full URL!
                 devbranch = "main",
                 md_output_path = ".",
@@ -24,9 +24,29 @@ makedocs(;  sitename = "Syzygy",
              warnonly = true,
             pages = ["Home" => "index.md",
                     "Getting started" => "getting_started.md",
-                    "Guide" => "guide.md",
+                    "Manual" => ["Setting up gravitating systems" => "manual/system_initialization.md",
+                                 "Simulation set-up" => "manual/simulating.md",
+                                 "Advanced usage" => "manual/advanced.md"],
                     "API" =>"api.md",],
     )
+
+# makedocs(;  sitename = "Syzygy", 
+#             authors = "Caspar William Bruenech",
+#             format=DocumenterVitepress.MarkdownVitepress(
+#                 repo = "https://github.com/casparwb/Syzygy.jl", # this must be the full URL!
+#                 devbranch = "main",
+#                                                         ),
+#             modules=[Syzygy],
+#             source = "src",
+#             build = "build",
+#              warnonly = true,
+#             pages = ["Home" => "index.md",
+#                     "Getting started" => "getting_started.md",
+#                     "Manual" => ["Setting up gravitating systems" => "manual/system_initialization.md",
+#                                  "Simulation set-up" => "manual/simulating.md",
+#                                  "Advanced usage" => "manual/advanced.md"],
+#                     "API" =>"api.md",],
+#     )
 
 # makedocs(sitename="Syzygy")
 
