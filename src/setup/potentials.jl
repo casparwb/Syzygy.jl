@@ -54,7 +54,7 @@ end
     PureGravitationalPotential()
 
 
-Newtonian gravitational potential. Corresponds to the acceleration function [`pure_gravitational_acceleration!`](@ref)
+Newtonian gravitational potential. Corresponds to the acceleration function `Syzygy.pure_gravitational_acceleration!`.
 """
 struct PureGravitationalPotential <: MultiBodyPotential end
 
@@ -64,7 +64,7 @@ struct PureGravitationalPotential <: MultiBodyPotential end
 
 
 Set up the dynamical tidal potential for a system as defined by Samsing, Leigh & Trani 2018. 
-Corresponds to the acceleration function [`dynamical_tidal_acceleration!`](@ref)
+Corresponds to the acceleration function `Syzygy.dynamical_tidal_acceleration!`.
 
 # Arguments
 
@@ -99,7 +99,7 @@ Equilibrium tidal potential, with the assumption that the stars are evolving ove
 the internal structure changes. The envelope structure is calculated throughout the simulation, rather than being fixed
 from the start. 
 
-Corresponds to the acceleration function [`pure_gravitational_acceleration!`](@ref)
+Corresponds to the acceleration function `Syzygy.pure_gravitational_acceleration!`.
 """
 struct TimeDependentEquilibriumTidalPotential <: MultiBodyPotential 
     function TimeDependentEquilibriumTidalPotential()
@@ -127,7 +127,7 @@ be adapted using the keyword arguments `lb_multiplier` for the lower bounds, and
 Alternatively, the apsidal motion constants and rotational angular velocities can be supplied using the keyword arguments
 `supplied_apsidal_motion_constants` and `supplied_rotational_angular_velocities`.
 
-Corresponds to the acceleration function [`equilibrium_tidal_acceleration!`](@ref)
+Corresponds to the acceleration function `Syzygy.equilibrium_tidal_acceleration!`.
 
 # Arguments
 - `system`: an instance of a `HierarchicalMultiple` or `NonHierarchichalSystem` type.

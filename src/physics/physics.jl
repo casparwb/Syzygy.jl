@@ -107,7 +107,7 @@ end
 """
  centre_of_mass_velocity(velocities, masses)
 
-Return the center of mass velocity. See [`centre_of_mass`](@ref).
+Return the center of mass velocity.
 """
 function centre_of_mass_velocity(velocities::AbstractVector, masses::AbstractVector)
     one_over_m = 1.0/sum(masses)
@@ -281,8 +281,6 @@ end
     total_energy(positions, velocities, masses)
     
 Total energy (kinetic + potential) of bodies with given `positions`, `velocities`, and `masses`.
-
-See [`potential_energy`](@ref), [`kinetic_energy`](@ref)
 """
 function total_energy(positions, velocities, masses)
     return potential_energy(positions, masses) + kinetic_energy(velocities, masses)
@@ -470,8 +468,6 @@ end
     is_unstable(triple::HierarchicalMultiple)
 
 Check if a given `triple` is unstable, i.e. whether aout/ain < (aout/ain)_crit.
-
-See [`stability_criterion_ma01`](@ref)
 """
 function is_unstable(triple::HierarchicalMultiple; criterion="ma01")
     α_crit = stability_criterion_ma01(triple)
@@ -485,7 +481,7 @@ function is_unstable(aₒ, aᵢ, m₁, m₂, m₃, i, eₒ; criterion="ma01")
     return α < α_crit
 end
 
-@doc raw""" 
+""" 
     octupole_parameter(triple::HierarchicalMultiple)
 
 Return the octupole parameter ϵₒ for a given `triple`, defined as:

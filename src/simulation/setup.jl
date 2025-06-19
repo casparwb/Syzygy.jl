@@ -89,7 +89,7 @@ end
     simulation(system::MultiBodyInitialConditions; <simulation kwargs>)
 
 Setup a simulation with a given system and simulation arguments. Returns a 
-[`MultiBodySimulation`](@ref) object.
+`Syzygy.MultiBodySimulation` object.
 
 ...
 # Arguments
@@ -102,8 +102,7 @@ Setup a simulation with a given system and simulation arguments. Returns a
                relevant if solver is symplectic.
 - `potential = PureGravitationalPotential()`: potential to use in simulation. Can either be a single object
                                              of abstract type ``MultiBodyPotential``, or a ``Vector{MultiBodyPotential}``, in which case
-                                             the total acceleration will be the sum of all acceleration functions for each potential. For 
-                                             all potentials see [`potentials.jl`](@ref).
+                                             the total acceleration will be the sum of all acceleration functions for each potential.
 - `callbacks::Vector = ["collision"]`: callbacks to use in the integration. Can be used to define stopping conditions or other checks.
                                         Value should be an array containing a mix of strings, referencing a pre-defined callback,
                                          or a custom callback from the `DifferentialEquations.jl` ecosystem. See [`Event Handling and Callback Functions`](https://docs.sciml.ai/DiffEqDocs/stable/features/callback_functions/) for more.

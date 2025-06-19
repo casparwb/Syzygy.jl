@@ -129,7 +129,7 @@ apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_
                                              semi_major_axis, Z=0.02)
 
 If the envelope structure of the star is not fixed, the age, core_mass, and core_radius 
-can be supplied instead, which will calculate the envelope mass and radius using [`envelope_structure`](@ref).
+can be supplied instead, which will calculate the envelope mass and radius using `Syzygy.envelope_structure`.
 """
 function apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
                                                       stellar_type, luminosity, 

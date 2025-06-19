@@ -136,7 +136,7 @@ respectively, or as numbers, in which case the same value will be used for each 
 
 # Particle structure arguments
 - `R = 1.0u"Rsun"`: radius of each particle.
-- `S = 0.0u"1/yr"`: spin magnitude of each particle. If given as a negative number, the spin will be calculated using [`stellar_spin`](@ref).
+- `S = 0.0u"1/yr"`: spin magnitude of each particle. If given as a negative number, the spin will be calculated using `Syzygy.stellar_spin`.
 - `L = 1.0u"Lsun"`: luminosity of each particle.
 - `stellar_types = 1`: type of each particle. See `Syzygy.stellar_types` for all the supported types.
 - `R_core = 0.0u"Rsun"`: stellar core radius. Only used if tidal potential is included.

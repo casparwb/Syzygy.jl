@@ -219,7 +219,7 @@ end
     binary_elements(positions, velocities, masses)
 
 Calculate binary properties of bodies with given positions and velocities.
-Assumes the bodies are gravitationally bound. Returns an instance of [`OrbitalElements`](@ref).
+Assumes the bodies are gravitationally bound. Returns an instance of `OrbitalElements`.
 """
 function binary_elements(positions, velocities, masses)
 
