@@ -481,14 +481,11 @@ function is_unstable(aₒ, aᵢ, m₁, m₂, m₃, i, eₒ; criterion="ma01")
     return α < α_crit
 end
 
-""" 
+@doc raw""" 
     octupole_parameter(triple::HierarchicalMultiple)
 
-Return the octupole parameter ϵₒ for a given `triple`, defined as:
+Return the octupole parameter ϵₒ for a given triple.
 
-```math
-\epsilon_\text{oct} = \frac{m_1 - m_2}{m_1 + m_2} \frac{a_\text{in}}{a_\text{out}}\frac{e_\text{out}}{1 - e_\text{out}^2}
-```
 """
 function octupole_parameter(triple::HierarchicalMultiple)
     @assert triple.n == 3 "Octupole parameter only valid for triple system."
