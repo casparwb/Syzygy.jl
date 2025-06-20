@@ -47,7 +47,7 @@ res = simulate(binary, t_sim=1) # simulate for 1 period
 res = simulate(binary, t_sim=1u"yr") # simulate for 1 year
 ```
 
-Finally, you can postprocess the result to make it easier for further analysis by calling [`to_solution`](@ref). This allows you to access the positions and velocities of each body using the fields `r` and `v`, in addition to other structural arguments. 
+Finally, you can postprocess the result to make it easier for further analysis by calling `to_solution`. This allows you to access the positions and velocities of each body using the fields `r` and `v`, in addition to other structural arguments. 
 
 ```julia
 sol = to_solution(res)
