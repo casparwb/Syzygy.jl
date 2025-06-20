@@ -2,5 +2,15 @@
 /Syzygy.jl/git_old
 .git_old
 *.mem
-docs/build
+
 docs/node_modules
+docs/build
+docs/src/.vitepress/cache
+docs/src/.vitepress/dist
+docs/Manifest.toml
+docs/.vscode
+docs/node_modules
+docs/.vitepress/cache
+docs/.vitepress/dist
+docs/.DS_Store
+docs/package-lock.json
