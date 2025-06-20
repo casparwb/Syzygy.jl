@@ -41,7 +41,7 @@ end
 
 ## Adding another potential
 
-To add a new potential and acceleration function, you first need to define the acceleration function itself, which should be an in-place function that calculates the pairwise acceleration for two particles $(i, j)$ and adds it to the acceleration vectors (dvi and dvj). The function must return `nothing`. 
+To add a new potential and acceleration function, you first need to define the acceleration function itself, which should be an in-place function that calculates the pairwise acceleration for two particles (i, j) and adds it to the acceleration vectors (dvi and dvj). The function must return `nothing`. 
 Example:
 
 ```julia

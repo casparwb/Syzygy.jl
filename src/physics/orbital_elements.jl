@@ -1,5 +1,5 @@
 
-@doc """
+@doc raw"""
 
     semi_major_axis(d, v², M)
 
@@ -35,7 +35,7 @@ end
 orbital_period(a, M::Unitful.Mass) = orbital_period(a, M, GRAVCONST)
 orbital_period(a, M::Real) = orbital_period(a, M, UNITLESS_G)
 
-"""
+@doc raw"""
     eccentricity_vector(r, v, d, M)
 
 Eccentricity vector of binary orbit with relative position vector `r`, separation `d`, relative
@@ -66,7 +66,7 @@ eccentricity_vector(r, v, d::Real, M) = eccentricity_vector(r, v, d, M, UNITLESS
 #     μ = G*(m[1] + m[2])
 #     return norm(eccentricity_vector(r, v, d, μ))
 # end
-"""
+@doc raw"""
     eccentricity(r, v, d, M)
 
 Eccentricity of binary orbit with relative position vector `r`, relative
