@@ -16,19 +16,19 @@ using Syzygy
 #                 devbranch = "main",
 #                 md_output_path = ".",
 #                 build_vitepress = false;
-#                                                                ),
+#                                                         ),
 #             clean = false,
 #             modules=[Syzygy],
 #             source = "src",
+#             draft=false,
 #             build = "build",
 #              warnonly = true,
 #             pages = ["Home" => "index.md",
 #                     "Getting started" => "getting_started.md",
 #                     "Manual" => ["Setting up gravitating systems" => "manual/system_initialization.md",
-#                                  "Simulation set-up" => "manual/simulating.md",
-#                                  "Advanced usage" => "manual/advanced.md"],
-#                     "API" =>"api.md",],
-#     )
+#                                     "Simulation set-up" => "manual/simulating.md",
+#                                     "Advanced usage" => "manual/advanced.md"],
+#                     "API" =>"api.md"],)
 
 makedocs(;  sitename = "Syzygy", 
             authors = "Caspar William Bruenech",
