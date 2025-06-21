@@ -1,7 +1,7 @@
 
 ## Quadruples
 
-For a quadruple stellar system, there are two possible stable configurations: 3+1 or 2+2, where the former defines a hierarchical triple with a more distant quaternary companion, and the latter is a system with two binaries orbiting a common centre of mass. `Syzygy` let's you set up both kinds of systems using the `hierarchy` keyword argument for [`multibodysystem`](@ref). First, we'll set up the masses of the stars.
+For a quadruple stellar system, there are two possible stable configurations: 3+1 or 2+2, where the former defines a hierarchical triple with a more distant quaternary companion, and the latter is a system with two binaries orbiting a common centre of mass. `Syzygy` let's you set up both kinds of systems using the `hierarchy` keyword argument for `multibodysystem`. First, we'll set up the masses of the stars.
 
 ```@example quad
 using Syzygy, Plots # hide
@@ -149,7 +149,7 @@ using Syzygy
 println("Float64 precision: ", precision(Float64), " \nDouble64 precision: ", precision(Syzygy.Double64))
 ```
 
-To specify this datatype for the simulation, pass the keyword argument `precision=:Double64` to [`simulate`](@ref).
+To specify this datatype for the simulation, pass the keyword argument `precision=:Double64` to `simulate`.
 
 ```@example highprec
 
@@ -189,7 +189,7 @@ end
 
 ```
 
-We now need to add a method to [`Syzygy.setup_params`](@ref) using the type signature of our new struct to make sure that the solver will use these params.
+We now need to add a method to `Syzygy.setup_params` using the type signature of our new struct to make sure that the solver will use these params.
 
 ```julia
 
