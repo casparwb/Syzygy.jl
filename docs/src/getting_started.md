@@ -24,7 +24,7 @@ pkg> dev path/to/Syzygy.jl
 
 ## Quick-start guide
 
-A system can be set up using the [`multibodysystem`](@ref) function, which takes a vector of masses as the first argument, followed by keyword argument specifying orbital properties. Parameters have to be specified using units from [Unitful.jl](https://github.com/PainterQubits/Unitful.jl/), which are automatically imported when you load Syzygy.
+A system can be set up using the [`multibodysystem`](@ref) function, which takes a vector of masses as the first argument, followed by keyword argument specifying orbital and stellar properties. Parameters have to be specified using units from [Unitful.jl](https://github.com/PainterQubits/Unitful.jl/), which are automatically imported when you load Syzygy.
 
 ```julia
 binary = multibodysystem([2.0, 1.0]u"Msun", semi_major_axis=1.0u"AU", eccentricity=0.1)
@@ -34,10 +34,10 @@ triple = multibodysystem([2.0, 1.0, 3.0]u"Msun", a=[0.1, 1.0]u"AU", e=[0.1, 0.2]
 !!! tip "Argument aliases"
     Many of the keyword arguments for `multibodysystem` have several alises. For example, for the semi-major axis, you can specify any of `sma, a, semi_major_axis, semi_major_axes, semimajor_axis`, or `semimajor_axes`. To see all the alises for all the parameters, call `Syzygy.multibodysystem_parameter_aliases`.
 
-You can also specify a system using only masses, positions, and velocities as positional arguments.
+You can also specify a system using only masses, positions, and velocities as positional arguments, and stellar properties as keyword arguments.
 
 ```julia
-three_body_system = multibodysystem([1.0, 1.0]u"kg", [rand(3), rand(3)]u"m", [rand(3), rand(3)]u"m/s")
+three_body_system = multibodysystem([1.0, 1.0]u"kg", [rand(3), rand(3)]u"m", [rand(3), rand(3)]u"m/s", radii=[1.0, 1.0]u"m")
 ```
 
 You can simulate the system by calling [`simulate`](@ref).
