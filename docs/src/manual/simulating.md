@@ -4,7 +4,11 @@
 
 Once the system has been initialized, you can set up the parameters of the n-body simulation using the `simulation` function, which takes in the system as the first and only positional argument, followed by keyword arguments for all the other properties. `simulation` accepts almost any argument supported by the common solver options of the `solve` function from [DifferentialEquations.jl](https://diffeq.sciml.ai/). See the [Docs](https://docs.sciml.ai/DiffEqDocs/stable/basics/common_solver_opts/#solver_options) for a full overview. Note that solvers are not re-exported, thus they can be specified with the `Syzygy` prefix, like `Syzygy.DPRKN6()`.
 
-### Important keyword arguments
+````@docs
+Syzygy.simulation
+````
+
+<!-- ### Important keyword arguments
 - `t_sim`: total simulation time, which can either be a `Number`, in which case the simulation time will be `t_sim` multiplied by the period of the outermost binary, or it can be a `Quantity`, i.e., a number with a (time) unit, in which case the simulation time is simply `t_sim`.
 - `npoints`: See section on Saving controls.
 - `saveat`: See section on Saving controls.
@@ -15,7 +19,7 @@ Once the system has been initialized, you can set up the parameters of the n-bod
 - `verbose`: whether to output information about the setup and the final outcome, including total runtime and energy loss.
 - `max_cpu_time`: Maximum amount of CPU time a simulation should run. Default is Inf.
 - `callbacks`: see section on callbacks.
-- `potential`: see section on potentials.
+- `potential`: see section on potentials. -->
 
 ### Examples
 ```julia
@@ -88,8 +92,15 @@ For systems where general relativistic effects can become important, `Syzygy.jl`
 - `PN2p5Potential`: post-Newtonian acceleration of order 2.5.
 - `PNPotential`: post-Newtonian acceleration of order 1 to 2.5. This is more efficient than including all of the above potentials individually.
 
+!!! note
+    The default ODE algorithm (`DPRKN8`) does not support velocity-dependent potentials, and will therefore not 
+    produce correct trajectories when simulating system with post-Newtonian terms. Other algorithms that do support 
+    velocity dependent potentials are `Vern7`, `Vern8`, `Vern9`, and `FineRKN5`.
+
 ```julia
-sim = simulation(system, potential=[PureGravitationalPotential(), PNPotential()])
+sim = simulation(system, potential=[PureGravitationalPotential(), 
+                                    PNPotential()], 
+                        alg=Syzygy.FineRKN5())
 ```
 
 ## Running a simulation
