@@ -4,9 +4,9 @@
 layout: home
 
 hero:
-  name: "Syzygy.jl"
-  tagline: "A fast, flexible, direct n-body integrator written in pure Julia."
-#   tagline: A Markdown backend designed to work with VitePress and Documenter.jl
+  name: "Syzygy"
+  text: 
+  tagline: A fast, flexible, direct n-body integrator written in pure Julia.
   image:
     src: /logo.png
     alt: Syzygy
