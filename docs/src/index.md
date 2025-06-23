@@ -27,8 +27,8 @@ features:
     details: Optimized for speed, and built on the DifferentialEquations.jl framework.
     link: /manual/simulating.md
   - 
-    title: Composable
-    details: Easily extend the code with your own potentials and conditions.
+    title: Extensible
+    details: Easily add your own potentials and acceleration functions, or your own callbacks for handling events, checks, or other forms of code injection.
     link: /manual/advanced.md
   - 
     title: Feature-rich
