@@ -4,9 +4,9 @@
 layout: home
 
 hero:
-  name: "Syzygy.jl"
-  tagline: "A fast, flexible, direct n-body integrator written in pure Julia."
-#   tagline: A Markdown backend designed to work with VitePress and Documenter.jl
+  name: "Syzygy"
+  text: 
+  tagline: A fast, flexible, direct n-body integrator written in pure Julia.
   image:
     src: /logo.png
     alt: Syzygy
@@ -27,8 +27,8 @@ features:
     details: Optimized for speed, and built on the DifferentialEquations.jl framework.
     link: /manual/simulating.md
   - 
-    title: Composable
-    details: Easily extend the code with your own potentials and conditions.
+    title: Extensible
+    details: Easily add your own potentials and acceleration functions, or your own callbacks for handling events, checks, or other forms of code injection.
     link: /manual/advanced.md
   - 
     title: Feature-rich
