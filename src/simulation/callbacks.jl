@@ -68,7 +68,8 @@ parsec away from the binary, in which case it is classified as a `Drifter`.
 struct EscapeCB{T}         <: AbstractSyzygyCallback 
     max_a_factor::T
     check_every::Int
-    EscapeCB(check_every=100, max_a_factor=100) = new{typeof(max_a_factor)}(max_a_factor, check_every)
+    check_drifter::Bool
+    EscapeCB(;check_every=100, max_a_factor=100, check_drifter=true) = new{typeof(max_a_factor)}(max_a_factor, check_every, check_drifter)
 end
 
 struct RocheLobeOverflowCB <: AbstractSyzygyCallback 
@@ -103,7 +104,7 @@ end
 struct IonizationCB{T}     <: AbstractSyzygyCallback 
     check_every::Int
     max_a_factor::T
-    IonizationCB(check_every=100, max_a_factor=100) = new{typeof(max_a_factor)}(max_a_factor, check_every)
+    IonizationCB(;check_every=100, max_a_factor=100) = new{typeof(max_a_factor)}(max_a_factor, check_every)
 end
 
 function setup_callbacks(conditions, system, p, retcodes, args)
@@ -162,7 +163,9 @@ function get_callback(cb::EscapeCB, system, retcodes, args)
         iszero(integrator.iter % cb.check_every)  # check for escape every 'check_every' iteration
     end
 
-    affect_escape!(integrator) = unbound_callback!(integrator, retcodes, max_a_factor=cb.max_a_factor)
+    affect_escape!(integrator) = unbound_callback!(integrator, retcodes, 
+                                                   max_a_factor=cb.max_a_factor, 
+                                                   check_drifter=cb.check_drifter)
     callback_escape = DiscreteCallback(condition_escape, affect_escape!, save_positions=(false, false))
     
     return callback_escape
@@ -425,7 +428,7 @@ end
 end
 
 
-function unbound_callback!(integrator, retcode; max_a_factor=100)
+function unbound_callback!(integrator, retcode; max_a_factor=100, check_drifter=true)
 
     u = integrator.u
     combinations = SA[(1, SA[2, 3]), (2, SA[1, 3]), (3, SA[1, 2])]
@@ -473,7 +476,7 @@ function unbound_callback!(integrator, retcode; max_a_factor=100)
             if Etot > zero(Etot)
                 retcode[:Escape] = escapee
                 terminate!(integrator)
-            elseif d >= upreferred(1.0u"pc").val      # Body is 1 parsec away from binary
+            elseif check_drifter && d >= upreferred(1.0u"pc").val      # Body is 1 parsec away from binary
                 retcode[:Drifter] = escapee
                 terminate!(integrator)
             end
