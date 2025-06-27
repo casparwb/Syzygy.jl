@@ -5,8 +5,8 @@ using Test
 
     @testset "Pure gravity" begin
 
-        masses = 1.0*ones(3)u"Msun"
-        radii = 1.0*ones(3)u"Rsun"
+        masses = 1.0*ones(3)#u"Msun"
+        radii = 1.0*ones(3)#u"Rsun"
         stellar_types = [14, 14]
 
         params = Syzygy.DefaultSimulationParams(radii, masses, [Syzygy.stellar_types[s] for s in stellar_types], stellar_types)
