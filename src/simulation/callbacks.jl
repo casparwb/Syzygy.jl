@@ -467,7 +467,7 @@ function unbound_callback!(integrator, retcode; max_a_factor=100, check_drifter=
         escape = criteria_1 && criteria_2
         if escape
             escapee = particle
-            M = ustrip(integrator.p.masses[particle])
+            M = integrator.p.masses[particle]
             T = kinetic_energy(v_part, M) 
             
             U = -(UNITLESS_G*M)*(M_bin[1]/norm(r_part - r_comp1) + M_bin[2]/norm(r_part - r_comp2))
@@ -476,7 +476,7 @@ function unbound_callback!(integrator, retcode; max_a_factor=100, check_drifter=
             if Etot > zero(Etot)
                 retcode[:Escape] = escapee
                 terminate!(integrator)
-            elseif check_drifter && d >= upreferred(1.0u"pc").val      # Body is 1 parsec away from binary
+            elseif check_drifter && d >= ustrip(unit_length, 1u"pc")      # Body is 1 parsec away from binary
                 retcode[:Drifter] = escapee
                 terminate!(integrator)
             end
