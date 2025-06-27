@@ -187,7 +187,7 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     args[:t0] = t0
     t_sim = args[:t_sim]
     t_final = get_final_time(t0, t_sim, P_out, dtype)
-    args[:tspan] = promote((t0, t_final)...)
+    args[:tspan] = dtype.((t0, t_final))
 
     ########################################### Set up saving ###########################################
     if haskey(args, :saveat)
@@ -379,6 +379,8 @@ function get_datatype_from_precision(precision)
         catch e
             throw(e)
         end
+    elseif precision isa DataType
+        return precision
     else
         @info "Precision should be either an integer for the number of bits, or a symbol."
     end
