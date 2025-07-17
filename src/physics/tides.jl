@@ -107,11 +107,11 @@ If the parameters are given without units, solar units are assumed.
 """
 function apsidal_motion_constant_over_tidal_timescale(mass::Real, radius,
                                                       envelope_mass, envelope_radius,
-                                                      stellar_type, luminosity, 
+                                                      stellar_type::Int, luminosity, 
                                                       mass_perturber,
                                                       semi_major_axis, Z=0.02)::Float64
 
-    if !(stellar_type isa Star)
+    if stellar_type > 9
         return 0.0
     end
 
@@ -122,88 +122,98 @@ function apsidal_motion_constant_over_tidal_timescale(mass::Real, radius,
     end
 end
 
-"""
-apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
-                                             stellar_type, luminosity, 
-                                             mass_perturber,
-                                             semi_major_axis, Z=0.02)
 
-If the envelope structure of the star is not fixed, the age, core_mass, and core_radius 
-can be supplied instead, which will calculate the envelope mass and radius using `Syzygy.envelope_structure`.
-"""
-function apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
-                                                      stellar_type, luminosity, 
-                                                      mass_perturber,
-                                                      semi_major_axis, Z=0.02)::Float64
-    return k_over_T(mass, radius, core_mass, age,
-                    core_radius, stellar_type,
-                    luminosity,
-                    mass_perturber, semi_major_axis, Z)
-end
+# """
+# apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
+#                                              stellar_type, luminosity, 
+#                                              mass_perturber,
+#                                              semi_major_axis, Z=0.02)
 
-
-
-
-function k_over_T(mass::Unitful.Mass, radius, core_mass, age,
-                  core_radius, stellar_type, luminosity,
-                  mass_perturber, semi_major_axis, Z=0.02)
-
-    if !(stellar_type isa Star)
-        return 0.0
-    end
-
-    mass = ustrip(u"Msun", mass) 
-    radius = ustrip(u"Rsun", radius) 
-    core_mass = ustrip(u"Msun", core_mass) 
-    core_radius = ustrip(u"Rsun", core_radius) 
-    luminosity = ustrip(u"Lsun", luminosity) 
-    age = ustrip(u"Myr", age)
-
-    mass_perturber = ustrip(u"Msun", mass_perturber)
-    semi_major_axis = ustrip(u"Rsun", semi_major_axis)
+# If the envelope structure of the star is not fixed, the age, core_mass, and core_radius 
+# can be supplied instead, which will calculate the envelope mass and radius using `Syzygy.envelope_structure`.
+# """
+# function apsidal_motion_constant_over_tidal_timescale_core(mass, radius, age, core_mass, core_radius, 
+#                                                            stellar_type, luminosity, 
+#                                                            mass_perturber,
+#                                                            semi_major_axis, Z=0.02)::Float64
+#     return k_over_T(mass, radius, core_mass, age,
+#                     core_radius, stellar_type,
+#                     luminosity,
+#                     mass_perturber, semi_major_axis, Z)
+# end
 
 
-    k_over_T(mass, radius, core_mass, age,
-            core_radius, stellar_type,
-            luminosity,
-            mass_perturber, semi_major_axis, Z)
-end
-
-"""
-
-1/yr
-"""
-function k_over_T(mass::Real, radius, core_mass, age,
-                  core_radius, stellar_type,
-                  luminosity,
-                  mass_perturber, semi_major_axis, Z=0.02)
-
-    if !(stellar_type isa Star)
-        return 0.0
-    end
-
-    if mass < 1.25
-        envelope_radius, envelope_mass = envelope_structure(mass, radius, core_mass, 
-                                                            core_radius, stellar_type, age)
-
-        return k_over_T_convective(mass, radius, envelope_mass, envelope_radius, luminosity, Z)
-    else
-        return k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
-    end
-end
 
 
-function k_over_T_convective(mass, radius, envelope_mass, envelope_radius,
+# function k_over_T(mass::Unitful.Mass, radius, core_mass, age,
+#                   core_radius, stellar_type, luminosity,
+#                   mass_perturber, semi_major_axis, Z=0.02)
+
+#     if !(stellar_type isa Star)
+#         return 0.0
+#     end
+
+#     mass = ustrip(u"Msun", mass) 
+#     radius = ustrip(u"Rsun", radius) 
+#     core_mass = ustrip(u"Msun", core_mass) 
+#     core_radius = ustrip(u"Rsun", core_radius) 
+#     luminosity = ustrip(u"Lsun", luminosity) 
+#     age = ustrip(u"Myr", age)
+
+#     mass_perturber = ustrip(u"Msun", mass_perturber)
+#     semi_major_axis = ustrip(u"Rsun", semi_major_axis)
+
+
+#     k_over_T(mass, radius, core_mass, age,
+#             core_radius, stellar_type,
+#             luminosity,
+#             mass_perturber, semi_major_axis, Z)
+# end
+
+# """
+
+# 1/yr
+# """
+# function k_over_T(mass::Real, radius, core_mass, age,
+#                   core_radius, stellar_type, luminosity,
+#                   mass_perturber, semi_major_axis, Z=0.02)
+
+#     if !(stellar_type isa Star)
+#         return 0.0
+#     end
+
+#     if mass < 1.25
+#         envelope_radius, envelope_mass = envelope_structure(mass, radius, core_mass, 
+#                                                             core_radius, stellar_type, age)
+
+#         return k_over_T_convective(mass, radius, envelope_mass, envelope_radius, luminosity, Z)
+#     else
+#         return k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
+#     end
+# end
+
+function k_over_T_convective(mass::Unitful.Mass, radius, envelope_mass, envelope_radius,
                              luminosity, Z=0.02)
                              
+     return k_over_T_convective_(mass, radius, envelope_mass, envelope_radius, luminosity, Z)
+end
 
+function k_over_T_convective(mass::Float64, radius, envelope_mass, envelope_radius,
+                             luminosity, Z=0.02)
+    return k_over_T_convective_(mass, radius, envelope_mass, envelope_radius, luminosity, Z)*k_over_T_conversion_factor
+end
+
+function k_over_T_convective_(mass, radius, envelope_mass, envelope_radius,
+                             luminosity, Z)
+                             
+    # @info " " mass radius envelope_mass envelope_radius luminosity
     R_conv, M_conv = envelope_radius, envelope_mass
     t_conv = 0.4311*(cbrt((3M_conv*R_conv^2)/luminosity)) # Preece et al. 2022
 
     log10z = log10(Z)
     a =  0.630*log10z + 2.72  # a(z) for envelope
     b = -0.219*log10z + 0.68  # b(z) for envelope
-    c = -0.023*log10z + 0.220 # c(z) for envelope
+    c = -0.023*log10z + 0.220 # c(z) for envelope)
 
     return (R_conv/radius)^a*(M_conv/mass)^b*c/t_conv
 end
