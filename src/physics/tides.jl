@@ -77,8 +77,14 @@ function apsidal_motion_constant_over_tidal_timescale(mass::Unitful.Mass, radius
                                                       mass_perturber,
                                                       semi_major_axis, Z=0.02)::Float64
 
-    if !(stellar_type isa Star)
-        return 0.0
+    if stellar_type isa Int
+        if stellar_type > 9
+            return 0.0
+        end
+    else
+        if !(stellar_type isa Star)
+            return 0.0
+        end
     end
 
     mass = ustrip(u"Msun", mass)
