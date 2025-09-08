@@ -150,6 +150,7 @@ struct EquilibriumTidalPotential{T} <: MultiBodyPotential
     function EquilibriumTidalPotential(system; Z=0.02, lb_multiplier=1.1, ub_multiplier=1.1,
                                                supplied_apsidal_motion_constants=nothing, 
                                                supplied_rotational_angular_velocities=nothing,
+                                               set_stellar_structure=true,
                                                set_spin=false)
     
         if unit_system != "Solar"
@@ -163,11 +164,15 @@ struct EquilibriumTidalPotential{T} <: MultiBodyPotential
     
         for i = 1:n_bodies
             particle = system.particles[i]
-            envelope_radius, envelope_mass = if particle.structure.stellar_type isa Star && particle.mass < 1.25u"Msun"
-                                                envelope_structure(system.particles[i], age, Z)
-                                             else
-                                                0.0u"Rsun", 0.0u"Rsun"
-                                             end
+            envelope_radius, envelope_mass = if set_stellar_structure
+                if particle.structure.stellar_type isa Star && particle.mass < 1.25u"Msun"
+                    envelope_structure(system.particles[i], age, Z)
+                else
+                    0.0u"Rsun", 0.0u"Rsun"
+                end
+            else
+                particle.structure.R_env, particle.structure.m_env
+            end
     
             push!(R_envs, ustrip(envelope_radius))
             push!(m_envs, ustrip(envelope_mass))
@@ -374,7 +379,7 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
 
     θ_dot = (r̄ × v̄)/r²
     θ_dot_norm = norm(θ_dot)
-    θ_hat = θ_dot/θ_dot_norm
+    θ_hat = v̄/v
 
     a = semi_major_axis(r, v^2, m₂+m₁)
 
@@ -458,7 +463,7 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
     stellar_type_1 = params.stellar_type_numbers[i]
     stellar_type_2 = params.stellar_type_numbers[j]
 
-    if !(stellar_type_1 > 9) && !(stellar_type_2 > 9) # tides are (currently) only for stars
+    if (stellar_type_1 > 9) && (stellar_type_2 > 9) # tides are (currently) only for stars
         return nothing
     end
 
@@ -482,7 +487,7 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
 
     θ_dot = (r̄ × v̄)*r⁻¹*r⁻¹
     θ_dot_norm = norm(θ_dot)
-    θ_hat = θ_dot/θ_dot_norm
+    θ_hat = v̄/v
 
     a = semi_major_axis(r, v^2, m₂+m₁)
 
