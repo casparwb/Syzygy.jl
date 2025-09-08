@@ -379,7 +379,7 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
 
     θ_dot = (r̄ × v̄)/r²
     θ_dot_norm = norm(θ_dot)
-    θ_hat = θ_dot/θ_dot_norm
+    θ_hat = v̄/v
 
     a = semi_major_axis(r, v^2, m₂+m₁)
 
@@ -487,7 +487,7 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
 
     θ_dot = (r̄ × v̄)*r⁻¹*r⁻¹
     θ_dot_norm = norm(θ_dot)
-    θ_hat = θ_dot/θ_dot_norm
+    θ_hat = v̄/v
 
     a = semi_major_axis(r, v^2, m₂+m₁)
 
