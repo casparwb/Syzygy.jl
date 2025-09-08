@@ -70,7 +70,7 @@ quadruple = multibodysystem([1.0, 1.0, 1.0, 1.0]u"Msun", a=[0.1, 0.5, 10.0]u"Rsu
 bh1_mass = 9.62u"Msun"
 bh2_mass = 8.4u"Msun"
 
-G, c = GRAVCONST, Syzygy.speed_of_light # constants
+G, c = GRAVCONST, Syzygy.LIGHTSPEED # constants
 bh1_radius = 2*G*bh1_mass/c^2 
 bh2_radius = 2*G*bh2_mass/c^2
 
