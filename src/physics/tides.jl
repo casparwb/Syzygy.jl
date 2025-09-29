@@ -91,7 +91,8 @@ function apsidal_motion_constant_over_tidal_timescale(mass::Unitful.Mass, radius
     radius = ustrip(u"Rsun", radius)
     envelope_mass = ustrip(u"Msun", envelope_mass)
     envelope_radius = ustrip(u"Rsun", envelope_radius)
-    luminosity = ustrip(u"Lsun", luminosity)
+    # luminosity = ustrip(upreferred(u"Lsun"), luminosity)
+    luminosity = ustrip(upreferred(u"Lsun"), luminosity)
 
     mass_perturber = ustrip(u"Msun", mass_perturber)
     semi_major_axis = ustrip(u"Rsun", semi_major_axis)
@@ -254,6 +255,32 @@ function get_k_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multipli
     k_itp(logm, logg) = interpolator(SA[logm, logg])
 
     return k_itp
+end
+
+function get_beta_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
+    Z = Z == 0.02 ? 0.0134 : Z
+    k_data_location = joinpath(@__DIR__, "..", "..", "deps", "tidal_evolution_constants", "grid_Z=$Z.jld2")
+    
+    if !isfile(k_data_location)
+        @error "Tidal evolution constant data file $(split(k_data_location, "/")[end]) not found."
+    end
+    
+    masses = JLD2.load(k_data_location, "Mass")
+    logg = JLD2.load(k_data_location, "logg")
+    logk2 = JLD2.load(k_data_location, "beta")
+
+    logm = ustrip.(u"Msun", masses) .|> log10
+    logg = ustrip.(u"cm/s^2", logg)
+    logk2 = logk2
+
+    coordinates = [SA[col...] for col in (eachcol([logm logg]'))]
+
+    lb = [minimum(logm), minimum(logg)] .* lb_multiplier
+	ub = [maximum(logm), maximum(logg)] .* ub_multiplier
+    interpolator = chebregression(coordinates, logk2, lb, ub, order)
+    beta_itp(logm, logg) = interpolator(SA[logm, logg])
+
+    return beta_itp
 end
 
 function asidal_motion_constant_interpolated(logm::Float64, logg::Float64)
