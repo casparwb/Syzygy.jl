@@ -71,6 +71,7 @@ function parse_arguments!(kwargs::Dict)
                         :params => DefaultSimulationParams,
                         :verbose   => false, :max_cpu_time => Inf,
                         :precision => :Float64, :stellar_evolution => false,
+                        :param_options => Dict()
                         )
 
     args = copy(default_args)
@@ -223,7 +224,7 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
             args[:params] = TidalSimulationParams
         end
     end
-    ode_params = setup_params(args[:params], system, dtype)
+    ode_params = setup_params(args[:params], system, dtype, options=args[:param_options])
    
     simulation = multibodysimulation(system, args[:tspan], args[:potential], 
                                      ode_params, args, kwargs)
@@ -256,7 +257,7 @@ function get_final_time(t0, t_sim, P_out, datatype=Float64)
     end
 end
 
-function setup_params(::Type{<:DefaultSimulationParams}, system, datatype=Float64)
+function setup_params(::Type{<:DefaultSimulationParams}, system, datatype=Float64; options)
     particles = system.particles
 
     masses        = datatype[]
@@ -291,56 +292,128 @@ function setup_params(::Type{<:DefaultSimulationParams}, system, datatype=Float6
     return ode_params
 end
 
-function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64)
-    particles, time = system.particles, system.time
+function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64; options)
+    
+    if unit_system != "Solar"
+        @warn """Default unit system is not set to solar units, which is what the tidal prescription expects. Conversion is currently not supported. Set the units by calling `Syzygy.set_units("Solar")` """
+    end
 
+    age = system.time
+    n_bodies = system.n
+
+    R_envs = datatype[]
+    m_envs = datatype[]
     masses        = datatype[]
     luminosities  = datatype[]
     radii         = datatype[]
-    core_masses   = datatype[]
-    core_radii    = datatype[]
-    ages          = datatype[]
     stellar_types = StellarType[]
     stellar_type_nums = Int[]
+    
+    metallicity = get(options, :Z, 0.0134)
 
+    set_stellar_structure = get(options, :set_stellar_structure, false)
 
-    particle_keys = keys(particles) |> collect |> sort
+    for i = 1:n_bodies
+        particle = system.particles[i]
+        envelope_radius, envelope_mass = if set_stellar_structure
+            if particle.structure.stellar_type isa Star && particle.mass < 1.25u"Msun"
+                envelope_structure(system.particles[i], age, Z)
+            else
+                0.0u"Rsun", 0.0u"Rsun"
+            end
+        else
+            particle.structure.R_env, particle.structure.m_env
+        end
 
-    luminosity_unit = if unit_mass == u"Msun"
-        u"Lsun"
-    else
-        upreferred(u"Lsun")
+        push!(R_envs, ustrip(unit_length, envelope_radius))
+        push!(m_envs, ustrip(unit_mass, envelope_mass))
     end
+    
+    R_envs = SA[R_envs...]
+    m_envs = SA[m_envs...]
 
-    for i in particle_keys
-        p = particles[i]
-        
-        mass         = p.structure.m      |> upreferred |> ustrip 
-        luminosity   = p.structure.L      |> luminosity_unit |> ustrip
-        radius       = p.structure.R      |> upreferred |> ustrip 
-        core_mass    = p.structure.m_core |> upreferred |> ustrip
-        core_radius  = p.structure.R_core |> upreferred |> ustrip
-        stellar_type = p.structure.stellar_type 
+    lb_multiplier = get(options, :lb_multiplier, 1.1)
+    ub_multiplier = get(options, :lb_multiplier, 1.1)
+    supplied_apsidal_motion_constants = get(options, :supplied_apsidal_motion_constants, nothing)
+    supplied_rotational_angular_velocities = get(options, :supplied_rotational_angular_velocities, nothing)
+    set_spin = get(options, :set_spin, false)
 
-        push!(core_masses,   core_mass)
-        push!(core_radii,    core_radius)
-        push!(ages,          ustrip(unit_time, time))
+    logk_interpolator = get_k_interpolator(Z=metallicity, lb_multiplier=lb_multiplier, ub_multiplier=ub_multiplier)
+   
+    apsidal_motion_constants = Float64[]
+    rotational_angular_velocities = Float64[]
+    for i = 1:n_bodies
+        particle = system.particles[i]
+
+        mass         = particle.structure.m      |> upreferred |> ustrip 
+        luminosity   = particle.structure.L      |> upreferred |> ustrip
+        radius       = particle.structure.R      |> upreferred |> ustrip 
+        stellar_type = particle.structure.stellar_type 
+
         push!(masses,        mass)
         push!(luminosities,  luminosity)
         push!(radii,         radius)
         push!(stellar_types, stellar_type)
         push!(stellar_type_nums, stellar_type.number)
 
+        if !(particle.structure.stellar_type isa Star)
+            push!(apsidal_motion_constants, 0.0)
+            push!(rotational_angular_velocities, 0.0)
+            continue
+        else
+            m, R = particle.mass, particle.radius
+
+            if isnothing(supplied_apsidal_motion_constants)
+                logg = log10(ustrip(u"cm/s^2", (GRAVCONST*m/R^2))) 
+                logm = log10(ustrip(u"Msun", m))
+                try
+                    logk = logk_interpolator(logm, logg)
+                    push!(apsidal_motion_constants, 10^logk)
+                catch e
+                    throw(e)
+                end
+            end
+
+            if isnothing(supplied_rotational_angular_velocities) && set_spin
+                Ω = stellar_rotational_frequency(m, R)
+                push!(rotational_angular_velocities, ustrip(unit(1/unit_time), 2π*Ω))
+            end
+
+        end
+
     end
+
+    if !set_spin
+        rotational_angular_velocities = 2π*ustrip.(unit_time^(-1), system.particles.spin)
+    end
+
+    apsidal_motion_constants      = isnothing(supplied_apsidal_motion_constants)      ? SA[apsidal_motion_constants...]      : SA[supplied_apsidal_motion_constants...]
+    rotational_angular_velocities = if isnothing(supplied_rotational_angular_velocities) 
+        SA[rotational_angular_velocities...] 
+    else
+        SA[ustrip.(unit_time^-1, supplied_rotational_angular_velocities)...]
+    end
+    
+    rotational_angular_velocities = if get(options, :evolve_spins, true) 
+        MVector(rotational_angular_velocities)
+    else
+        rotational_angular_velocities
+    end
+
+    # luminosity_unit = if unit_mass == u"Msun"
+    #     u"Lsun"
+    # else
+    #     upreferred(u"Lsun")
+    # end
+
 
     masses = SVector(masses...)
     luminosities = SVector(luminosities...)
     radii = SVector(radii...)
     stellar_types = SVector(stellar_types...)
-    core_masses = SVector(core_masses...)
-    core_radii = SVector(core_radii...)
-    ages = SVector(ages...)
     stellar_type_nums = SVector(stellar_type_nums...)
+
+    # @show typeof(masses) typeof(m_envs) typeof(R_envs) typeof(apsidal_motion_constants)
 
 
     ode_params = TidalSimulationParams(radii, 
@@ -348,19 +421,15 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64)
                                        luminosities, 
                                        stellar_types,
                                        stellar_type_nums,
-                                       core_masses, 
-                                       core_radii, 
-                                       ages)
-    # ode_params = DefaultSimulationParams(all_params[:R], 
-    #                                      all_params[:M], 
-    #                                      all_params[:L], 
-    #                                      all_params[:stellar_type],
-    #                                      all_params[:core_masses], 
-    #                                      all_params[:core_radii], 
-    #                                      all_params[:ages])
+                                       metallicity, 
+                                       m_envs, 
+                                       R_envs,
+                                       apsidal_motion_constants,
+                                       rotational_angular_velocities)
 
     return ode_params
 end
+
 
 function get_datatype_from_precision(precision)
 
