@@ -45,6 +45,7 @@ module Syzygy
     export PureGravitationalPotential, DynamicalTidalPotential, 
            TimeDependentEquilibriumTidalPotential, EquilibriumTidalPotential,
            PN1Potential, PN2Potential, PN2p5Potential, PNPotential
+    export TidalSimulationParams
 
     export simulation, simulate
     export to_solution

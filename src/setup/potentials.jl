@@ -8,15 +8,6 @@ abstract type MultiBodyPotential end
 abstract type SpinPotential <: MultiBodyPotential end
 abstract type SimulationParams end
 
-# struct DefaultSimulationParams{FloatVecType, stpVecType} <: SimulationParams
-#     R::FloatVecType # radii
-#     M::FloatVecType # masses
-#     L::FloatVecType # luminosities
-#     stellar_types::stpVecType 
-#     M_cores::FloatVecType # core masses
-#     R_cores::FloatVecType # core radii
-#     ages::FloatVecType 
-# end
 
 struct DefaultSimulationParams{FloatVecType, IntVecType, stpVecType} <: SimulationParams
     radii::FloatVecType # radii
@@ -25,15 +16,17 @@ struct DefaultSimulationParams{FloatVecType, IntVecType, stpVecType} <: Simulati
     stellar_type_numbers::IntVecType
 end
 
-struct TidalSimulationParams{FloatVecType, IntVecType, stpVecType} <: SimulationParams
+struct TidalSimulationParams{FloatVecType, IntVecType, stpVecType, MutableFloatVecType} <: SimulationParams
     radii::FloatVecType # radii
     masses::FloatVecType # masses
     luminosities::FloatVecType # luminosities
     stellar_types::stpVecType 
     stellar_type_numbers::IntVecType
-    core_masses::FloatVecType # core masses
-    core_radii::FloatVecType # core radii
-    ages::FloatVecType 
+    Z::Float64 
+    envelope_masses::FloatVecType 
+    envelope_radii::FloatVecType 
+    apsidal_motion_constants::FloatVecType 
+    rotational_angular_velocities::MutableFloatVecType
 end
 
 # struct PNSimulationParams{RType, MType, M2_type, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
@@ -43,9 +36,6 @@ end
 #     L::LType # luminosities
 #     S::SType # spins
 #     stellar_types::stpType 
-#     M_cores::cMType # core masses
-#     R_cores::cRType # core radii
-#     ages::ageType 
 # end
 
 ################################################ Potential structs ################################################
@@ -140,94 +130,7 @@ Corresponds to the acceleration function `Syzygy.equilibrium_tidal_acceleration!
 - `supplied_apsidal_motion_constants`
 - `supplied_rotational_angular_velocities`
 """
-struct EquilibriumTidalPotential{T} <: MultiBodyPotential
-    Z::Float64 
-    M_env::T 
-    R_env::T 
-    apsidal_motion_constant::T 
-    rotational_angular_velocity::T
-
-    function EquilibriumTidalPotential(system; Z=0.02, lb_multiplier=1.1, ub_multiplier=1.1,
-                                               supplied_apsidal_motion_constants=nothing, 
-                                               supplied_rotational_angular_velocities=nothing,
-                                               set_stellar_structure=true,
-                                               set_spin=false)
-    
-        if unit_system != "Solar"
-            @warn """Default unit system is not set to solar units, which is what the tidal prescription expects. Conversion is currently not supported. Set the units by calling `Syzygy.set_units("Solar")` """
-        end
-
-        age = system.time
-        n_bodies = system.n
-        R_envs = Float64[]
-        m_envs = Float64[]
-    
-        for i = 1:n_bodies
-            particle = system.particles[i]
-            envelope_radius, envelope_mass = if set_stellar_structure
-                if particle.structure.stellar_type isa Star && particle.mass < 1.25u"Msun"
-                    envelope_structure(system.particles[i], age, Z)
-                else
-                    0.0u"Rsun", 0.0u"Rsun"
-                end
-            else
-                particle.structure.R_env, particle.structure.m_env
-            end
-    
-            push!(R_envs, ustrip(envelope_radius))
-            push!(m_envs, ustrip(envelope_mass))
-        end
-        
-        R_envs = SA[R_envs...]
-        m_envs = SA[m_envs...]
-    
-        logk_interpolator = get_k_interpolator(Z=Z, lb_multiplier=lb_multiplier, ub_multiplier=ub_multiplier)
-        apsidal_motion_constants = Float64[]
-        rotational_angular_velocities = Float64[]
-        for i = 1:n_bodies
-            particle = system.particles[i]
-            
-            
-            if !(particle.structure.stellar_type isa Star)
-                push!(apsidal_motion_constants, 0.0)
-                push!(rotational_angular_velocities, 0.0)
-                continue
-            else
-                m, R = particle.mass, particle.radius
-    
-                if isnothing(supplied_apsidal_motion_constants)
-                    logg = log10(ustrip(u"cm/s^2", (GRAVCONST*m/R^2))) 
-                    logm = log10(ustrip(u"Msun", m))
-                    try
-                        logk = logk_interpolator(logm, logg)
-                        push!(apsidal_motion_constants, 10^logk)
-                    catch e
-                        throw(e)
-                    end
-                end
-    
-                if isnothing(supplied_rotational_angular_velocities) && set_spin
-                    Ω = stellar_rotational_frequency(m, R)
-                    push!(rotational_angular_velocities, ustrip(unit(1/unit_time), 2π*Ω))
-                end
-    
-            end
-        end
-
-        if !set_spin
-            rotational_angular_velocities = 2π*ustrip.(unit_time^(-1), system.particles.spin)
-        end
-    
-        apsidal_motion_constants      = isnothing(supplied_apsidal_motion_constants)      ? SA[apsidal_motion_constants...]      : SA[supplied_apsidal_motion_constants...]
-        rotational_angular_velocities = if isnothing(supplied_rotational_angular_velocities) 
-            SA[rotational_angular_velocities...] 
-            else
-                SA[ustrip.(unit_time^-1, supplied_rotational_angular_velocities)...]
-            end
-    
-        new{typeof(m_envs)}(Z, m_envs, R_envs, apsidal_motion_constants, rotational_angular_velocities)
-    end
-end
+struct EquilibriumTidalPotential <: MultiBodyPotential end
 
 
 
@@ -489,7 +392,7 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
     θ_dot_norm = norm(θ_dot)
     θ_hat = v̄/v
 
-    a = semi_major_axis(r, v^2, m₂+m₁)
+    sma = semi_major_axis(r, v^2, m₂+m₁)
 
     # tidal force on 1 by 2
     a₁ = let
@@ -498,15 +401,15 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
             else    
                 μ = UNITLESS_G*m₂*r⁻¹*r⁻¹
     
-                envelope_mass = potential.M_env[i]
-                envelope_radius = potential.R_env[i]
+                envelope_mass = params.envelope_masses[i]
+                envelope_radius = params.envelope_radii[i]
                 luminosity = params.luminosities[i]
                 R = params.radii[i]
-                Ω = potential.rotational_angular_velocity[i]
+                Ω = params.rotational_angular_velocities[i]
                 k_T = apsidal_motion_constant_over_tidal_timescale(m₁, R, envelope_mass, envelope_radius,
                                                                    stellar_type_1, luminosity, 
-                                                                   m₂, a, potential.Z)
-                k = potential.apsidal_motion_constant[i]
+                                                                   m₂, sma, params.Z)
+                k = params.apsidal_motion_constants[i]
                 kτ = R^3/(UNITLESS_G*m₁)*k_T
     
                 @. -3μ*m₂/m₁*(R*r⁻¹)^5*((k + 3v̄*r⁻¹*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
@@ -521,21 +424,28 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
             else    
                 μ = UNITLESS_G*m₁*r⁻¹*r⁻¹
     
-                envelope_mass = potential.M_env[j]
-                envelope_radius = potential.R_env[j]
+                envelope_mass = params.envelope_masses[j]
+                envelope_radius = params.envelope_radii[j]
                 luminosity  = params.luminosities[j]
                 R = params.radii[j]
-                Ω = potential.rotational_angular_velocity[j]
+                Ω = params.rotational_angular_velocities[j]
                 k_T = apsidal_motion_constant_over_tidal_timescale(m₂, R, envelope_mass, envelope_radius,
                                                                    stellar_type_2, luminosity, 
-                                                                   m₁, a, potential.Z)
-                k = potential.apsidal_motion_constant[j]
+                                                                   m₁, sma, params.Z)
+                k = params.apsidal_motion_constants[j]
                 kτ = R^3/(UNITLESS_G*m₂)*k_T
     
                 @. -3μ*m₁/m₂*(R*r⁻¹)^5*((k + 3v̄*r⁻¹*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
             end
 
         end
+
+    # println(i, " ", j, " ", a₁, " ", a₂)
+    # if i == 3
+    #     println(stellar_type_1)
+    # elseif j == 3
+    #     println(stellar_type_2)
+    # end
 
     dvi .+= a₁
     dvj .+= a₂

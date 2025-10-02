@@ -24,7 +24,8 @@ const π² = π^2
 
 const surface_gravity_unit_conversion_factor = ustrip(u"cm/s^2", 1.0*unit_length/unit_time^2)
 const to_Myr_conversion_factor = upreferred(1unit_time/1u"Myr")
-const k_over_T_conversion_factor = unit_system == "Solar" ? ustrip(u"yr^-1", cbrt(1.0u"Lsun*Msun^-1*Rsun^-2")) : ustrip(u"yr^-1", upreferred(cbrt(1.0u"Lsun*Msun^-1*Rsun^-2")))
+# const k_over_T_conversion_factor = unit_system == "Solar" ? ustrip(u"yr^-1", cbrt(1.0u"Lsun*Msun^-1*Rsun^-2")) : ustrip(u"yr^-1", upreferred(cbrt(1.0u"Lsun*Msun^-1*Rsun^-2")))
+const k_over_T_conversion_factor = ustrip(u"yr^-1", cbrt(1.0*upreferred(u"Lsun")*Syzygy.unit_mass^-1*Syzygy.unit_length^-2))
 
 const stellar_type = Dict(  "deeply or fully convective low mass MS star" => 0,
                             "Main Sequence Star" => 1,
