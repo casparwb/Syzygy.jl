@@ -392,7 +392,7 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
     θ_dot_norm = norm(θ_dot)
     θ_hat = v̄/v
 
-    a = semi_major_axis(r, v^2, m₂+m₁)
+    sma = semi_major_axis(r, v^2, m₂+m₁)
 
     # tidal force on 1 by 2
     a₁ = let
@@ -408,7 +408,7 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
                 Ω = params.rotational_angular_velocities[i]
                 k_T = apsidal_motion_constant_over_tidal_timescale(m₁, R, envelope_mass, envelope_radius,
                                                                    stellar_type_1, luminosity, 
-                                                                   m₂, a, params.Z)
+                                                                   m₂, sma, params.Z)
                 k = params.apsidal_motion_constants[i]
                 kτ = R^3/(UNITLESS_G*m₁)*k_T
     
@@ -431,7 +431,7 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
                 Ω = params.rotational_angular_velocities[j]
                 k_T = apsidal_motion_constant_over_tidal_timescale(m₂, R, envelope_mass, envelope_radius,
                                                                    stellar_type_2, luminosity, 
-                                                                   m₁, a, params.Z)
+                                                                   m₁, sma, params.Z)
                 k = params.apsidal_motion_constants[j]
                 kτ = R^3/(UNITLESS_G*m₂)*k_T
     
@@ -439,6 +439,13 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
             end
 
         end
+
+    # println(i, " ", j, " ", a₁, " ", a₂)
+    # if i == 3
+    #     println(stellar_type_1)
+    # elseif j == 3
+    #     println(stellar_type_2)
+    # end
 
     dvi .+= a₁
     dvj .+= a₂
