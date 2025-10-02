@@ -291,3 +291,45 @@ end
 function is_binary(positions::AbstractMatrix, velocities::AbstractMatrix, masses)
     return is_binary(eachcol(positions), eachcol(velocities), masses)
 end
+
+function semi_major_axis(sol::MultiBodySolution; bodies=(1, 2), tspan=extrema(sol.t))
+
+    # ids = 
+    i, j = bodies
+    a = zeros(typeof(1.0*unit_length), length(sol.t))
+
+    M = sum(sol.ic.particles.mass[SA[bodies[1], bodies[2]]])
+    for idx in eachindex(sol.t)
+        ri = SVector{3}(sol.r[:,i,idx])
+        rj = SVector{3}(sol.r[:,j,idx])
+
+        vi = SVector{3}(sol.v[:,i,idx])
+        vj = SVector{3}(sol.v[:,j,idx])
+
+        a[idx] = semi_major_axis(norm(ri - rj), norm(vi - vj)^2, M)
+    end
+
+    return a
+end
+
+function eccentricity(sol::MultiBodySolution; bodies=(1, 2), tspan=extrema(sol.t))
+
+    # ids = 
+    i, j = bodies
+    e = zeros(length(sol.t))
+
+    M = sum(sol.ic.particles.mass[SA[bodies[1], bodies[2]]])
+    for idx in eachindex(sol.t)
+        ri = SVector{3}(sol.r[:,i,idx])
+        rj = SVector{3}(sol.r[:,j,idx])
+
+        vi = SVector{3}(sol.v[:,i,idx])
+        vj = SVector{3}(sol.v[:,j,idx])
+
+        r = ri - rj
+        v = vi - vj
+        e[idx] = eccentricity(r, v, norm(r), M)
+    end
+
+    return e
+end
