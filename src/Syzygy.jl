@@ -53,6 +53,9 @@ module Syzygy
     
     export CollisionCB, EscapeCB, RocheLobeOverflowCB, CPUTimeCB, SavingCB,
            CentreOfMassCB, HubbleTimeCB, DemocraticCheckCB, IonizationCB
+
+    const postprocess = to_solution
+    export postprocess
    
 
     @compile_workload begin
