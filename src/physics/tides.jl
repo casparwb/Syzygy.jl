@@ -125,7 +125,7 @@ function apsidal_motion_constant_over_tidal_timescale(mass::Real, radius,
     if mass < 1.25
         return k_over_T_convective(mass, radius, envelope_mass, envelope_radius, luminosity, Z)
     else
-        return k_over_T_radiative(mass, radius, mass_perturber, semi_major_axis)
+        return k_over_T_radiative(mass, radius^2, mass_perturber, semi_major_axis)
     end
 end
 
@@ -225,10 +225,10 @@ function k_over_T_convective_(mass, radius, envelope_mass, envelope_radius,
     return (R_conv/radius)^a*(M_conv/mass)^b*c/t_conv
 end
 
-function k_over_T_radiative(mass_tidal_object, radius_tidal_object, mass_perturber, semi_major_axis)
+function k_over_T_radiative(mass_tidal_object, radius_tidal_object², mass_perturber, semi_major_axis)
     E₂ = 1.592e-9*mass_tidal_object^2.84 # second-order tidal coefficient
     q₂ = mass_perturber/mass_tidal_object
-    return 1.9782e4*mass_tidal_object*radius_tidal_object/semi_major_axis^5*(1 + q₂)^(5/6)*E₂
+    return 1.9782e4*mass_tidal_object*radius_tidal_object²/semi_major_axis^5*(1 + q₂)^(5/6)*E₂
 end
 
 function get_k_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
