@@ -42,14 +42,7 @@ function simulate(simulation::MultiBodySimulation)
     # ##############################################################################################################
 
     acc_funcs = gather_accelerations_for_potentials(simulation)
-
-    spin_precession = any(x -> x isa SpinPotential, values(simulation.potential))
-    ode_problem = if spin_precession
-                    spin_acc_funcs = gather_spin_accelerations_for_potentials(simulation)
-                    SecondOrderODEProblem(simulation, acc_funcs, spin_acc_funcs, args[:dtype])
-                  else
-                    SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
-                  end
+    ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
 
     integrator = OrdinaryDiffEqRKN.init(ode_problem, args[:alg], saveat=args[:saveat], 
                                         callback=callbacks, maxiters=args[:maxiters], 

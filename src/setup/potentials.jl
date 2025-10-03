@@ -5,7 +5,6 @@ using LinearAlgebra: dot, norm, ×
 include("../physics/tides.jl")
 
 abstract type MultiBodyPotential end
-abstract type SpinPotential <: MultiBodyPotential end
 abstract type SimulationParams end
 
 
