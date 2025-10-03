@@ -296,10 +296,8 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
                                           dtype::Type{ArbFloat})
                                           
     u0, v0 = get_initial_conditions(simulation, dtype)
-    ai     = SizedVector{3, dtype}(zeros(dtype, 3)...)
-    aj     = SizedVector{3, dtype}(zeros(dtype, 3)...)
 
-    SecondOrderODEProblem(simulation, acc_funcs, u0, v0, ai, aj)
+    SecondOrderODEProblem(simulation, acc_funcs, u0, v0)
 end
 
 function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
@@ -307,10 +305,8 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
                                           dtype::Type{<:AbstractFloat})
 
     u0, v0 = get_initial_conditions(simulation, dtype)
-    ai     = MVector{3, dtype}(zeros(dtype, 3)...)
-    aj     = MVector{3, dtype}(zeros(dtype, 3)...)
 
-    SecondOrderODEProblem(simulation, acc_funcs, u0, v0, ai, aj)
+    SecondOrderODEProblem(simulation, acc_funcs, u0, v0)
 end
 
 function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
@@ -319,9 +315,7 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
                                           dtype::Type{ArbFloat})
                                           
     u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
-    ai     = SizedVector{3, dtype}(zeros(dtype, 3)...)
-    aj     = SizedVector{3, dtype}(zeros(dtype, 3)...)
-    SecondOrderODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0, ai, aj)
+    SecondOrderODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0)
 end
 
 function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
@@ -330,14 +324,12 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
                                           dtype::Type{<:AbstractFloat})
 
     u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
-    ai     = MVector{3, dtype}(zeros(dtype, 3)...)
-    aj     = MVector{3, dtype}(zeros(dtype, 3)...)
-    SecondOrderODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0, ai, aj)
+    SecondOrderODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0)
 end
 
 function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
                                           acc_funcs::AccelerationFunctions, 
-                                          u0, v0, ai, aj)
+                                          u0, v0)
     pairs = simulation.ic.pairs
 
     N = acc_funcs.N
@@ -445,27 +437,22 @@ end
 function sodeprob_static(simulation::MultiBodySimulation, dtype::Type{ArbFloat})
     (u0, v0, n) = get_initial_conditions_static(simulation)
 
-    # dtype = eltype(u0)
-    ai = SizedVector{3, dtype}(zeros(dtype, 3)...)
-    aj = SizedVector{3, dtype}(zeros(dtype, 3)...)
     dv = SizedMatrix{6, n, dtype}(undef)
     a_spin = SizedVector{3, dtype}(zeros(dtype, 3)...)
 
-    sodeprob_static(simulation, u0, v0, ai, aj, a_spin, dv)
+    sodeprob_static(simulation, u0, v0, a_spin, dv)
 end
 
 function sodeprob_static(simulation::MultiBodySimulation, dtype::Type{<:AbstractFloat})
     (u0, v0, n) = get_initial_conditions_static(simulation)
     
-    ai = MVector{3, dtype}(zeros(dtype, 3)...)
-    aj = MVector{3, dtype}(zeros(dtype, 3)...)
     dv = MMatrix{6, n, dtype}(undef)
     a_spin = MVector{3, dtype}(zeros(dtype, 3)...)
 
-    sodeprob_static(simulation, u0, v0, ai, aj, a_spin, dv)
+    sodeprob_static(simulation, u0, v0, a_spin, dv)
 end
 
-function sodeprob_static(simulation::MultiBodySimulation, u0, v0, ai, aj, a_spin, dv)
+function sodeprob_static(simulation::MultiBodySimulation, u0, v0, a_spin, dv)
     acc_funcs = gather_accelerations_for_potentials(simulation)
     pairs = simulation.ic.pairs
 
