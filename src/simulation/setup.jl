@@ -5,27 +5,24 @@ function bodies(system::T where T <: MultiBodyInitialConditions, dtype=Float64)
 
     positions  = [zeros(dtype, 3) for i = 1:system.n]
     velocities = [zeros(dtype, 3) for i = 1:system.n]
-    spins      = [zeros(dtype, 3) for i = 1:system.n]
     masses     =  zeros(dtype, system.n)
 
     for (key, particle) in system.particles
         positions[key]  .= upreferred.(particle.position) |> ustrip
         velocities[key] .= upreferred.(particle.velocity) |> ustrip
-        spins[key]      .= upreferred.(particle.structure.S) |> ustrip
         masses[key]      = upreferred(particle.mass) |> ustrip
     end
 
-    SA[[MassBody(SA[r...], SA[v...], SA[s...], m) for (r, v, s, m) in zip(positions, velocities, spins, masses)]...]
+    SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(positions, velocities, masses)]...]
 end
 
-function bodies(positions, velocities, spins, masses, dtype=Float64)
+function bodies(positions, velocities, masses, dtype=Float64)
 
     positions  = [dtype.(ustrip(upreferred(unit(p[1])), p)) for p in positions]
     velocities = [dtype.(ustrip(upreferred(unit(v[1])), v)) for v in velocities]
-    spins      = [dtype.(ustrip(upreferred(unit(v[1])), v)) for v in spins]
     masses     = [dtype(ustrip(upreferred(unit(m)), m)) for m in masses]
 
-    SA[[MassBody(SA[r...], SA[v...], SA[s...], m) for (r, v, s, m) in zip(positions, velocities, spins, masses)]...]
+    SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(positions, velocities, masses)]...]
 end
 
 function get_potential_dict(potential::MultiBodyPotential)
@@ -135,9 +132,6 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     args[:dtype] = dtype
     particles = system.particles
     
-    if any(x -> x isa SpinPotential, args[:potential])
-        check_spins(system.particles.S)
-    end
 
     # if any(x -> typoef(x) in SA[PN1Potential, PN2Potential, PN2p5Potential, PNPotential]) && 
     #    (kwargs[:alg] == DPRKN6() || kwargs[:alg] == DPRKN8() || kwargs[:alg] == DPRKN10() || kwargs[:alg] == DPRKN12())
@@ -230,21 +224,6 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
                                      ode_params, args, kwargs)
 
     return simulation
-end
-
-
-function check_spins(spins)
-    if isnothing(spins)
-        @error "Please give spins if using a spin potential."
-    elseif !(typeof(spins) <: AbstractVector{<:AbstractVector{<:Quantity}})
-        @error "Please give spins as a Vector of Vectors"
-    else
-        𝐋, 𝐌, 𝐓 = Unitful.𝐋, Unitful.𝐌, Unitful.𝐓
-        correct_dim = 𝐋^3*𝐌/𝐓^2
-        if dimension(eltype(first(spins))) != correct_dim
-            throw(DimensionMismatch("Given spins do not have correct dimensions. $(dimension(eltype(first(spins)))) was given, but must be $correct_dim"))
-        end
-    end
 end
 
 function get_final_time(t0, t_sim, P_out, datatype=Float64)

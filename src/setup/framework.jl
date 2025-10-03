@@ -89,7 +89,6 @@ abstract type AbstractMassBody end
 struct MassBody{T} <: AbstractMassBody
     position::SVector{3, T}
     velocity::SVector{3, T}
-    spin::SVector{3, T}
     mass::T
 end
 
@@ -252,34 +251,6 @@ function make_initial_conditions(us, vs, dtype::Type{ArbFloat})
 end
 
 
-function get_initial_conditions(simulation::MultiBodySimulation, dtype, ::Type{SpinPotential})
-    bodies = simulation.bodies
-
-    spinvelocity = [zeros(eltype(b.spin), 3) for b in bodies]
-    if any(x -> x isa SpinPotential, values(simulation.potential))
-        for pot in values(simulation.potential)
-            !(pot isa SpinPotential) && continue
-
-            system = simulation.ic
-            for pair in system.pairs
-                i, j = pair
-                b1 = bodies[i]
-                b2 = bodies[j]
-                spinvelocity[i] += get_spin_precession_velocity(b1, b2, pot)
-                spinvelocity[j] += get_spin_precession_velocity(b2, b1, pot)
-            end
-        end
-    end
-
-    us = [b.position for b in bodies]
-    vs = [b.velocity for b in bodies]
-    ss = [b.spin for b in bodies]
-
-    u0, v0 = make_initial_conditions(us, vs, ss, spinvelocity, dtype)
-
-    return u0, v0
-end
-
 function get_initial_conditions(simulation::MultiBodySimulation, dtype)
     bodies = simulation.bodies
 
@@ -311,24 +282,6 @@ end
 
 function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
                                           acc_funcs::AccelerationFunctions, 
-                                          spin_acc_funcs::AccelerationFunctions, 
-                                          dtype::Type{ArbFloat})
-                                          
-    u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
-    SecondOrderODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0)
-end
-
-function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
-                                          acc_funcs::AccelerationFunctions, 
-                                          spin_acc_funcs::AccelerationFunctions, 
-                                          dtype::Type{<:AbstractFloat})
-
-    u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
-    SecondOrderODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0)
-end
-
-function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
-                                          acc_funcs::AccelerationFunctions, 
                                           u0, v0)
     pairs = simulation.ic.pairs
 
@@ -347,63 +300,6 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
     SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
 end
 
-function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
-                                          acc_funcs::AccelerationFunctions, 
-                                          spin_acc_funcs::AccelerationFunctions,
-                                          u0, v0, ai, aj)
-    pairs = simulation.ic.pairs
-
-    accelerations = FunctionWrangler(acc_funcs.fs)
-    output = Vector{Nothing}(undef, acc_funcs.N)
-
-    spin_accelerations = FunctionWrangler(spin_acc_funcs.fs)
-    spin_out = Vector{Nothing}(undef, spin_acc_funcs.N)
-
-
-    dtype = eltype(u0)
-    dtype_0 = zero(dtype)
-    function soode_system!(dv, v, u, p, t)
-        fill!(dv, dtype_0)
-        @inbounds for pair in pairs
-            i, j = pair
-            fill!(ai, dtype_0)
-            fill!(aj, dtype_0)
-
-            smap!(output, accelerations, ai, aj, u, v, pair, t, p)
-
-            # @inbounds for k = 1:3
-            #     dv[k, i] += ai[k]
-            #     dv[k, j] += aj[k]
-            # end
-
-            dv[1, i] += ai[1]
-            dv[1, j] += aj[1]
-
-            dv[2, i] += ai[2]
-            dv[2, j] += aj[2]
-
-            dv[3, i] += ai[3]
-            dv[3, j] += aj[3]
-
-            fill!(ai, dtype_0)
-            fill!(aj, dtype_0)
-
-            smap!(spin_out, spin_accelerations, ai, aj, dv, u, v, pair, t, p)
-
-            dv[4, i] += ai[4]
-            dv[4, j] += aj[4]
-
-            dv[5, i] += ai[5]
-            dv[5, j] += aj[5]
-
-            dv[6, i] += ai[6]
-            dv[6, j] += aj[6]
-        end
-
-    end
-
-    SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
-end
 ######################################################################################################
 
 
@@ -412,24 +308,11 @@ function get_initial_conditions_static(simulation::MultiBodySimulation)
     bodies = simulation.bodies;
     n = length(bodies)
 
-    spinvelocity = [zeros(eltype(b.spin), 3) for b in bodies]
-    if any(x -> x isa SpinPotential, values(simulation.potential))
-        system = simulation.ic
-        for pair in system.pairs
-            i, j = pair
-            b1 = bodies[i]
-            b2 = bodies[j]
-            dS = spin_precession_velocity(b1, b2)
-            spinvelocity[i] += dS
-        end
-    end
-
     us = [b.position for b in bodies]
     vs = [b.velocity for b in bodies]
-    ss = [b.spin for b in bodies]
 
-    u0 = SMatrix{6, n}([reduce(hcat, us); reduce(hcat, ss)])
-    v0 = SMatrix{6, n}([reduce(hcat, vs); reduce(hcat, spinvelocity)])
+    u0 = SMatrix{3, n}(reduce(hcat, us))
+    v0 = SMatrix{3, n}(reduce(hcat, vs))
 
     (u0, v0, n)
 end
@@ -437,22 +320,20 @@ end
 function sodeprob_static(simulation::MultiBodySimulation, dtype::Type{ArbFloat})
     (u0, v0, n) = get_initial_conditions_static(simulation)
 
-    dv = SizedMatrix{6, n, dtype}(undef)
-    a_spin = SizedVector{3, dtype}(zeros(dtype, 3)...)
+    dv = SizedMatrix{3, n, dtype}(undef)
 
-    sodeprob_static(simulation, u0, v0, a_spin, dv)
+    sodeprob_static(simulation, u0, v0, dv)
 end
 
 function sodeprob_static(simulation::MultiBodySimulation, dtype::Type{<:AbstractFloat})
     (u0, v0, n) = get_initial_conditions_static(simulation)
     
-    dv = MMatrix{6, n, dtype}(undef)
-    a_spin = MVector{3, dtype}(zeros(dtype, 3)...)
+    dv = MMatrix{3, n, dtype}(undef)
 
-    sodeprob_static(simulation, u0, v0, a_spin, dv)
+    sodeprob_static(simulation, u0, v0, dv)
 end
 
-function sodeprob_static(simulation::MultiBodySimulation, u0, v0, a_spin, dv)
+function sodeprob_static(simulation::MultiBodySimulation, u0, v0, dv)
     acc_funcs = gather_accelerations_for_potentials(simulation)
     pairs = simulation.ic.pairs
 
@@ -482,10 +363,8 @@ function DiffEqBase.ODEProblem(simulation::MultiBodySimulation,
                                           dtype::Type{ArbFloat})
                                           
     u0, v0 = get_initial_conditions(simulation, dtype)
-    ai     = SizedVector{3, dtype}(zeros(dtype, 3)...)
-    aj     = SizedVector{3, dtype}(zeros(dtype, 3)...)
 
-    ODEProblem(simulation, acc_funcs, u0, v0, ai, aj)
+    ODEProblem(simulation, acc_funcs, u0, v0)
 end
 
 function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
@@ -493,38 +372,14 @@ function DiffEqBase.ODEProblem(simulation::MultiBodySimulation,
                                           dtype::Type{<:AbstractFloat})
 
     u0, v0 = get_initial_conditions(simulation, dtype)
-    ai     = MVector{3, dtype}(zeros(dtype, 3)...)
-    aj     = MVector{3, dtype}(zeros(dtype, 3)...)
 
-    ODEProblem(simulation, acc_funcs, u0, v0, ai, aj)
+    ODEProblem(simulation, acc_funcs, u0, v0)
 end
-
-function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
-                                          acc_funcs::AccelerationFunctions, 
-                                          spin_acc_funcs::AccelerationFunctions, 
-                                          dtype::Type{ArbFloat})
-                                          
-    u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
-    ai     = SizedVector{3, dtype}(zeros(dtype, 3)...)
-    aj     = SizedVector{3, dtype}(zeros(dtype, 3)...)
-    ODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0, ai, aj)
-end
-
-function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
-                                          acc_funcs::AccelerationFunctions, 
-                                          spin_acc_funcs::AccelerationFunctions, 
-                                          dtype::Type{<:AbstractFloat})
-
-    u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
-    ai     = MVector{3, dtype}(zeros(dtype, 3)...)
-    aj     = MVector{3, dtype}(zeros(dtype, 3)...)
-    ODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0, ai, aj)
-end
-
 
 function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
                                acc_funcs::AccelerationFunctions, 
-                               r0, v0, ai, aj)
+                               r0, v0)
+
     pairs = simulation.ic.pairs
 
     n = size(r0, 2)
@@ -537,27 +392,16 @@ function DiffEqBase.ODEProblem(simulation::MultiBodySimulation,
     function ode_system!(du, u, p, t)
         fill!(du, dtype_0)
         @inbounds for pair in pairs
-            i, j = pair
-            fill!(ai, dtype_0)
-            fill!(aj, dtype_0)
-
+            
+            dv = du.x[1]
             r = u.x[2]
             v = u.x[1]
 
-            smap!(output, accelerations, ai, aj, r, v, pair, t, p)
-
-            du.x[1][1, i] += ai[1]
-            du.x[1][2, i] += ai[2]
-            du.x[1][3, i] += ai[3]
-            
-            du.x[1][1, j] += aj[1]
-            du.x[1][2, j] += aj[2]
-            du.x[1][3, j] += aj[3]
-
+            smap!(output, accelerations, dv, r, v, pair, t, p)
         end
 
         du.x[2] .= u.x[1]
-        nothing
+        return nothing
     end
 
     u0 = ArrayPartition(v0, r0)
