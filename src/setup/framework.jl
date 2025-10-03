@@ -2,6 +2,7 @@ using DiffEqBase, StaticArrays
 using FunctionWranglers
 using ArbNumerics
 using RecursiveArrayTools: ArrayPartition
+import PreallocationTools
 
 abstract type MultiBodyInitialConditions end
 abstract type AbstractBinary end
@@ -136,35 +137,35 @@ end
 
 ################################ Framework for the different potentials ################################
 function get_accelerating_function(potential::PureGravitationalPotential)
-    (dvi, dvj, rs, vs, pair, time, params) -> pure_gravitational_acceleration!(dvi, dvj, rs, pair, params)
+    (dv, rs, vs, pair, time, params) -> pure_gravitational_acceleration(dv, rs, pair, params)
 end
 
 function get_accelerating_function(potential::DynamicalTidalPotential)
-    (dvi, dvj, rs, vs, pair, time, params) -> dynamical_tidal_acceleration!(dvi, dvj, rs, vs, pair, params, potential)
+    (dv, rs, vs, pair, time, params) -> dynamical_tidal_acceleration(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::TimeDependentEquilibriumTidalPotential)
-    (dvi, dvj, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration!(dvi, dvj, rs, vs, pair, params, potential)
+    (dv, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::EquilibriumTidalPotential)
-    (dvi, dvj, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration!(dvi, dvj, rs, vs, pair, params, potential)
+    (dv, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::PN1Potential)
-    (dvi, dvj, rs, vs, pair, time, params) -> PN1_acceleration!(dvi, dvj, rs, vs, pair, params)
+    (dv, rs, vs, pair, time, params) -> PN1_acceleration(dv, rs, vs, pair, params)
 end
 
 function get_accelerating_function(potential::PN2Potential)
-    (dvi, dvj, rs, vs, pair, time, params) -> PN2_acceleration!(dvi, dvj, rs, vs, pair, params)
+    (dv, rs, vs, pair, time, params) -> PN2_acceleration(dv, rs, vs, pair, params)
 end
 
 function get_accelerating_function(potential::PN2p5Potential)
-    (dvi, dvj, rs, vs, pair, time, params) -> PN2p5_acceleration!(dvi, dvj, rs, vs, pair, params)
+    (dv, rs, vs, pair, time, params) -> PN2p5_acceleration(dv, rs, vs, pair, params)
 end
 
 function get_accelerating_function(potential::PNPotential)
-    (dvi, dvj, rs, vs, pair, time, params) -> PN1_to_2p5_acceleration!(dvi, dvj, rs, vs, pair, params)
+    (dv, rs, vs, pair, time, params) -> PN1_to_2p5_acceleration(dv, rs, vs, pair, params)
 end
 
 # function get_accelerating_function(potential::PN1p5SpinPotential)
@@ -334,7 +335,6 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
     SecondOrderODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0, ai, aj)
 end
 
-
 function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
                                           acc_funcs::AccelerationFunctions, 
                                           u0, v0, ai, aj)
@@ -344,34 +344,13 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
     accelerations = FunctionWrangler(acc_funcs.fs)
     output = Vector{Nothing}(undef, N)
 
-    dtype = eltype(u0)
-    dtype_0 = zero(dtype)
     function soode_system!(dv, v, u, p, t)
-        fill!(dv, dtype_0)
+        fill!(dv, 0)
         @inbounds for pair in pairs
-            i, j = pair
-            fill!(ai, dtype_0)
-            fill!(aj, dtype_0)
-
-            smap!(output, accelerations, ai, aj, u, v, pair, t, p)
-
-            dv[1, i] += ai[1]
-            dv[1, j] += aj[1]
-
-            dv[2, i] += ai[2]
-            dv[2, j] += aj[2]
-
-            dv[3, i] += ai[3]
-            dv[3, j] += aj[3]
-
+            smap!(output, accelerations, dv, u, v, pair, t, p)
         end
-
+        nothing
     end
-
-    #v1x, v1y, v1z, v2x, v2y, v2z, v3x, v3y, v3z, r1x, r1y, r1z, r2x, r2y, r2z, r3x, r3y, r3z
-    # syms_v = [Symbol.(["v$(i)x", "v$(i)y", "v$(i)z"]) for i = 1:simulation.ic.n]
-    # syms_r = [Symbol.(["r$(i)x", "r$(i)y", "r$(i)z"]) for i = 1:simulation.ic.n]
-    # syms = vcat(syms_v..., syms_r...)  
 
     SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
 end
@@ -493,23 +472,16 @@ function sodeprob_static(simulation::MultiBodySimulation, u0, v0, ai, aj, a_spin
     N = acc_funcs.N
     fs = acc_funcs.fs
 
-    dtype = eltype(u0)
-    dtype_0 = zero(dtype)
     soode_system = let fs = fs
-        function soode_system(v, u, p, t)
-            fill!(dv, dtype_0)
-            @inbounds for pair in pairs
-                i, j = pair
-                fill!(ai, dtype_0)
-                fill!(aj, dtype_0)
-    
-                ntuple(i -> fs[i]((ai, aj, u, v, pair, t, p)...), N)
+        function soode_system(v, u, p, t)            
+            dv = similar(u)
+            fill!(dv, 0)
 
-                dv[1:3, i] .= ai
-                dv[1:3, j] .= aj
+            @inbounds for pair in pairs
+                ntuple(i -> fs[i]((dv, u, v, pair, t, p)...), N)
             end
 
-            SMatrix(dv)
+            return SMatrix(dv)
         end
     end
 
@@ -600,33 +572,6 @@ function DiffEqBase.ODEProblem(simulation::MultiBodySimulation,
         du.x[2] .= u.x[1]
         nothing
     end
-
-    # dv = MMatrix{3, n}(zeros(3, n))
-    # function ode_system(u, p, t)
-    #     fill!(dv, dtype_0)
-    #     @inbounds for pair in pairs
-    #         i, j = pair
-    #         fill!(ai, dtype_0)
-    #         fill!(aj, dtype_0)
-
-    #         r = u.x[2]
-    #         v = u.x[1]
-
-    #         smap!(output, accelerations, ai, aj, r, v, pair, t, p)
-
-    #         dv[1, i] += ai[1]
-    #         dv[2, i] += ai[2]
-    #         dv[3, i] += ai[3]
-            
-    #         dv[1, j] += aj[1]
-    #         dv[2, j] += aj[2]
-    #         dv[3, j] += aj[3]
-    #     end
-
-    #     # dr .= u.x[1]
-    #     return ArrayPartition(copy(dv), copy(u.x[1]))
-    # end
-
 
     u0 = ArrayPartition(v0, r0)
 

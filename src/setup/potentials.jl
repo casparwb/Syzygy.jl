@@ -153,13 +153,13 @@ struct PNPotential             <: MultiBodyPotential end
 
 
 """
-    pure_gravitational_acceleration!(dvi, dvj, rs, pair::Tuple{Int, Int}, params::SimulationParams)
+    pure_gravitational_acceleration(dv, rs, pair::Tuple{Int, Int}, params::SimulationParams)
 
 Gravitational acceleration on bodies i and j, with `(i, j) = pair`.
 """
-function pure_gravitational_acceleration!(dvi, dvj, rs,
-                                          pair::Tuple{Int, Int},
-                                          params::SimulationParams)
+function pure_gravitational_acceleration(dv, rs,
+                                         pair::Tuple{Int, Int},
+                                         params::SimulationParams)
     
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -178,9 +178,15 @@ function pure_gravitational_acceleration!(dvi, dvj, rs,
     a₁ =  a*m₂
     a₂ = -a*m₁
 
-    dvi .+= a₁
-    dvj .+= a₂
-    nothing
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
+
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
+    return nothing
 end
 
 
@@ -191,7 +197,7 @@ end
 Acceleration function from dynamical tides. This model is adapted from 
 [Implementing Tidal and Gravitational Wave Energy Losses in Few-body Codes: A Fast and Easy Drag Force Model](https://arxiv.org/abs/1803.08215)
 """
-function dynamical_tidal_acceleration!(dvi, dvj, rs, vs,
+function dynamical_tidal_acceleration(dv, rs, vs,
                                      pair::Tuple{Int, Int},
                                      params::SimulationParams,
                                      potential::DynamicalTidalPotential)
@@ -244,9 +250,16 @@ function dynamical_tidal_acceleration!(dvi, dvj, rs, vs,
         F₂₁ / m₂
     end
 
-    dvi .+= a₁
-    dvj .+= a₂
-    nothing
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
+
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
+
+    return nothing
 end
 
 
@@ -254,10 +267,10 @@ end
 """
 Acceleration function from equilibrium tides using the Hut 1981 prescription.
 """
-function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
-                                       pair::Tuple{Int, Int},
-                                       params::SimulationParams,
-                                       potential::TimeDependentEquilibriumTidalPotential) 
+function equilibrium_tidal_acceleration(dv, rs, vs,
+                                        pair::Tuple{Int, Int},
+                                        params::SimulationParams,
+                                        potential::TimeDependentEquilibriumTidalPotential) 
 
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -351,16 +364,22 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
         end
     end
     
-    dvi .+= a₁
-    dvj .+= a₂
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
+
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
     nothing
 end
 
 
-function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
-                                       pair::Tuple{Int, Int},
-                                       params::SimulationParams,
-                                       potential::EquilibriumTidalPotential) 
+function equilibrium_tidal_acceleration(dv, rs, vs,
+                                        pair::Tuple{Int, Int},
+                                        params::SimulationParams,
+                                        potential::EquilibriumTidalPotential) 
 
     i, j = pair
     stellar_type_1 = params.stellar_type_numbers[i]
@@ -440,21 +459,20 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
 
         end
 
-    # println(i, " ", j, " ", a₁, " ", a₂)
-    # if i == 3
-    #     println(stellar_type_1)
-    # elseif j == 3
-    #     println(stellar_type_2)
-    # end
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
 
-    dvi .+= a₁
-    dvj .+= a₂
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
     nothing
 end
 
-@fastmath function PN1_acceleration!(dvi, dvj, rs, vs,
-                           pair::Tuple{Int, Int},
-                           params::SimulationParams)
+@fastmath function PN1_acceleration(dv, rs, vs,
+                                    pair::Tuple{Int, Int},
+                                    params::SimulationParams)
                            
     i, j = pair # i = 1, j = 2
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -498,17 +516,28 @@ end
     aj = let n = -n, v̄ = -v̄, nv₁ = -nv₁, nv₂ = -nv₂ 
          (5G²_r³*m₂m₁ + 4G²_r³*m₁^2 + G_r²*m₁*(1.5nv₁^2 - v₂² + 4v₂v₁ - 2v₁²) )*n + G_r²*m₁*(4nv₂ - 3nv₁)*v̄
     end
+
+    ai *= c⁻²
+    aj *= c⁻²
+
+    dv[1, i] += ai[1]
+    dv[1, j] += aj[1]
+
+    dv[2, i] += ai[2]
+    dv[2, j] += aj[2]
+
+    dv[3, i] += ai[3]
+    dv[3, j] += aj[3]
+
     
-    dvi .+= ai*c⁻²
-    dvj .+= aj*c⁻²
     nothing
 end
 
 
 
-@fastmath function PN2_acceleration!(dvi, dvj, rs, vs,
-                           pair::Tuple{Int, Int},
-                           params::SimulationParams)
+@fastmath function PN2_acceleration(dv, rs, vs,
+                                    pair::Tuple{Int, Int},
+                                    params::SimulationParams)
                            
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -590,17 +619,25 @@ end
         a₁1 + a₂2
     end
 
+    ai *= c⁻⁴
+    aj *= c⁻⁴
 
-    dvi .+= ai*c⁻⁴
-    dvj .+= aj*c⁻⁴
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
+
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
     nothing
 end
 
 
 
-@fastmath function PN2p5_acceleration!(dvi, dvj, rs, vs,
-                             pair::Tuple{Int, Int},
-                             params::SimulationParams)                            
+@fastmath function PN2p5_acceleration(dv, rs, vs,
+                                      pair::Tuple{Int, Int},
+                                      params::SimulationParams)                            
     # i = 1, j = 2
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -638,7 +675,7 @@ end
     a1 = a_num*n
     a_num = 8G³_r⁴*m₁²m₂*0.2 - 32G³_r⁴*m₁m₂²*0.2 - 4G²_r³*m₁m₂*0.2v²
     a2 = a_num*v̄
-    ai = a1 + a2
+    a₁ = a1 + a2
 
 
     # acceleration for body 2 (j)
@@ -646,16 +683,25 @@ end
     a1 = a_num*(-n)
     a_num = 8G³_r⁴*m₂²m₁*0.2 - 32G³_r⁴*m₂m₁²*0.2 - 4G²_r³*m₂m₁*0.2v²
     a2 = a_num*(-v̄)
-    aj = a1 + a2
+    a₂ = a1 + a2
     ###############################################################
 
 
-    dvi .+= ai*c⁻⁵
-    dvj .+= aj*c⁻⁵
+    a₁ *= c⁻⁵
+    a₂ *= c⁻⁵
+
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
+
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
     nothing
 end
 
-@fastmath function PN1_to_2p5_acceleration!(dvi, dvj, rs, vs,
+@fastmath function PN1_to_2p5_acceleration(dv, rs, vs,
                                   pair::Tuple{Int, Int},
                                   params::SimulationParams)                           
     i, j = pair
@@ -781,8 +827,18 @@ end
         PN1, PN2, PN2p5
     end
 
-    dvi .+= ai_PN1*c⁻² + ai_PN2*c⁻⁴ + ai_PN2p5*c⁻⁵
-    dvj .+= aj_PN1*c⁻² + aj_PN2*c⁻⁴ + aj_PN2p5*c⁻⁵
+    a₁ = ai_PN1*c⁻² + ai_PN2*c⁻⁴ + ai_PN2p5*c⁻⁵
+    a₂ = aj_PN1*c⁻² + aj_PN2*c⁻⁴ + aj_PN2p5*c⁻⁵
+
+
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
+
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
 
     nothing
 end
