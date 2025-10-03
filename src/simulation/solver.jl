@@ -36,8 +36,13 @@ function simulate(simulation::MultiBodySimulation)
         integrator_static = OrdinaryDiffEqRKN.init(ode_prob_static, args[:alg], saveat=args[:saveat], maxiters=args[:maxiters], 
                                                 abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                                 diffeq_args...)
-        step!(integrator_static)
-        terminate!(integrator_static)
+        try
+            step!(integrator_static)
+        catch err
+            nothing
+        finally
+            terminate!(integrator_static)
+        end
     end
     # ##############################################################################################################
 
