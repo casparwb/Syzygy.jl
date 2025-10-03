@@ -77,7 +77,7 @@ function to_solution(result::SimulationResult)
     system = result.simulation.ic
     n_bodies = system.n
 
-    spin_precession = any(x -> x isa SpinPotential, values(result.simulation.potential))
+    spin_precession = false#any(x -> x isa SpinPotential, values(result.simulation.potential))
 
     time = result.solution.t .* unit_time
     

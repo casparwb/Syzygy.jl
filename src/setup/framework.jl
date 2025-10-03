@@ -200,18 +200,6 @@ function gather_accelerations_for_potentials(simulation::MultiBodySimulation)
     acceleration_functions = []
 
     for (potential_name, potential) in simulation.potential
-        potential isa SpinPotential && continue
-        push!(acceleration_functions, get_accelerating_function(potential))
-    end
-
-    AccelerationFunctions(SA[acceleration_functions...], length(acceleration_functions))
-end
-
-function gather_spin_accelerations_for_potentials(simulation::MultiBodySimulation)
-    acceleration_functions = []
-
-    for (potential_name, potential) in simulation.potential
-        !(potential isa SpinPotential) && continue
         push!(acceleration_functions, get_accelerating_function(potential))
     end
 
@@ -219,22 +207,6 @@ function gather_spin_accelerations_for_potentials(simulation::MultiBodySimulatio
 end
 
 ###################################### The in-place ODE solver ######################################
-function make_initial_conditions(us, vs, ss, spinvel, dtype::Type{<:AbstractFloat})
-    n = length(us)
-    u0 = MMatrix{6, n, dtype}([reduce(hcat, us); reduce(hcat, ss)])
-    v0 = MMatrix{6, n, dtype}([reduce(hcat, vs); reduce(hcat, spinvel)])
-
-    return u0, v0
-end
-
-function make_initial_conditions(us, vs, ss, spinvel, dtype::Type{ArbFloat})
-    n = length(us)
-    u0 = SizedMatrix{6, n, dtype}([reduce(hcat, us); reduce(hcat, ss)])
-    v0 = SizedMatrix{6, n, dtype}([reduce(hcat, vs); reduce(hcat, spinvel)])
-
-    return u0, v0
-end
-
 function make_initial_conditions(us, vs, dtype::Type{<:AbstractFloat})
     n = length(us)
     u0 = MMatrix{3, n, dtype}(reduce(hcat, us))
