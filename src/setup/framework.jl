@@ -2,7 +2,6 @@ using DiffEqBase, StaticArrays
 using FunctionWranglers
 using ArbNumerics
 using RecursiveArrayTools: ArrayPartition
-import PreallocationTools
 
 abstract type MultiBodyInitialConditions end
 abstract type AbstractBinary end
@@ -166,34 +165,6 @@ end
 function get_accelerating_function(potential::PNPotential)
     (dv, rs, vs, pair, time, params) -> PN1_to_2p5_acceleration(dv, rs, vs, pair, params)
 end
-
-# function get_accelerating_function(potential::PN1p5SpinPotential)
-#     (dvi, dvj, rs, vs, pair, time, params) -> PN1p5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
-# end
-
-# function get_accelerating_function(potential::PN2SpinPotential)
-#     (dvi, dvj, rs, vs, pair, time, params) -> PN2_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
-# end
-
-# function get_accelerating_function(potential::PN2p5SpinPotential)
-#     (dvi, dvj, rs, vs, pair, time, params) -> PN2p5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
-# end
-
-# function get_accelerating_function(potential::SpinPrecessionPotential)
-#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
-# end
-
-# function get_accelerating_function(potential::PN1SpinPrecessionPotential)
-#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN1_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
-# end
-
-# function get_accelerating_function(potential::PN1p5SpinPrecessionPotential)
-#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN1p5_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
-# end
-
-# function get_accelerating_function(potential::PN2SpinPrecessionPotential)
-#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN2_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
-# end
 ######################################################################################################
 
 function gather_accelerations_for_potentials(simulation::MultiBodySimulation)
