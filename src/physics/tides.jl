@@ -131,6 +131,15 @@ function apsidal_motion_constant_over_tidal_timescale(mass::Real, radius,
     end
 end
 
+function get_k_over_T(mass, stellar_type, kT_conv, kT_rad_factor, separation⁻⁵, pertuber_mass_ratio_factor)
+
+    if (isone(stellar_type) && mass > 1.25) || stellar_type == 4 || stellar_type == 7
+        return pertuber_mass_ratio_factor*kT_rad_factor*separation⁻⁵
+    else
+        return kT_conv
+    end
+
+end
 
 # """
 # apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
