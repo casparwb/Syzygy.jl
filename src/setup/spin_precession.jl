@@ -1208,3 +1208,32 @@ function DiffEqBase.ODEProblem(simulation::MultiBodySimulation,
     aj     = MVector{3, dtype}(zeros(dtype, 3)...)
     ODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0, ai, aj)
 end
+
+
+# function get_accelerating_function(potential::PN1p5SpinPotential)
+#     (dvi, dvj, rs, vs, pair, time, params) -> PN1p5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
+# end
+
+# function get_accelerating_function(potential::PN2SpinPotential)
+#     (dvi, dvj, rs, vs, pair, time, params) -> PN2_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
+# end
+
+# function get_accelerating_function(potential::PN2p5SpinPotential)
+#     (dvi, dvj, rs, vs, pair, time, params) -> PN2p5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
+# end
+
+# function get_accelerating_function(potential::SpinPrecessionPotential)
+#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+# end
+
+# function get_accelerating_function(potential::PN1SpinPrecessionPotential)
+#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN1_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+# end
+
+# function get_accelerating_function(potential::PN1p5SpinPrecessionPotential)
+#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN1p5_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+# end
+
+# function get_accelerating_function(potential::PN2SpinPrecessionPotential)
+#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN2_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+# end
