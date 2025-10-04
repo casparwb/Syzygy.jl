@@ -308,8 +308,8 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
         push!(m_envs, ustrip(unit_mass, envelope_mass))
     end
     
-    R_envs = SA[R_envs...]
-    m_envs = SA[m_envs...]
+    envelope_radii = SA[R_envs...]
+    envelope_masses = SA[m_envs...]
 
     lb_multiplier = get(options, :lb_multiplier, 1.1)
     ub_multiplier = get(options, :lb_multiplier, 1.1)
@@ -379,12 +379,46 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
         rotational_angular_velocities
     end
 
-    # luminosity_unit = if unit_mass == u"Msun"
-    #     u"Lsun"
-    # else
-    #     upreferred(u"Lsun")
-    # end
+    kT_convs = let
+        ms = system.particles.mass
+        Rs = system.particles.radius
+        M_envs = system.particles.envelope_mass
+        R_envs = system.particles.envelope_radius
+        Ls = system.particles.luminosity
 
+        [Syzygy.k_over_T_convective(m, R, m_env, R_env, L) for (m, R, m_env, R_env, L) in zip(ms, Rs, M_envs, R_envs, Ls)]
+    end
+
+    fake_perturber_mass = 1.0 # M⊙
+    kT_rad_factors = let
+        ms = ustrip.(u"Msun", system.particles.mass)
+        R²s = ustrip.(u"Rsun^2", system.particles.radius .^ 2)
+
+        q₂s = fake_perturber_mass ./ ms
+        
+        tmp = [Syzygy.k_over_T_radiative(m, R², 1.0, fake_perturber_mass) for (m, R²) in zip(ms, R²s)]
+        @. tmp/(1 + q₂s)^(5/6)
+    end
+
+    kT_convs = ustrip.(u"yr^-1", kT_convs)
+
+    pertuber_mass_ratio_factors = let
+        m_perturbers = system.particles.mass
+        m_objects = system.particles.mass
+        [(1 + m_perturbers[j]/m_objects[i])^(5/6) for j = 1:n_bodies, i = 1:n_bodies]
+    end
+
+    R³_over_Gms = let
+        ms = ustrip.(unit_mass, system.particles.mass)
+        R³s = ustrip.(u"Rsun^3", system.particles.radius .^ 3)
+
+        [R³/(UNITLESS_G*m) for (R³, m) in zip(R³s, ms)]
+    end
+
+    R³_over_Gms = SVector(R³_over_Gms...)
+    pertuber_mass_ratio_factors = SMatrix{n_bodies,n_bodies}(pertuber_mass_ratio_factors)
+    kT_rad_factors = SVector(kT_rad_factors...)
+    kT_convs = SVector(kT_convs...)
 
     masses = SVector(masses...)
     luminosities = SVector(luminosities...)
@@ -392,19 +426,20 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
     stellar_types = SVector(stellar_types...)
     stellar_type_nums = SVector(stellar_type_nums...)
 
-    # @show typeof(masses) typeof(m_envs) typeof(R_envs) typeof(apsidal_motion_constants)
-
-
     ode_params = TidalSimulationParams(radii, 
                                        masses, 
                                        luminosities, 
                                        stellar_types,
                                        stellar_type_nums,
                                        metallicity, 
-                                       m_envs, 
-                                       R_envs,
+                                       envelope_masses,
+                                       envelope_radii, 
                                        apsidal_motion_constants,
-                                       rotational_angular_velocities)
+                                       rotational_angular_velocities,
+                                       R³_over_Gms,
+                                       pertuber_mass_ratio_factors,
+                                       kT_rad_factors,
+                                       kT_convs)
 
     return ode_params
 end
