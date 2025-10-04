@@ -170,9 +170,9 @@ function pure_gravitational_acceleration(dv, rs,
 
     m₁ = params.masses[i]
     m₂ = params.masses[j]
-    G_r² = -UNITLESS_G/r^2
+    Gr⁻² = -UNITLESS_G/r^2
 
-    a = G_r²*n̂
+    a = Gr⁻²*n̂
 
     a₁ =  a*m₂
     a₂ = -a*m₁
@@ -436,7 +436,7 @@ function equilibrium_tidal_acceleration(dv, rs, vs,
         end
 
     # # tidal force on 2 by 1
-    a₂ = let 
+    a₂ = let r_hat = -r_hat, θ_hat = -θ_hat
         if stellar_type_2 > 9 
                 SA[0.0, 0.0, 0.0]
             else    
