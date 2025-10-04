@@ -49,8 +49,10 @@ function tidal_structure_function(η, γ)
     all(iszero(l2)) && return 0.0, 0.0
 
     x = log10(η)
-    logT₂ = l2[1] + l2[2]*x + l2[3]*x^2 + l2[4]*x^3 + l2[5]*x^4 + l2[6]*x^5 
-    logT₃ = l3[1] + l3[2]*x + l3[3]*x^2 + l3[4]*x^3 + l3[5]*x^4 + l3[6]*x^5 
+    # logT₂ = l2[1] + l2[2]*x + l2[3]*x^2 + l2[4]*x^3 + l2[5]*x^4 + l2[6]*x^5 
+    # logT₃ = l3[1] + l3[2]*x + l3[3]*x^2 + l3[4]*x^3 + l3[5]*x^4 + l3[6]*x^5 
+    logT₂ = evalpoly(x, l2)
+    logT₃ = evalpoly(x, l3)
     return 10^(logT₂), 10^(logT₃)
 end
 
