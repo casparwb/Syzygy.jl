@@ -91,3 +91,4 @@ const hierarchy_labels = ["Primary", "Secondary", "Tertiary",
                           "Quaternary", "Quinary", "Senary", 
                           "Septenary", "Octonary", "Oonary", "Denary"]
 
+const tidal_read_lock = ReentrantLock()
