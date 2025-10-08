@@ -242,7 +242,7 @@ function k_over_T_radiative(mass_tidal_object, radius_tidal_object², mass_pertu
     return 1.9782e4*mass_tidal_object*radius_tidal_object²/semi_major_axis^5*(1 + q₂)^(5/6)*E₂
 end
 
-function get_k_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
+function get_k_interpolator(;order=(3,3), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
     Z = Z == 0.02 ? 0.0134 : Z
     k_data_location = joinpath(@__DIR__, "..", "..", "deps", "tidal_evolution_constants", "grid_Z=$Z.jld2")
     
@@ -273,7 +273,7 @@ function get_k_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multipli
     return k_itp
 end
 
-function get_beta_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
+function get_beta_interpolator(;order=(3,3), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
     Z = Z == 0.02 ? 0.0134 : Z
     k_data_location = joinpath(@__DIR__, "..", "..", "deps", "tidal_evolution_constants", "grid_Z=$Z.jld2")
     
