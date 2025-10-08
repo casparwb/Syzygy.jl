@@ -249,10 +249,12 @@ function get_k_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multipli
     if !isfile(k_data_location)
         @error "Tidal evolution constant data file $(split(k_data_location, "/")[end]) not found."
     end
-    
-    masses = JLD2.load(k_data_location, "Mass")
-    logg = JLD2.load(k_data_location, "logg")
-    logk2 = JLD2.load(k_data_location, "logk2")
+
+    masses, logg, logk2 = lock(tidal_read_lock) do
+        JLD2.load(k_data_location, "Mass"),
+        JLD2.load(k_data_location, "logg"),
+        JLD2.load(k_data_location, "beta")
+    end
 
     logm = ustrip.(u"Msun", masses) .|> log10
     logg = ustrip.(u"cm/s^2", logg)
@@ -260,8 +262,11 @@ function get_k_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multipli
 
     coordinates = [SA[col...] for col in (eachcol([logm logg]'))]
 
-    lb = [minimum(logm), minimum(logg)] .* lb_multiplier
-	ub = [maximum(logm), maximum(logg)] .* ub_multiplier
+    min_logm, max_logm = extrema(logm)
+    min_logg, max_logg = extrema(logg)
+
+    lb = [min_logm, min_logg] .* lb_multiplier
+	ub = [max_logm, max_logg] .* ub_multiplier
     interpolator = chebregression(coordinates, logk2, lb, ub, order)
     k_itp(logm, logg) = interpolator(SA[logm, logg])
 
@@ -276,9 +281,11 @@ function get_beta_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multi
         @error "Tidal evolution constant data file $(split(k_data_location, "/")[end]) not found."
     end
     
-    masses = JLD2.load(k_data_location, "Mass")
-    logg = JLD2.load(k_data_location, "logg")
-    logk2 = JLD2.load(k_data_location, "beta")
+    masses, logg, logk2 = lock(tidal_read_lock) do
+        JLD2.load(k_data_location, "Mass"),
+        JLD2.load(k_data_location, "logg"),
+        JLD2.load(k_data_location, "beta")
+    end
 
     logm = ustrip.(u"Msun", masses) .|> log10
     logg = ustrip.(u"cm/s^2", logg)
