@@ -318,7 +318,7 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
     set_spin = get(options, :set_spin, false)
 
     logk_interpolator = if isnothing(supplied_apsidal_motion_constants)
-        order = get(options, :order, (5, 5))
+        order = get(options, :order, (3, 3))
         get_k_interpolator(Z=metallicity, lb_multiplier=lb_multiplier, ub_multiplier=ub_multiplier, order=order)
     else
         nothing
