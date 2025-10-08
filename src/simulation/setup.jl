@@ -317,7 +317,12 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
     supplied_rotational_angular_velocities = get(options, :supplied_rotational_angular_velocities, nothing)
     set_spin = get(options, :set_spin, false)
 
-    logk_interpolator = get_k_interpolator(Z=metallicity, lb_multiplier=lb_multiplier, ub_multiplier=ub_multiplier)
+    logk_interpolator = if isnothing(supplied_apsidal_motion_constants)
+        order = get(options, :order, (5, 5))
+        get_k_interpolator(Z=metallicity, lb_multiplier=lb_multiplier, ub_multiplier=ub_multiplier, order=order)
+    else
+        nothing
+    end
    
     apsidal_motion_constants = Float64[]
     rotational_angular_velocities = Float64[]
@@ -345,9 +350,14 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
             if isnothing(supplied_apsidal_motion_constants)
                 logg = log10(ustrip(u"cm/s^2", (GRAVCONST*m/R^2))) 
                 logm = log10(ustrip(u"Msun", m))
+
+                logg = clamp(logg, -0.4617, 4.61961)
+                logm = clamp(logm, 0.74565, 34.99814)
                 try
                     logk = logk_interpolator(logm, logg)
-                    push!(apsidal_motion_constants, 10^logk)
+                    k = 10^logk
+                    k = ifelse(isinf(k) || isnan(k), 0.0, k)
+                    push!(apsidal_motion_constants, k)
                 catch e
                     throw(e)
                 end
@@ -357,9 +367,7 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
                 Ω = stellar_rotational_frequency(m, R)
                 push!(rotational_angular_velocities, ustrip(unit(1/unit_time), 2π*Ω))
             end
-
         end
-
     end
 
     if !set_spin
@@ -401,6 +409,9 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
     end
 
     kT_convs = ustrip.(u"yr^-1", kT_convs)
+
+    kT_convs = map(x -> ifelse(isnan(x) || isinf(x), 0.0, x), kT_convs)
+    kT_rad_factors = map(x -> ifelse(isnan(x) || isinf(x), 0.0, x), kT_rad_factors)
 
     pertuber_mass_ratio_factors = let
         m_perturbers = system.particles.mass
