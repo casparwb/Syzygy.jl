@@ -5,27 +5,24 @@ function bodies(system::T where T <: MultiBodyInitialConditions, dtype=Float64)
 
     positions  = [zeros(dtype, 3) for i = 1:system.n]
     velocities = [zeros(dtype, 3) for i = 1:system.n]
-    spins      = [zeros(dtype, 3) for i = 1:system.n]
     masses     =  zeros(dtype, system.n)
 
     for (key, particle) in system.particles
         positions[key]  .= upreferred.(particle.position) |> ustrip
         velocities[key] .= upreferred.(particle.velocity) |> ustrip
-        spins[key]      .= upreferred.(particle.structure.S) |> ustrip
         masses[key]      = upreferred(particle.mass) |> ustrip
     end
 
-    SA[[MassBody(SA[r...], SA[v...], SA[s...], m) for (r, v, s, m) in zip(positions, velocities, spins, masses)]...]
+    SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(positions, velocities, masses)]...]
 end
 
-function bodies(positions, velocities, spins, masses, dtype=Float64)
+function bodies(positions, velocities, masses, dtype=Float64)
 
     positions  = [dtype.(ustrip(upreferred(unit(p[1])), p)) for p in positions]
     velocities = [dtype.(ustrip(upreferred(unit(v[1])), v)) for v in velocities]
-    spins      = [dtype.(ustrip(upreferred(unit(v[1])), v)) for v in spins]
     masses     = [dtype(ustrip(upreferred(unit(m)), m)) for m in masses]
 
-    SA[[MassBody(SA[r...], SA[v...], SA[s...], m) for (r, v, s, m) in zip(positions, velocities, spins, masses)]...]
+    SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(positions, velocities, masses)]...]
 end
 
 function get_potential_dict(potential::MultiBodyPotential)
@@ -135,9 +132,6 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     args[:dtype] = dtype
     particles = system.particles
     
-    if any(x -> x isa SpinPotential, args[:potential])
-        check_spins(system.particles.S)
-    end
 
     # if any(x -> typoef(x) in SA[PN1Potential, PN2Potential, PN2p5Potential, PNPotential]) && 
     #    (kwargs[:alg] == DPRKN6() || kwargs[:alg] == DPRKN8() || kwargs[:alg] == DPRKN10() || kwargs[:alg] == DPRKN12())
@@ -232,21 +226,6 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     return simulation
 end
 
-
-function check_spins(spins)
-    if isnothing(spins)
-        @error "Please give spins if using a spin potential."
-    elseif !(typeof(spins) <: AbstractVector{<:AbstractVector{<:Quantity}})
-        @error "Please give spins as a Vector of Vectors"
-    else
-        𝐋, 𝐌, 𝐓 = Unitful.𝐋, Unitful.𝐌, Unitful.𝐓
-        correct_dim = 𝐋^3*𝐌/𝐓^2
-        if dimension(eltype(first(spins))) != correct_dim
-            throw(DimensionMismatch("Given spins do not have correct dimensions. $(dimension(eltype(first(spins)))) was given, but must be $correct_dim"))
-        end
-    end
-end
-
 function get_final_time(t0, t_sim, P_out, datatype=Float64)
     if t_sim isa Quantity
         t_sim *= one(t_sim)
@@ -329,8 +308,8 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
         push!(m_envs, ustrip(unit_mass, envelope_mass))
     end
     
-    R_envs = SA[R_envs...]
-    m_envs = SA[m_envs...]
+    envelope_radii = SA[R_envs...]
+    envelope_masses = SA[m_envs...]
 
     lb_multiplier = get(options, :lb_multiplier, 1.1)
     ub_multiplier = get(options, :lb_multiplier, 1.1)
@@ -338,7 +317,12 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
     supplied_rotational_angular_velocities = get(options, :supplied_rotational_angular_velocities, nothing)
     set_spin = get(options, :set_spin, false)
 
-    logk_interpolator = get_k_interpolator(Z=metallicity, lb_multiplier=lb_multiplier, ub_multiplier=ub_multiplier)
+    logk_interpolator = if isnothing(supplied_apsidal_motion_constants)
+        order = get(options, :order, (3, 3))
+        get_k_interpolator(Z=metallicity, lb_multiplier=lb_multiplier, ub_multiplier=ub_multiplier, order=order)
+    else
+        nothing
+    end
    
     apsidal_motion_constants = Float64[]
     rotational_angular_velocities = Float64[]
@@ -366,9 +350,14 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
             if isnothing(supplied_apsidal_motion_constants)
                 logg = log10(ustrip(u"cm/s^2", (GRAVCONST*m/R^2))) 
                 logm = log10(ustrip(u"Msun", m))
+
+                logg = clamp(logg, -0.4617, 4.61961)
+                logm = clamp(logm, 0.74565, 34.99814)
                 try
                     logk = logk_interpolator(logm, logg)
-                    push!(apsidal_motion_constants, 10^logk)
+                    k = 10^logk
+                    k = ifelse(isinf(k) || isnan(k), 0.0, k)
+                    push!(apsidal_motion_constants, k)
                 catch e
                     throw(e)
                 end
@@ -378,9 +367,7 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
                 Ω = stellar_rotational_frequency(m, R)
                 push!(rotational_angular_velocities, ustrip(unit(1/unit_time), 2π*Ω))
             end
-
         end
-
     end
 
     if !set_spin
@@ -400,12 +387,49 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
         rotational_angular_velocities
     end
 
-    # luminosity_unit = if unit_mass == u"Msun"
-    #     u"Lsun"
-    # else
-    #     upreferred(u"Lsun")
-    # end
+    kT_convs = let
+        ms = system.particles.mass
+        Rs = system.particles.radius
+        M_envs = system.particles.envelope_mass
+        R_envs = system.particles.envelope_radius
+        Ls = system.particles.luminosity
 
+        [Syzygy.k_over_T_convective(m, R, m_env, R_env, L) for (m, R, m_env, R_env, L) in zip(ms, Rs, M_envs, R_envs, Ls)]
+    end
+
+    fake_perturber_mass = 1.0 # M⊙
+    kT_rad_factors = let
+        ms = ustrip.(u"Msun", system.particles.mass)
+        R²s = ustrip.(u"Rsun^2", system.particles.radius .^ 2)
+
+        q₂s = fake_perturber_mass ./ ms
+        
+        tmp = [Syzygy.k_over_T_radiative(m, R², 1.0, fake_perturber_mass) for (m, R²) in zip(ms, R²s)]
+        @. tmp/(1 + q₂s)^(5/6)
+    end
+
+    kT_convs = ustrip.(u"yr^-1", kT_convs)
+
+    kT_convs = map(x -> ifelse(isnan(x) || isinf(x), 0.0, x), kT_convs)
+    kT_rad_factors = map(x -> ifelse(isnan(x) || isinf(x), 0.0, x), kT_rad_factors)
+
+    pertuber_mass_ratio_factors = let
+        m_perturbers = system.particles.mass
+        m_objects = system.particles.mass
+        [(1 + m_perturbers[j]/m_objects[i])^(5/6) for j = 1:n_bodies, i = 1:n_bodies]
+    end
+
+    R³_over_Gms = let
+        ms = ustrip.(unit_mass, system.particles.mass)
+        R³s = ustrip.(u"Rsun^3", system.particles.radius .^ 3)
+
+        [R³/(UNITLESS_G*m) for (R³, m) in zip(R³s, ms)]
+    end
+
+    R³_over_Gms = SVector(R³_over_Gms...)
+    pertuber_mass_ratio_factors = SMatrix{n_bodies,n_bodies}(pertuber_mass_ratio_factors)
+    kT_rad_factors = SVector(kT_rad_factors...)
+    kT_convs = SVector(kT_convs...)
 
     masses = SVector(masses...)
     luminosities = SVector(luminosities...)
@@ -413,19 +437,20 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
     stellar_types = SVector(stellar_types...)
     stellar_type_nums = SVector(stellar_type_nums...)
 
-    # @show typeof(masses) typeof(m_envs) typeof(R_envs) typeof(apsidal_motion_constants)
-
-
     ode_params = TidalSimulationParams(radii, 
                                        masses, 
                                        luminosities, 
                                        stellar_types,
                                        stellar_type_nums,
                                        metallicity, 
-                                       m_envs, 
-                                       R_envs,
+                                       envelope_masses,
+                                       envelope_radii, 
                                        apsidal_motion_constants,
-                                       rotational_angular_velocities)
+                                       rotational_angular_velocities,
+                                       R³_over_Gms,
+                                       pertuber_mass_ratio_factors,
+                                       kT_rad_factors,
+                                       kT_convs)
 
     return ode_params
 end

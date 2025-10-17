@@ -1055,3 +1055,185 @@ function PN2_spin_precession_velocity_factor(S̄₁, S̄₂, r₁, r₂, v₁, v
                 2nv*(v₁S₁ + v₂S₁) - 5nS₁*G/r*(m₁ - m₂))
             )
 end
+
+function get_initial_conditions(simulation::MultiBodySimulation, dtype, ::Type{SpinPotential})
+    bodies = simulation.bodies
+
+    spinvelocity = [zeros(eltype(b.spin), 3) for b in bodies]
+    if any(x -> x isa SpinPotential, values(simulation.potential))
+        for pot in values(simulation.potential)
+            !(pot isa SpinPotential) && continue
+
+            system = simulation.ic
+            for pair in system.pairs
+                i, j = pair
+                b1 = bodies[i]
+                b2 = bodies[j]
+                spinvelocity[i] += get_spin_precession_velocity(b1, b2, pot)
+                spinvelocity[j] += get_spin_precession_velocity(b2, b1, pot)
+            end
+        end
+    end
+
+    us = [b.position for b in bodies]
+    vs = [b.velocity for b in bodies]
+    ss = [b.spin for b in bodies]
+
+    u0, v0 = make_initial_conditions(us, vs, ss, spinvelocity, dtype)
+
+    return u0, v0
+end
+
+function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
+                                          acc_funcs::AccelerationFunctions, 
+                                          spin_acc_funcs::AccelerationFunctions, 
+                                          dtype::Type{ArbFloat})
+                                          
+    u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
+    SecondOrderODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0)
+end
+
+function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
+                                          acc_funcs::AccelerationFunctions, 
+                                          spin_acc_funcs::AccelerationFunctions, 
+                                          dtype::Type{<:AbstractFloat})
+
+    u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
+    SecondOrderODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0)
+end
+
+
+function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
+                                          acc_funcs::AccelerationFunctions, 
+                                          spin_acc_funcs::AccelerationFunctions,
+                                          u0, v0, ai, aj)
+    pairs = simulation.ic.pairs
+
+    accelerations = FunctionWrangler(acc_funcs.fs)
+    output = Vector{Nothing}(undef, acc_funcs.N)
+
+    spin_accelerations = FunctionWrangler(spin_acc_funcs.fs)
+    spin_out = Vector{Nothing}(undef, spin_acc_funcs.N)
+
+
+    dtype = eltype(u0)
+    dtype_0 = zero(dtype)
+    function soode_system!(dv, v, u, p, t)
+        fill!(dv, dtype_0)
+        @inbounds for pair in pairs
+            i, j = pair
+            fill!(ai, dtype_0)
+            fill!(aj, dtype_0)
+
+            smap!(output, accelerations, ai, aj, u, v, pair, t, p)
+
+            # @inbounds for k = 1:3
+            #     dv[k, i] += ai[k]
+            #     dv[k, j] += aj[k]
+            # end
+
+            dv[1, i] += ai[1]
+            dv[1, j] += aj[1]
+
+            dv[2, i] += ai[2]
+            dv[2, j] += aj[2]
+
+            dv[3, i] += ai[3]
+            dv[3, j] += aj[3]
+
+            fill!(ai, dtype_0)
+            fill!(aj, dtype_0)
+
+            smap!(spin_out, spin_accelerations, ai, aj, dv, u, v, pair, t, p)
+
+            dv[4, i] += ai[4]
+            dv[4, j] += aj[4]
+
+            dv[5, i] += ai[5]
+            dv[5, j] += aj[5]
+
+            dv[6, i] += ai[6]
+            dv[6, j] += aj[6]
+        end
+
+    end
+
+    SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
+end
+
+function get_initial_conditions_static(simulation::MultiBodySimulation)
+    bodies = simulation.bodies;
+    n = length(bodies)
+
+    spinvelocity = [zeros(eltype(b.spin), 3) for b in bodies]
+    if any(x -> x isa SpinPotential, values(simulation.potential))
+        system = simulation.ic
+        for pair in system.pairs
+            i, j = pair
+            b1 = bodies[i]
+            b2 = bodies[j]
+            dS = spin_precession_velocity(b1, b2)
+            spinvelocity[i] += dS
+        end
+    end
+
+    us = [b.position for b in bodies]
+    vs = [b.velocity for b in bodies]
+    ss = [b.spin for b in bodies]
+
+    u0 = SMatrix{6, n}([reduce(hcat, us); reduce(hcat, ss)])
+    v0 = SMatrix{6, n}([reduce(hcat, vs); reduce(hcat, spinvelocity)])
+
+    (u0, v0, n)
+end
+
+function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
+                                          acc_funcs::AccelerationFunctions, 
+                                          spin_acc_funcs::AccelerationFunctions, 
+                                          dtype::Type{ArbFloat})
+                                          
+    u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
+    ai     = SizedVector{3, dtype}(zeros(dtype, 3)...)
+    aj     = SizedVector{3, dtype}(zeros(dtype, 3)...)
+    ODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0, ai, aj)
+end
+
+function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
+                                          acc_funcs::AccelerationFunctions, 
+                                          spin_acc_funcs::AccelerationFunctions, 
+                                          dtype::Type{<:AbstractFloat})
+
+    u0, v0 = get_initial_conditions(simulation, dtype, SpinPotential)
+    ai     = MVector{3, dtype}(zeros(dtype, 3)...)
+    aj     = MVector{3, dtype}(zeros(dtype, 3)...)
+    ODEProblem(simulation, acc_funcs, spin_acc_funcs, u0, v0, ai, aj)
+end
+
+
+# function get_accelerating_function(potential::PN1p5SpinPotential)
+#     (dvi, dvj, rs, vs, pair, time, params) -> PN1p5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
+# end
+
+# function get_accelerating_function(potential::PN2SpinPotential)
+#     (dvi, dvj, rs, vs, pair, time, params) -> PN2_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
+# end
+
+# function get_accelerating_function(potential::PN2p5SpinPotential)
+#     (dvi, dvj, rs, vs, pair, time, params) -> PN2p5_spin_acceleration!(dvi, dvj, rs, vs, pair, params)
+# end
+
+# function get_accelerating_function(potential::SpinPrecessionPotential)
+#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+# end
+
+# function get_accelerating_function(potential::PN1SpinPrecessionPotential)
+#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN1_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+# end
+
+# function get_accelerating_function(potential::PN1p5SpinPrecessionPotential)
+#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN1p5_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+# end
+
+# function get_accelerating_function(potential::PN2SpinPrecessionPotential)
+#     (dvi, dvj, dvs, rs, vs, pair, time, params) -> PN2_spin_precession!(dvi, dvj, dvs, rs, vs, pair, params)
+# end

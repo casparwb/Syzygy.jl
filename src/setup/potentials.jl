@@ -5,7 +5,6 @@ using LinearAlgebra: dot, norm, ×
 include("../physics/tides.jl")
 
 abstract type MultiBodyPotential end
-abstract type SpinPotential <: MultiBodyPotential end
 abstract type SimulationParams end
 
 
@@ -16,7 +15,7 @@ struct DefaultSimulationParams{FloatVecType, IntVecType, stpVecType} <: Simulati
     stellar_type_numbers::IntVecType
 end
 
-struct TidalSimulationParams{FloatVecType, IntVecType, stpVecType, MutableFloatVecType} <: SimulationParams
+struct TidalSimulationParams{FloatVecType, IntVecType, stpVecType, MutableFloatVecType, IntMatType} <: SimulationParams
     radii::FloatVecType # radii
     masses::FloatVecType # masses
     luminosities::FloatVecType # luminosities
@@ -27,6 +26,10 @@ struct TidalSimulationParams{FloatVecType, IntVecType, stpVecType, MutableFloatV
     envelope_radii::FloatVecType 
     apsidal_motion_constants::FloatVecType 
     rotational_angular_velocities::MutableFloatVecType
+    R³_over_Gm::FloatVecType
+    pertuber_mass_ratio_factors::IntMatType
+    k_over_T_rad_factors::FloatVecType
+    k_over_T_conv::FloatVecType
 end
 
 # struct PNSimulationParams{RType, MType, M2_type, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
@@ -44,7 +47,7 @@ end
     PureGravitationalPotential()
 
 
-Newtonian gravitational potential. Corresponds to the acceleration function `Syzygy.pure_gravitational_acceleration!`.
+Newtonian gravitational potential. Corresponds to the acceleration function `Syzygy.pure_gravitational_acceleration!!`.
 """
 struct PureGravitationalPotential <: MultiBodyPotential end
 
@@ -54,7 +57,7 @@ struct PureGravitationalPotential <: MultiBodyPotential end
 
 
 Set up the dynamical tidal potential for a system as defined by Samsing, Leigh & Trani 2018. 
-Corresponds to the acceleration function `Syzygy.dynamical_tidal_acceleration!`.
+Corresponds to the acceleration function `Syzygy.dynamical_tidal_acceleration!!`.
 
 # Arguments
 
@@ -89,7 +92,7 @@ Equilibrium tidal potential, with the assumption that the stars are evolving ove
 the internal structure changes. The envelope structure is calculated throughout the simulation, rather than being fixed
 from the start. 
 
-Corresponds to the acceleration function `Syzygy.pure_gravitational_acceleration!`.
+Corresponds to the acceleration function `Syzygy.pure_gravitational_acceleration!!`.
 """
 struct TimeDependentEquilibriumTidalPotential <: MultiBodyPotential 
     function TimeDependentEquilibriumTidalPotential()
@@ -117,7 +120,7 @@ be adapted using the keyword arguments `lb_multiplier` for the lower bounds, and
 Alternatively, the apsidal motion constants and rotational angular velocities can be supplied using the keyword arguments
 `supplied_apsidal_motion_constants` and `supplied_rotational_angular_velocities`.
 
-Corresponds to the acceleration function `Syzygy.equilibrium_tidal_acceleration!`.
+Corresponds to the acceleration function `Syzygy.equilibrium_tidal_acceleration!!`.
 
 # Arguments
 - `system`: an instance of a `HierarchicalMultiple` or `NonHierarchichalSystem` type.
@@ -153,13 +156,13 @@ struct PNPotential             <: MultiBodyPotential end
 
 
 """
-    pure_gravitational_acceleration!(dvi, dvj, rs, pair::Tuple{Int, Int}, params::SimulationParams)
+    pure_gravitational_acceleration!(dv, rs, pair::Tuple{Int, Int}, params::SimulationParams)
 
 Gravitational acceleration on bodies i and j, with `(i, j) = pair`.
 """
-function pure_gravitational_acceleration!(dvi, dvj, rs,
-                                          pair::Tuple{Int, Int},
-                                          params::SimulationParams)
+function pure_gravitational_acceleration!(dv, rs,
+                                         pair::Tuple{Int, Int},
+                                         params::SimulationParams)
     
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -171,27 +174,33 @@ function pure_gravitational_acceleration!(dvi, dvj, rs,
 
     m₁ = params.masses[i]
     m₂ = params.masses[j]
-    G_r² = -UNITLESS_G/r^2
+    Gr⁻² = -UNITLESS_G/r^2
 
-    a = G_r²*n̂
+    a = Gr⁻²*n̂
 
     a₁ =  a*m₂
     a₂ = -a*m₁
 
-    dvi .+= a₁
-    dvj .+= a₂
-    nothing
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
+
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
+    return nothing
 end
 
 
 
 """
-    dynamical_tidal_acceleration!(dv, rs, vs, params::SimulationParams, i::Int, n::Int, potential::DynamicalTidalPotential)
+    dynamical_tidal_acceleration!!(dv, rs, vs, params::SimulationParams, i::Int, n::Int, potential::DynamicalTidalPotential)
 
 Acceleration function from dynamical tides. This model is adapted from 
 [Implementing Tidal and Gravitational Wave Energy Losses in Few-body Codes: A Fast and Easy Drag Force Model](https://arxiv.org/abs/1803.08215)
 """
-function dynamical_tidal_acceleration!(dvi, dvj, rs, vs,
+function dynamical_tidal_acceleration!(dv, rs, vs,
                                      pair::Tuple{Int, Int},
                                      params::SimulationParams,
                                      potential::DynamicalTidalPotential)
@@ -244,9 +253,16 @@ function dynamical_tidal_acceleration!(dvi, dvj, rs, vs,
         F₂₁ / m₂
     end
 
-    dvi .+= a₁
-    dvj .+= a₂
-    nothing
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
+
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
+
+    return nothing
 end
 
 
@@ -254,10 +270,10 @@ end
 """
 Acceleration function from equilibrium tides using the Hut 1981 prescription.
 """
-function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
-                                       pair::Tuple{Int, Int},
-                                       params::SimulationParams,
-                                       potential::TimeDependentEquilibriumTidalPotential) 
+function equilibrium_tidal_acceleration!(dv, rs, vs,
+                                        pair::Tuple{Int, Int},
+                                        params::SimulationParams,
+                                        potential::TimeDependentEquilibriumTidalPotential) 
 
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -351,16 +367,22 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
         end
     end
     
-    dvi .+= a₁
-    dvj .+= a₂
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
+
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
     nothing
 end
 
 
-function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
-                                       pair::Tuple{Int, Int},
-                                       params::SimulationParams,
-                                       potential::EquilibriumTidalPotential) 
+function equilibrium_tidal_acceleration!(dv, rs, vs,
+                                        pair::Tuple{Int, Int},
+                                        params::SimulationParams,
+                                        potential::EquilibriumTidalPotential) 
 
     i, j = pair
     stellar_type_1 = params.stellar_type_numbers[i]
@@ -392,69 +414,74 @@ function equilibrium_tidal_acceleration!(dvi, dvj, rs, vs,
     θ_dot_norm = norm(θ_dot)
     θ_hat = v̄/v
 
-    sma = semi_major_axis(r, v^2, m₂+m₁)
+    separation⁻⁵ = 1/semi_major_axis(r, v^2, m₂+m₁)^5
 
     # tidal force on 1 by 2
     a₁ = let
         if stellar_type_1 > 9
-                SA[0.0, 0.0, 0.0]
-            else    
-                μ = UNITLESS_G*m₂*r⁻¹*r⁻¹
-    
-                envelope_mass = params.envelope_masses[i]
-                envelope_radius = params.envelope_radii[i]
-                luminosity = params.luminosities[i]
-                R = params.radii[i]
-                Ω = params.rotational_angular_velocities[i]
-                k_T = apsidal_motion_constant_over_tidal_timescale(m₁, R, envelope_mass, envelope_radius,
-                                                                   stellar_type_1, luminosity, 
-                                                                   m₂, sma, params.Z)
-                k = params.apsidal_motion_constants[i]
-                kτ = R^3/(UNITLESS_G*m₁)*k_T
-    
-                @. -3μ*m₂/m₁*(R*r⁻¹)^5*((k + 3v̄*r⁻¹*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
-            end
+            SA[0.0, 0.0, 0.0]
+        else    
+            μ = UNITLESS_G*m₂*r⁻¹*r⁻¹
 
+            # envelope_mass = params.envelope_masses[i]
+            # envelope_radius = params.envelope_radii[i]
+            # luminosity = params.luminosities[i]
+            R = params.radii[i]
+            Ω = params.rotational_angular_velocities[i]
+            # k_over_T = apsidal_motion_constant_over_tidal_timescale(m₁, R, envelope_mass, envelope_radius,
+            #                                                    stellar_type_1, luminosity, 
+            #                                                    m₂, sma, params.Z)
+            q_fac = params.pertuber_mass_ratio_factors[i,j]
+            k_over_T = get_k_over_T(m₁, stellar_type_1, params.k_over_T_conv[i], params.k_over_T_rad_factors[i], 
+                                    separation⁻⁵, q_fac)
+            k = params.apsidal_motion_constants[i]
+            kτ = params.R³_over_Gm[i]*k_over_T#R^3/(UNITLESS_G*m₁)*k_T
+
+            @. -3μ*m₂/m₁*(R*r⁻¹)^5*((k + 3v̄*r⁻¹*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
         end
+    end
 
     # # tidal force on 2 by 1
-    a₂ = let 
+    a₂ = let r_hat = -r_hat, θ_hat = -θ_hat
         if stellar_type_2 > 9 
-                SA[0.0, 0.0, 0.0]
-            else    
-                μ = UNITLESS_G*m₁*r⁻¹*r⁻¹
-    
-                envelope_mass = params.envelope_masses[j]
-                envelope_radius = params.envelope_radii[j]
-                luminosity  = params.luminosities[j]
-                R = params.radii[j]
-                Ω = params.rotational_angular_velocities[j]
-                k_T = apsidal_motion_constant_over_tidal_timescale(m₂, R, envelope_mass, envelope_radius,
-                                                                   stellar_type_2, luminosity, 
-                                                                   m₁, sma, params.Z)
-                k = params.apsidal_motion_constants[j]
-                kτ = R^3/(UNITLESS_G*m₂)*k_T
-    
-                @. -3μ*m₁/m₂*(R*r⁻¹)^5*((k + 3v̄*r⁻¹*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
-            end
+            SA[0.0, 0.0, 0.0]
+        else    
+            μ = UNITLESS_G*m₁*r⁻¹*r⁻¹
 
+            # envelope_mass = params.envelope_masses[j]
+            # envelope_radius = params.envelope_radii[j]
+            # luminosity  = params.luminosities[j]
+            R = params.radii[j]
+            Ω = params.rotational_angular_velocities[j]
+            # k_T = apsidal_motion_constant_over_tidal_timescale(m₂, R, envelope_mass, envelope_radius,
+            #                                                    stellar_type_2, luminosity, 
+            #                                                    m₁, sma, params.Z)
+            q_fac = params.pertuber_mass_ratio_factors[j,i]
+            k_over_T = get_k_over_T(m₁, stellar_type_2, 
+                                    params.k_over_T_conv[j],
+                                    params.k_over_T_rad_factors[j], 
+                                    separation⁻⁵, q_fac)
+            k = params.apsidal_motion_constants[j]
+            kτ = params.R³_over_Gm[j]*k_over_T
+
+            @. -3μ*m₁/m₂*(R*r⁻¹)^5*((k + 3v̄*r⁻¹*kτ)*r_hat - (Ω - θ_dot_norm)*kτ*θ_hat)
         end
+    end
 
-    # println(i, " ", j, " ", a₁, " ", a₂)
-    # if i == 3
-    #     println(stellar_type_1)
-    # elseif j == 3
-    #     println(stellar_type_2)
-    # end
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
 
-    dvi .+= a₁
-    dvj .+= a₂
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
     nothing
 end
 
-function PN1_acceleration!(dvi, dvj, rs, vs,
-                           pair::Tuple{Int, Int},
-                           params::SimulationParams)
+@fastmath function PN1_acceleration!(dv, rs, vs,
+                                    pair::Tuple{Int, Int},
+                                    params::SimulationParams)
                            
     i, j = pair # i = 1, j = 2
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -493,22 +520,33 @@ function PN1_acceleration!(dvi, dvj, rs, vs,
     G_r² = G_r*r⁻¹
     G²_r³ = G²*r⁻¹^3
 
-    ai = (5G²_r³*m₁m₂ + 4G²_r³*m₂^2 + G_r²*m₂*(3/2*nv₂^2 - v₁² + 4v₁v₂ - 2v₂²) )*n + G_r²*m₂*(4nv₁ - 3nv₂)*v̄
+    ai = (5G²_r³*m₁m₂ + 4G²_r³*m₂^2 + G_r²*m₂*(1.5nv₂^2 - v₁² + 4v₁v₂ - 2v₂²) )*n + G_r²*m₂*(4nv₁ - 3nv₂)*v̄
 
     aj = let n = -n, v̄ = -v̄, nv₁ = -nv₁, nv₂ = -nv₂ 
-         (5G²_r³*m₂m₁ + 4G²_r³*m₁^2 + G_r²*m₁*(3/2*nv₁^2 - v₂² + 4v₂v₁ - 2v₁²) )*n + G_r²*m₁*(4nv₂ - 3nv₁)*v̄
+         (5G²_r³*m₂m₁ + 4G²_r³*m₁^2 + G_r²*m₁*(1.5nv₁^2 - v₂² + 4v₂v₁ - 2v₁²) )*n + G_r²*m₁*(4nv₂ - 3nv₁)*v̄
     end
+
+    ai *= c⁻²
+    aj *= c⁻²
+
+    dv[1, i] += ai[1]
+    dv[1, j] += aj[1]
+
+    dv[2, i] += ai[2]
+    dv[2, j] += aj[2]
+
+    dv[3, i] += ai[3]
+    dv[3, j] += aj[3]
+
     
-    dvi .+= ai*c⁻²
-    dvj .+= aj*c⁻²
     nothing
 end
 
 
 
-function PN2_acceleration!(dvi, dvj, rs, vs,
-                           pair::Tuple{Int, Int},
-                           params::SimulationParams)
+@fastmath function PN2_acceleration!(dv, rs, vs,
+                                    pair::Tuple{Int, Int},
+                                    params::SimulationParams)
                            
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -560,47 +598,55 @@ function PN2_acceleration!(dvi, dvj, rs, vs,
     # expression is split up to avoid allocations that can appear in long expressions
 
     # acceleration for body 1 (i)
-    a_num = G³_r⁴*(-57*m₁²m₂/4 - 69*m₁m₂²/2 - 9*m₂^3) 
-    a_num += G_r²*m₂*(-15/8*nv₂⁴ + 3/2*nv₂²*v₁² - 6*nv₂²*v₁v₂ - 2*v₁v₂² + 9/2*nv₂²*v₂² + 
-                        4*v₁v₂*v₂² - 2v₂^4)
-    a_num += G²_r³*m₁m₂*(39/2*nv₁² - 39*nv₁*nv₂ + 17/2*nv₂² - 15/4*v₁² - 5/2*v₁v₂ + 5/4*v₂²) 
-    a_num += G²_r³*m₂^2*(2*nv₁² - 4*nv₁*nv₂ - 6*nv₂² - 8*v₁v₂ + 4v₂²) 
+    a_num = G³_r⁴*(-57m₁²m₂*0.25 - 69m₁m₂²*0.5 - 9m₂^3) 
+    a_num += G_r²*m₂*(-1.875nv₂⁴ + 1.5nv₂²*v₁² - 6nv₂²*v₁v₂ - 2v₁v₂² + 4.5nv₂²*v₂² + 
+                        4v₁v₂*v₂² - 2v₂^4)
+    a_num += G²_r³*m₁m₂*(19.5nv₁² - 39nv₁*nv₂ + 8.5nv₂² - 3.75v₁² - 2.5v₁v₂ + 1.25v₂²) 
+    a_num += G²_r³*m₂^2*(2nv₁² - 4nv₁*nv₂ - 6nv₂² - 8v₁v₂ + 4v₂²) 
     a₂1 = n*a_num
 
-    a_num = G²_r³*m₂^2*(-2*nv₁ - 2*nv₂) + G²_r³*m₁m₂*(-63/4*nv₁ + 55/4*nv₂) 
-    a_num += G_r²*m₂*(-6*nv₁*nv₂² + 9/2*nv₂^3 + nv₂*v₁² - 4*nv₁*v₁v₂ + 
-                        4*nv₂*v₁v₂ + 4*nv₁*v₂² - 5*nv₂*v₂²)
+    a_num = G²_r³*m₂^2*(-2nv₁ - 2nv₂) + G²_r³*m₁m₂*(-15.75nv₁ + 13.75nv₂) 
+    a_num += G_r²*m₂*(-6nv₁*nv₂² + 4.5nv₂^3 + nv₂*v₁² - 4nv₁*v₁v₂ + 
+                        4nv₂*v₁v₂ + 4nv₁*v₂² - 5nv₂*v₂²)
     a₂2 = v̄*a_num
-    ai = a₂1 + a₂2
+    a₁ = a₂1 + a₂2
 
 
     # acceleration for body 2 (j)
-    aj = let nv₁ = -nv₁, nv₂ = -nv₂
-        a_num = G³_r⁴*(-57*m₂²m₁/4 - 69*m₂m₁²/2 - 9*m₁^3) 
-        a_num += G_r²*m₁*(-15/8*nv₁⁴ + 3/2*nv₁²*v₂² - 6*nv₁²*v₂v₁ - 2*v₂v₁² + 9/2*nv₁²*v₁² + 
-                            4*v₂v₁*v₁² - 2v₁^4)
-        a_num += G²_r³*m₂m₁*(39/2*nv₂² - 39*nv₂*nv₁ + 17/2*nv₁² - 15/4*v₂² - 5/2*v₂v₁ + 5/4*v₁²) 
-        a_num += G²_r³*m₁^2*(2*nv₂² - 4*nv₂*nv₁ - 6*nv₁² - 8*v₂v₁ + 4v₁²) 
+    a₂ = let nv₁ = -nv₁, nv₂ = -nv₂
+        a_num = G³_r⁴*(-57m₂²m₁*0.25 - 69m₂m₁²*0.5 - 9*m₁^3) 
+        a_num += G_r²*m₁*(-1.875nv₁⁴ + 1.5nv₁²*v₂² - 6nv₁²*v₂v₁ - 2v₂v₁² + 4.5nv₁²*v₁² + 
+                            4v₂v₁*v₁² - 2v₁^4)
+        a_num += G²_r³*m₂m₁*(19.5nv₂² - 39nv₂*nv₁ + 8.5nv₁² - 3.75v₂² - 2.5v₂v₁ + 1.25v₁²) 
+        a_num += G²_r³*m₁^2*(2nv₂² - 4nv₂*nv₁ - 6nv₁² - 8v₂v₁ + 4v₁²) 
         a₁1 = (-n)*a_num
 
-        a_num = G²_r³*m₁^2*(-2*nv₂ - 2*nv₁) + G²_r³*m₂m₁*(-63/4*nv₂ + 55/4*nv₁) 
-        a_num += G_r²*m₁*(-6*nv₂*nv₁² + 9/2*nv₁^3 + nv₁*v₂² - 4*nv₂*v₂v₁ + 
-                            4*nv₁*v₂v₁ + 4*nv₂*v₁² - 5*nv₁*v₁²)
+        a_num = G²_r³*m₁^2*(-2nv₂ - 2nv₁) + G²_r³*m₂m₁*(-15.75nv₂ + 13.75nv₁) 
+        a_num += G_r²*m₁*(-6nv₂*nv₁² + 4.5nv₁^3 + nv₁*v₂² - 4nv₂*v₂v₁ + 
+                            4nv₁*v₂v₁ + 4nv₂*v₁² - 5nv₁*v₁²)
         a₂2 = (-v̄)*a_num
         a₁1 + a₂2
     end
 
+    a₁ *= c⁻⁴
+    a₂ *= c⁻⁴
 
-    dvi .+= ai*c⁻⁴
-    dvj .+= aj*c⁻⁴
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
+
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
     nothing
 end
 
 
 
-function PN2p5_acceleration!(dvi, dvj, rs, vs,
-                             pair::Tuple{Int, Int},
-                             params::SimulationParams)                            
+@fastmath function PN2p5_acceleration!(dv, rs, vs,
+                                      pair::Tuple{Int, Int},
+                                      params::SimulationParams)                            
     # i = 1, j = 2
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -634,28 +680,37 @@ function PN2p5_acceleration!(dvi, dvj, rs, vs,
 
     #################### PN-2.5 acceleration ####################
     # acceleration for body 1 (i)
-    a_num = 208G³_r⁴*m₁m₂²/15*nv - 24G³_r⁴*m₁²m₂/5*nv + 12G²_r³*m₁m₂/5*v²
+    a_num = div_208_15*G³_r⁴*m₁m₂²*nv - 24G³_r⁴*m₁²m₂*0.2nv + 12G²_r³*m₁m₂*0.2v²
     a1 = a_num*n
-    a_num = 8G³_r⁴*m₁²m₂/5 - 32G³_r⁴*m₁m₂²/5 - 4G²_r³*m₁m₂/5*v²
+    a_num = 8G³_r⁴*m₁²m₂*0.2 - 32G³_r⁴*m₁m₂²*0.2 - 4G²_r³*m₁m₂*0.2v²
     a2 = a_num*v̄
-    ai = a1 + a2
+    a₁ = a1 + a2
 
 
     # acceleration for body 2 (j)
-    a_num = 208G³_r⁴*m₂m₁²/15*nv - 24G³_r⁴*m₂²m₁/5*nv + 12G²_r³*m₂m₁/5*v²
+    a_num = div_208_15*G³_r⁴*m₂m₁²*nv - 24G³_r⁴*m₂²m₁*0.2nv + 12G²_r³*m₂m₁*0.2v²
     a1 = a_num*(-n)
-    a_num = 8G³_r⁴*m₂²m₁/5 - 32G³_r⁴*m₂m₁²/5 - 4G²_r³*m₂m₁/5*v²
+    a_num = 8G³_r⁴*m₂²m₁*0.2 - 32G³_r⁴*m₂m₁²*0.2 - 4G²_r³*m₂m₁*0.2v²
     a2 = a_num*(-v̄)
-    aj = a1 + a2
+    a₂ = a1 + a2
     ###############################################################
 
 
-    dvi .+= ai*c⁻⁵
-    dvj .+= aj*c⁻⁵
+    a₁ *= c⁻⁵
+    a₂ *= c⁻⁵
+
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
+
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
     nothing
 end
 
-function PN1_to_2p5_acceleration!(dvi, dvj, rs, vs,
+@fastmath function PN1_to_2p5_acceleration!(dv, rs, vs,
                                   pair::Tuple{Int, Int},
                                   params::SimulationParams)                           
     i, j = pair
@@ -682,7 +737,7 @@ function PN1_to_2p5_acceleration!(dvi, dvj, rs, vs,
     v = norm(v̄) # v₁₂
 
     r⁻¹ = 1/r
-    r² = r^2
+    # r² = r^2
     v² = v^2
     n = r̄*r⁻¹
 
@@ -712,29 +767,30 @@ function PN1_to_2p5_acceleration!(dvi, dvj, rs, vs,
     ai_PN1, ai_PN2, ai_PN2p5 = let
         
         #################### PN-1 acceleration ##################
-        PN1 = (5G²*m₁*m₂*r⁻¹^3 + 4G²*m₂^2*r⁻¹^3 + G*m₂*r⁻¹^2*(3/2*nv₂^2 - v₁² + 4v₁v₂ - 2v₂²) )*n + G*m₂*r⁻¹^2*(4nv₁ - 3nv₂)*v̄
+        # PN1 = (5G²*m₁*m₂*r⁻¹^3 + 4G²*m₂^2*r⁻¹^3 + G*m₂*r⁻¹^2*(1.5*nv₂^2 - v₁² + 4v₁v₂ - 2v₂²) )*n + G*m₂*r⁻¹^2*(4nv₁ - 3nv₂)*v̄
+        PN1 = (5G²_r³*m₁m₂ + 4G²_r³*m₂^2 + G_r²*m₂*(1.5nv₂^2 - v₁² + 4v₁v₂ - 2v₂²) )*n + G_r²*m₂*(4nv₁ - 3nv₂)*v̄
         #########################################################
 
         #################### PN-2 acceleration ##################
-        a_num = G³_r⁴*(-57*m₁²m₂/4 - 69*m₁m₂²/2 - 9*m₂^3) 
-        a_num += G_r²*m₂*(-15/8*nv₂⁴ + 3/2*nv₂²*v₁² - 6*nv₂²*v₁v₂ - 2*v₁v₂² + 9/2*nv₂²*v₂² + 
-                            4*v₁v₂*v₂² - 2v₂^4)
-        a_num += G²_r³*m₁m₂*(39/2*nv₁² - 39*nv₁*nv₂ + 17/2*nv₂² - 15/4*v₁² - 5/2*v₁v₂ + 5/4*v₂²) 
-        a_num += G²_r³*m₂^2*(2*nv₁² - 4*nv₁*nv₂ - 6*nv₂² - 8*v₁v₂ + 4v₂²) 
+        a_num = G³_r⁴*(-57m₁²m₂*0.25 - 69m₁m₂²*0.5 - 9m₂^3) 
+        a_num += G_r²*m₂*(-1.875nv₂⁴ + 1.5nv₂²*v₁² - 6nv₂²*v₁v₂ - 2v₁v₂² + 4.5nv₂²*v₂² + 
+                            4v₁v₂*v₂² - 2v₂^4)
+        a_num += G²_r³*m₁m₂*(19.5nv₁² - 39nv₁*nv₂ + 8.5nv₂² - 3.75v₁² - 2.5v₁v₂ + 1.25v₂²) 
+        a_num += G²_r³*m₂^2*(2nv₁² - 4nv₁*nv₂ - 6nv₂² - 8v₁v₂ + 4v₂²) 
         a₂1 = n*a_num
     
-        a_num = G²_r³*m₂^2*(-2*nv₁ - 2*nv₂) + G²_r³*m₁m₂*(-63/4*nv₁ + 55/4*nv₂) 
-        a_num += G_r²*m₂*(-6*nv₁*nv₂² + 9/2*nv₂^3 + nv₂*v₁² - 4*nv₁*v₁v₂ + 
-                            4*nv₂*v₁v₂ + 4*nv₁*v₂² - 5*nv₂*v₂²)
+        a_num = G²_r³*m₂^2*(-2nv₁ - 2nv₂) + G²_r³*m₁m₂*(-15.75nv₁ + 13.75nv₂) 
+        a_num += G_r²*m₂*(-6nv₁*nv₂² + 4.5nv₂^3 + nv₂*v₁² - 4nv₁*v₁v₂ + 
+                            4nv₂*v₁v₂ + 4nv₁*v₂² - 5nv₂*v₂²)
         a₂2 = v̄*a_num
         PN2 = a₂1 + a₂2
         #########################################################
 
 
         ################### PN-2.5 acceleration #################
-        a_num = 208G³_r⁴*m₁m₂²/15*nv - 24G³_r⁴*m₁²m₂/5*nv + 12G²_r³*m₁m₂/5*v²
+        a_num = div_208_15*G³_r⁴*m₁m₂²*nv - 24G³_r⁴*m₁²m₂*0.2nv + 12G²_r³*m₁m₂*0.2v²
         a1 = a_num*n
-        a_num = 8G³_r⁴*m₁²m₂/5 - 32G³_r⁴*m₁m₂²/5 - 4G²_r³*m₁m₂/5*v²
+        a_num = 8G³_r⁴*m₁²m₂*0.2 - 32G³_r⁴*m₁m₂²*0.2 - 4G²_r³*m₁m₂*0.2v²
         a2 = a_num*v̄
         PN2p5 = a1 + a2
         #########################################################
@@ -748,30 +804,31 @@ function PN1_to_2p5_acceleration!(dvi, dvj, rs, vs,
     aj_PN1, aj_PN2, aj_PN2p5 = let n = -n, v̄ = -v̄, nv₁ = -nv₁, nv₂ = -nv₂
 
         #################### PN-1 acceleration ##################
-        PN1 = (5G²*m₂*m₁*r⁻¹^3 + 4G²*m₁^2*r⁻¹^3 + G*m₁*r⁻¹^2*(3/2*nv₁^2 - v₂² + 4v₂v₁ - 2v₁²) )*n + G*m₁*r⁻¹^2*(4nv₂ - 3nv₁)*v̄
+        # PN1 = (5G²*m₂*m₁*r⁻¹^3 + 4G²*m₁^2*r⁻¹^3 + G*m₁*r⁻¹^2*(1.5*nv₁^2 - v₂² + 4v₂v₁ - 2v₁²) )*n + G*m₁*r⁻¹^2*(4nv₂ - 3nv₁)*v̄
+        PN1 = (5G²_r³*m₂m₁ + 4G²_r³*m₁^2 + G_r²*m₁*(1.5nv₁^2 - v₂² + 4v₂v₁ - 2v₁²) )*n + G_r²*m₁*(4nv₂ - 3nv₁)*v̄
         #########################################################
 
 
         #################### PN-2 acceleration ##################
-        a_num = G³_r⁴*(-57*m₂²m₁/4 - 69*m₂m₁²/2 - 9*m₁^3) 
-        a_num += G_r²*m₁*(-15/8*nv₁⁴ + 3/2*nv₁²*v₂² - 6*nv₁²*v₂v₁ - 2*v₂v₁² + 9/2*nv₁²*v₁² + 
-                            4*v₂v₁*v₁² - 2v₁^4)
-        a_num += G²_r³*m₂m₁*(39/2*nv₂² - 39*nv₂*nv₁ + 17/2*nv₁² - 15/4*v₂² - 5/2*v₂v₁ + 5/4*v₁²) 
-        a_num += G²_r³*m₁^2*(2*nv₂² - 4*nv₂*nv₁ - 6*nv₁² - 8*v₂v₁ + 4v₁²) 
+        a_num = G³_r⁴*(-57m₂²m₁*0.25 - 69m₂m₁²*0.5 - 9m₁^3) 
+        a_num += G_r²*m₁*(-1.875nv₁⁴ + 1.5nv₁²*v₂² - 6nv₁²*v₂v₁ - 2v₂v₁² + 4.5nv₁²*v₁² + 
+                            4v₂v₁*v₁² - 2v₁^4)
+        a_num += G²_r³*m₂m₁*(19.5nv₂² - 39nv₂*nv₁ + 8.5nv₁² - 3.75v₂² - 2.5v₂v₁ + 1.25v₁²) 
+        a_num += G²_r³*m₁^2*(2nv₂² - 4nv₂*nv₁ - 6nv₁² - 8v₂v₁ + 4v₁²) 
         a₁1 = n*a_num
 
-        a_num = G²_r³*m₁^2*(-2*nv₂ - 2*nv₁) + G²_r³*m₂m₁*(-63/4*nv₂ + 55/4*nv₁) 
-        a_num += G_r²*m₁*(-6*nv₂*nv₁² + 9/2*nv₁^3 + nv₁*v₂² - 4*nv₂*v₂v₁ + 
-                            4*nv₁*v₂v₁ + 4*nv₂*v₁² - 5*nv₁*v₁²)
+        a_num = G²_r³*m₁^2*(-2nv₂ - 2nv₁) + G²_r³*m₂m₁*(-15.75nv₂ + 13.75nv₁) 
+        a_num += G_r²*m₁*(-6nv₂*nv₁² + 4.5nv₁^3 + nv₁*v₂² - 4nv₂*v₂v₁ + 
+                            4nv₁*v₂v₁ + 4nv₂*v₁² - 5*nv₁*v₁²)
         a₂2 = v̄*a_num
         PN2 = a₁1 + a₂2
         #########################################################
 
 
         ################## PN-2p5 acceleration ##################
-        a_num = 208G³_r⁴*m₂m₁²/15*nv - 24G³_r⁴*m₂²m₁/5*nv + 12G²_r³*m₂m₁/5*v²
+        a_num = div_208_15*G³_r⁴*m₂m₁²*nv - 24G³_r⁴*m₂²m₁*0.2nv + 12G²_r³*m₂m₁*0.2v²
         a1 = a_num*n
-        a_num = 8G³_r⁴*m₂²m₁/5 - 32G³_r⁴*m₂m₁²/5 - 4G²_r³*m₂m₁/5*v²
+        a_num = 8G³_r⁴*m₂²m₁*0.2 - 32G³_r⁴*m₂m₁²*0.2 - 4G²_r³*m₂m₁*0.2v²
         a2 = a_num*v̄
         PN2p5 = a1 + a2
         #########################################################
@@ -779,8 +836,18 @@ function PN1_to_2p5_acceleration!(dvi, dvj, rs, vs,
         PN1, PN2, PN2p5
     end
 
-    dvi .+= ai_PN1*c⁻² + ai_PN2*c⁻⁴ + ai_PN2p5*c⁻⁵
-    dvj .+= aj_PN1*c⁻² + aj_PN2*c⁻⁴ + aj_PN2p5*c⁻⁵
+    a₁ = ai_PN1*c⁻² + ai_PN2*c⁻⁴ + ai_PN2p5*c⁻⁵
+    a₂ = aj_PN1*c⁻² + aj_PN2*c⁻⁴ + aj_PN2p5*c⁻⁵
+
+
+    dv[1, i] += a₁[1]
+    dv[1, j] += a₂[1]
+
+    dv[2, i] += a₁[2]
+    dv[2, j] += a₂[2]
+
+    dv[3, i] += a₁[3]
+    dv[3, j] += a₂[3]
 
     nothing
 end

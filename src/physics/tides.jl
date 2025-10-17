@@ -49,8 +49,10 @@ function tidal_structure_function(η, γ)
     all(iszero(l2)) && return 0.0, 0.0
 
     x = log10(η)
-    logT₂ = l2[1] + l2[2]*x + l2[3]*x^2 + l2[4]*x^3 + l2[5]*x^4 + l2[6]*x^5 
-    logT₃ = l3[1] + l3[2]*x + l3[3]*x^2 + l3[4]*x^3 + l3[5]*x^4 + l3[6]*x^5 
+    # logT₂ = l2[1] + l2[2]*x + l2[3]*x^2 + l2[4]*x^3 + l2[5]*x^4 + l2[6]*x^5 
+    # logT₃ = l3[1] + l3[2]*x + l3[3]*x^2 + l3[4]*x^3 + l3[5]*x^4 + l3[6]*x^5 
+    logT₂ = evalpoly(x, l2)
+    logT₃ = evalpoly(x, l3)
     return 10^(logT₂), 10^(logT₃)
 end
 
@@ -129,6 +131,15 @@ function apsidal_motion_constant_over_tidal_timescale(mass::Real, radius,
     end
 end
 
+function get_k_over_T(mass, stellar_type, kT_conv, kT_rad_factor, separation⁻⁵, pertuber_mass_ratio_factor)
+
+    if (isone(stellar_type) && mass > 1.25) || stellar_type == 4 || stellar_type == 7
+        return pertuber_mass_ratio_factor*kT_rad_factor*separation⁻⁵
+    else
+        return kT_conv
+    end
+
+end
 
 # """
 # apsidal_motion_constant_over_tidal_timescale(mass, radius, age, core_mass, core_radius, 
@@ -231,17 +242,19 @@ function k_over_T_radiative(mass_tidal_object, radius_tidal_object², mass_pertu
     return 1.9782e4*mass_tidal_object*radius_tidal_object²/semi_major_axis^5*(1 + q₂)^(5/6)*E₂
 end
 
-function get_k_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
+function get_k_interpolator(;order=(3,3), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
     Z = Z == 0.02 ? 0.0134 : Z
     k_data_location = joinpath(@__DIR__, "..", "..", "deps", "tidal_evolution_constants", "grid_Z=$Z.jld2")
     
     if !isfile(k_data_location)
         @error "Tidal evolution constant data file $(split(k_data_location, "/")[end]) not found."
     end
-    
-    masses = JLD2.load(k_data_location, "Mass")
-    logg = JLD2.load(k_data_location, "logg")
-    logk2 = JLD2.load(k_data_location, "logk2")
+
+    masses, logg, logk2 = lock(tidal_read_lock) do
+        JLD2.load(k_data_location, "Mass"),
+        JLD2.load(k_data_location, "logg"),
+        JLD2.load(k_data_location, "beta")
+    end
 
     logm = ustrip.(u"Msun", masses) .|> log10
     logg = ustrip.(u"cm/s^2", logg)
@@ -249,15 +262,18 @@ function get_k_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multipli
 
     coordinates = [SA[col...] for col in (eachcol([logm logg]'))]
 
-    lb = [minimum(logm), minimum(logg)] .* lb_multiplier
-	ub = [maximum(logm), maximum(logg)] .* ub_multiplier
+    min_logm, max_logm = extrema(logm)
+    min_logg, max_logg = extrema(logg)
+
+    lb = [min_logm, min_logg] .* lb_multiplier
+	ub = [max_logm, max_logg] .* ub_multiplier
     interpolator = chebregression(coordinates, logk2, lb, ub, order)
     k_itp(logm, logg) = interpolator(SA[logm, logg])
 
     return k_itp
 end
 
-function get_beta_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
+function get_beta_interpolator(;order=(3,3), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
     Z = Z == 0.02 ? 0.0134 : Z
     k_data_location = joinpath(@__DIR__, "..", "..", "deps", "tidal_evolution_constants", "grid_Z=$Z.jld2")
     
@@ -265,9 +281,11 @@ function get_beta_interpolator(;order=(5,5), Z=0.0134, lb_multiplier=1, ub_multi
         @error "Tidal evolution constant data file $(split(k_data_location, "/")[end]) not found."
     end
     
-    masses = JLD2.load(k_data_location, "Mass")
-    logg = JLD2.load(k_data_location, "logg")
-    logk2 = JLD2.load(k_data_location, "beta")
+    masses, logg, logk2 = lock(tidal_read_lock) do
+        JLD2.load(k_data_location, "Mass"),
+        JLD2.load(k_data_location, "logg"),
+        JLD2.load(k_data_location, "beta")
+    end
 
     logm = ustrip.(u"Msun", masses) .|> log10
     logg = ustrip.(u"cm/s^2", logg)

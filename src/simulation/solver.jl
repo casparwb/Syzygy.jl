@@ -36,20 +36,18 @@ function simulate(simulation::MultiBodySimulation)
         integrator_static = OrdinaryDiffEqRKN.init(ode_prob_static, args[:alg], saveat=args[:saveat], maxiters=args[:maxiters], 
                                                 abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                                 diffeq_args...)
-        step!(integrator_static)
-        terminate!(integrator_static)
+        try
+            step!(integrator_static)
+        catch err
+            nothing
+        finally
+            terminate!(integrator_static)
+        end
     end
     # ##############################################################################################################
 
     acc_funcs = gather_accelerations_for_potentials(simulation)
-
-    spin_precession = any(x -> x isa SpinPotential, values(simulation.potential))
-    ode_problem = if spin_precession
-                    spin_acc_funcs = gather_spin_accelerations_for_potentials(simulation)
-                    SecondOrderODEProblem(simulation, acc_funcs, spin_acc_funcs, args[:dtype])
-                  else
-                    SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
-                  end
+    ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
 
     integrator = OrdinaryDiffEqRKN.init(ode_problem, args[:alg], saveat=args[:saveat], 
                                         callback=callbacks, maxiters=args[:maxiters], 

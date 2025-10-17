@@ -20,6 +20,8 @@ const c⁻⁵ = c⁻⁴/UNITLESS_c
 const c⁻⁶ = c⁻⁵/UNITLESS_c
 const c⁻⁷ = c⁻⁶/UNITLESS_c
 
+const div_208_15 = 208/15
+
 const π² = π^2
 
 const surface_gravity_unit_conversion_factor = ustrip(u"cm/s^2", 1.0*unit_length/unit_time^2)
@@ -89,3 +91,4 @@ const hierarchy_labels = ["Primary", "Secondary", "Tertiary",
                           "Quaternary", "Quinary", "Senary", 
                           "Septenary", "Octonary", "Oonary", "Denary"]
 
+const tidal_read_lock = ReentrantLock()

@@ -11,11 +11,6 @@ using Test
 
         params = Syzygy.DefaultSimulationParams(radii, masses, [Syzygy.stellar_types[s] for s in stellar_types], stellar_types)
 
-        dv1 = zeros(3)
-        dv2 = zeros(3)
-        dv3 = zeros(3)
-        dvs = [dv1, dv2, dv3]
-
         y = 2*sin(deg2rad(60))
         r1 = [-1.0, 0.0, 0.0]#u"Rsun"
         r2 = [1.0, 0.0, 0.0]#u"Rsun"
@@ -27,12 +22,12 @@ using Test
         pair23 = (2, 3)
         pairs = (pair12, pair13, pair23)
         for p in pairs
-            for dv in dvs
-                fill!(dv, 0.0)
-            end
+            dv = zeros(3, 3)
             i, j = p
-            Syzygy.pure_gravitational_acceleration!(dvs[i], dvs[j], rs, p, params)
-            @test abs.(dvs[i]) ≈ abs.(dvs[j])
+            Syzygy.pure_gravitational_acceleration!(dv, rs, p, params)
+            dvi = dv[:,i]
+            dvj = dv[:,j]
+            @test abs.(dvi) ≈ abs.(dvj)
         end
     end
 
@@ -45,8 +40,7 @@ using Test
 
         params = Syzygy.DefaultSimulationParams(radii, masses, [Syzygy.stellar_types[s] for s in stellar_types], stellar_types)
 
-        dv1 = zeros(3)
-        dv2 = zeros(3)
+        dv = zeros(3, 2)
 
         r1 = [-1.0, 0.0, 0.0]#u"Rsun"
         r2 = [1.0, 0.0, 0.0]#u"Rsun"
@@ -58,7 +52,9 @@ using Test
 
         pair = (1, 2)
 
-        Syzygy.PN1_acceleration!(dv1, dv2, rs, vs, pair, params)
+        Syzygy.PN1_acceleration!(dv, rs, vs, pair, params)
+        dv1 = dv[:,1]
+        dv2 = dv[:,2]
         @test abs.(dv1) ≈ abs.(dv2)
 
     end
@@ -72,8 +68,7 @@ using Test
 
         params = Syzygy.DefaultSimulationParams(radii, masses, [Syzygy.stellar_types[s] for s in stellar_types], stellar_types)
 
-        dv1 = zeros(3)
-        dv2 = zeros(3)
+        dv = zeros(3, 2)
 
         r1 = [-1.0, 0.0, 0.0]#u"Rsun"
         r2 = [1.0, 0.0, 0.0]#u"Rsun"
@@ -85,7 +80,9 @@ using Test
 
         pair = (1, 2)
 
-        Syzygy.PN2_acceleration!(dv1, dv2, rs, vs, pair, params)
+        Syzygy.PN2_acceleration!(dv, rs, vs, pair, params)
+        dv1 = dv[:,1]
+        dv2 = dv[:,2]
         @test abs.(dv1) ≈ abs.(dv2)
 
     end
@@ -99,8 +96,7 @@ using Test
 
         params = Syzygy.DefaultSimulationParams(radii, masses, [Syzygy.stellar_types[s] for s in stellar_types], stellar_types)
 
-        dv1 = zeros(3)
-        dv2 = zeros(3)
+        dv = zeros(3, 2)
 
         r1 = [-1.0, 0.0, 0.0]#u"Rsun"
         r2 = [1.0, 0.0, 0.0]#u"Rsun"
@@ -111,8 +107,10 @@ using Test
         vs = [v1 v2]
 
         pair = (1, 2)
-        Syzygy.PN2p5_acceleration!(dv1, dv2, rs, vs, pair, params)
 
+        Syzygy.PN2p5_acceleration!(dv, rs, vs, pair, params)
+        dv1 = dv[:,1]
+        dv2 = dv[:,2]
         @test abs.(dv1) ≈ abs.(dv2)
 
     end
@@ -126,8 +124,7 @@ using Test
 
         params = Syzygy.DefaultSimulationParams(radii, masses, [Syzygy.stellar_types[s] for s in stellar_types], stellar_types)
 
-        dv1 = zeros(3)
-        dv2 = zeros(3)
+        dv = zeros(3, 2)
 
         r1 = [-1.0, 0.0, 0.0]#u"Rsun"
         r2 = [1.0, 0.0, 0.0]#u"Rsun"
@@ -138,22 +135,23 @@ using Test
         vs = [v1 v2]
 
         pair = (1, 2)
-        Syzygy.PN1_to_2p5_acceleration!(dv1, dv2, rs, vs, pair, params)
-
+        Syzygy.PN1_to_2p5_acceleration!(dv, rs, vs, pair, params)
+        dv1 = dv[:,1]
+        dv2 = dv[:,2]
         @test abs.(dv1) ≈ abs.(dv2)
 
 
         @testset "PN1_to_2p5_acceleration! equals PN1+PN2+PN2.5" begin
-            dv1_2 = zeros(3)
-            dv2_2 = zeros(3)
+            dvv = zeros(3, 2)
 
-            Syzygy.PN1_acceleration!(dv1_2, dv2_2, rs, vs, pair, params)
-            Syzygy.PN2_acceleration!(dv1_2, dv2_2, rs, vs, pair, params)
-            Syzygy.PN2p5_acceleration!(dv1_2, dv2_2, rs, vs, pair, params)
+            Syzygy.PN1_acceleration!(dvv, rs, vs, pair, params)
+            Syzygy.PN2_acceleration!(dvv, rs, vs, pair, params)
+            Syzygy.PN2p5_acceleration!(dvv, rs, vs, pair, params)
+            dvv1 = dvv[:,1]
+            dvv2 = dvv[:,2]
 
-
-            @test dv1 ≈ dv1_2
-            @test dv2 ≈ dv2_2
+            @test dv1 ≈ dvv1
+            @test dv2 ≈ dvv2
         end
     end
 
@@ -176,16 +174,16 @@ using Test
                                               Float64.(ustrip.(luminosities)), [Syzygy.stellar_types[s] for s in stellar_types], stellar_types, 
                                               Float64.(ustrip.(M_cores)), Float64.(ustrip.(R_cores)), Float64.(ustrip.(ages)))
 
-        dv1 = zeros(3)
-        dv2 = zeros(3)
+        dv = zeros(3, 2)
 
         rs = reduce(hcat, binary.particles.position) .|> ustrip
         vs = reduce(hcat, binary.particles.velocity) .|> ustrip
 
         pot = EquilibriumTidalPotential(binary, set_spin=true)
         pair = (1, 2)
-        Syzygy.Syzygy.equilibrium_tidal_acceleration!(dv1, dv2, rs, vs, pair, params, pot)
-
+        Syzygy.Syzygy.equilibrium_tidal_acceleration!(dv, rs, vs, pair, params, pot)
+        dv1 = dv[:,1]
+        dv2 = dv[:,2]
         @test abs.(dv1) ≈ abs.(dv2)
 
     end
@@ -213,8 +211,7 @@ using Test
                                                 Float64.(ustrip.(R_cores)), 
                                                 Float64.(ustrip.(ages)))
 
-        dv1 = zeros(3)
-        dv2 = zeros(3)
+        dv = zeros(3, 2)
         
         rs = reduce(hcat, binary.particles.position) .|> u"Rsun" .|> ustrip
         vs = reduce(hcat, (binary.particles.velocity)) .|> u"Rsun/yr" .|> ustrip
@@ -222,7 +219,9 @@ using Test
         pot = DynamicalTidalPotential(4, [1.5, 1.5])
 
         pair = (1, 2)
-        Syzygy.Syzygy.dynamical_tidal_acceleration!(dv1, dv2, rs, vs, pair, params, pot)
+        Syzygy.Syzygy.dynamical_tidal_acceleration!(dv, rs, vs, pair, params, pot)
+        dv1 = dv[:,1]
+        dv2 = dv[:,2]
         @test abs.(dv1) ≈ abs.(dv2)
 
     end
