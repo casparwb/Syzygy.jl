@@ -135,35 +135,35 @@ end
 
 ################################ Framework for the different potentials ################################
 function get_accelerating_function(potential::PureGravitationalPotential)
-    (dv, rs, vs, pair, time, params) -> pure_gravitational_acceleration(dv, rs, pair, params)
+    (dv, rs, vs, pair, time, params) -> pure_gravitational_acceleration!(dv, rs, pair, params)
 end
 
 function get_accelerating_function(potential::DynamicalTidalPotential)
-    (dv, rs, vs, pair, time, params) -> dynamical_tidal_acceleration(dv, rs, vs, pair, params, potential)
+    (dv, rs, vs, pair, time, params) -> dynamical_tidal_acceleration!(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::TimeDependentEquilibriumTidalPotential)
-    (dv, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration(dv, rs, vs, pair, params, potential)
+    (dv, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration!(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::EquilibriumTidalPotential)
-    (dv, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration(dv, rs, vs, pair, params, potential)
+    (dv, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration!(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::PN1Potential)
-    (dv, rs, vs, pair, time, params) -> PN1_acceleration(dv, rs, vs, pair, params)
+    (dv, rs, vs, pair, time, params) -> PN1_acceleration!(dv, rs, vs, pair, params)
 end
 
 function get_accelerating_function(potential::PN2Potential)
-    (dv, rs, vs, pair, time, params) -> PN2_acceleration(dv, rs, vs, pair, params)
+    (dv, rs, vs, pair, time, params) -> PN2_acceleration!(dv, rs, vs, pair, params)
 end
 
 function get_accelerating_function(potential::PN2p5Potential)
-    (dv, rs, vs, pair, time, params) -> PN2p5_acceleration(dv, rs, vs, pair, params)
+    (dv, rs, vs, pair, time, params) -> PN2p5_acceleration!(dv, rs, vs, pair, params)
 end
 
 function get_accelerating_function(potential::PNPotential)
-    (dv, rs, vs, pair, time, params) -> PN1_to_2p5_acceleration(dv, rs, vs, pair, params)
+    (dv, rs, vs, pair, time, params) -> PN1_to_2p5_acceleration!(dv, rs, vs, pair, params)
 end
 ######################################################################################################
 

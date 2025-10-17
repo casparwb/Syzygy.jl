@@ -47,7 +47,7 @@ end
     PureGravitationalPotential()
 
 
-Newtonian gravitational potential. Corresponds to the acceleration function `Syzygy.pure_gravitational_acceleration!`.
+Newtonian gravitational potential. Corresponds to the acceleration function `Syzygy.pure_gravitational_acceleration!!`.
 """
 struct PureGravitationalPotential <: MultiBodyPotential end
 
@@ -57,7 +57,7 @@ struct PureGravitationalPotential <: MultiBodyPotential end
 
 
 Set up the dynamical tidal potential for a system as defined by Samsing, Leigh & Trani 2018. 
-Corresponds to the acceleration function `Syzygy.dynamical_tidal_acceleration!`.
+Corresponds to the acceleration function `Syzygy.dynamical_tidal_acceleration!!`.
 
 # Arguments
 
@@ -92,7 +92,7 @@ Equilibrium tidal potential, with the assumption that the stars are evolving ove
 the internal structure changes. The envelope structure is calculated throughout the simulation, rather than being fixed
 from the start. 
 
-Corresponds to the acceleration function `Syzygy.pure_gravitational_acceleration!`.
+Corresponds to the acceleration function `Syzygy.pure_gravitational_acceleration!!`.
 """
 struct TimeDependentEquilibriumTidalPotential <: MultiBodyPotential 
     function TimeDependentEquilibriumTidalPotential()
@@ -120,7 +120,7 @@ be adapted using the keyword arguments `lb_multiplier` for the lower bounds, and
 Alternatively, the apsidal motion constants and rotational angular velocities can be supplied using the keyword arguments
 `supplied_apsidal_motion_constants` and `supplied_rotational_angular_velocities`.
 
-Corresponds to the acceleration function `Syzygy.equilibrium_tidal_acceleration!`.
+Corresponds to the acceleration function `Syzygy.equilibrium_tidal_acceleration!!`.
 
 # Arguments
 - `system`: an instance of a `HierarchicalMultiple` or `NonHierarchichalSystem` type.
@@ -156,11 +156,11 @@ struct PNPotential             <: MultiBodyPotential end
 
 
 """
-    pure_gravitational_acceleration(dv, rs, pair::Tuple{Int, Int}, params::SimulationParams)
+    pure_gravitational_acceleration!(dv, rs, pair::Tuple{Int, Int}, params::SimulationParams)
 
 Gravitational acceleration on bodies i and j, with `(i, j) = pair`.
 """
-function pure_gravitational_acceleration(dv, rs,
+function pure_gravitational_acceleration!(dv, rs,
                                          pair::Tuple{Int, Int},
                                          params::SimulationParams)
     
@@ -195,12 +195,12 @@ end
 
 
 """
-    dynamical_tidal_acceleration!(dv, rs, vs, params::SimulationParams, i::Int, n::Int, potential::DynamicalTidalPotential)
+    dynamical_tidal_acceleration!!(dv, rs, vs, params::SimulationParams, i::Int, n::Int, potential::DynamicalTidalPotential)
 
 Acceleration function from dynamical tides. This model is adapted from 
 [Implementing Tidal and Gravitational Wave Energy Losses in Few-body Codes: A Fast and Easy Drag Force Model](https://arxiv.org/abs/1803.08215)
 """
-function dynamical_tidal_acceleration(dv, rs, vs,
+function dynamical_tidal_acceleration!(dv, rs, vs,
                                      pair::Tuple{Int, Int},
                                      params::SimulationParams,
                                      potential::DynamicalTidalPotential)
@@ -270,7 +270,7 @@ end
 """
 Acceleration function from equilibrium tides using the Hut 1981 prescription.
 """
-function equilibrium_tidal_acceleration(dv, rs, vs,
+function equilibrium_tidal_acceleration!(dv, rs, vs,
                                         pair::Tuple{Int, Int},
                                         params::SimulationParams,
                                         potential::TimeDependentEquilibriumTidalPotential) 
@@ -379,7 +379,7 @@ function equilibrium_tidal_acceleration(dv, rs, vs,
 end
 
 
-function equilibrium_tidal_acceleration(dv, rs, vs,
+function equilibrium_tidal_acceleration!(dv, rs, vs,
                                         pair::Tuple{Int, Int},
                                         params::SimulationParams,
                                         potential::EquilibriumTidalPotential) 
@@ -479,7 +479,7 @@ function equilibrium_tidal_acceleration(dv, rs, vs,
     nothing
 end
 
-@fastmath function PN1_acceleration(dv, rs, vs,
+@fastmath function PN1_acceleration!(dv, rs, vs,
                                     pair::Tuple{Int, Int},
                                     params::SimulationParams)
                            
@@ -544,7 +544,7 @@ end
 
 
 
-@fastmath function PN2_acceleration(dv, rs, vs,
+@fastmath function PN2_acceleration!(dv, rs, vs,
                                     pair::Tuple{Int, Int},
                                     params::SimulationParams)
                            
@@ -609,11 +609,11 @@ end
     a_num += G_r²*m₂*(-6nv₁*nv₂² + 4.5nv₂^3 + nv₂*v₁² - 4nv₁*v₁v₂ + 
                         4nv₂*v₁v₂ + 4nv₁*v₂² - 5nv₂*v₂²)
     a₂2 = v̄*a_num
-    ai = a₂1 + a₂2
+    a₁ = a₂1 + a₂2
 
 
     # acceleration for body 2 (j)
-    aj = let nv₁ = -nv₁, nv₂ = -nv₂
+    a₂ = let nv₁ = -nv₁, nv₂ = -nv₂
         a_num = G³_r⁴*(-57m₂²m₁*0.25 - 69m₂m₁²*0.5 - 9*m₁^3) 
         a_num += G_r²*m₁*(-1.875nv₁⁴ + 1.5nv₁²*v₂² - 6nv₁²*v₂v₁ - 2v₂v₁² + 4.5nv₁²*v₁² + 
                             4v₂v₁*v₁² - 2v₁^4)
@@ -628,8 +628,8 @@ end
         a₁1 + a₂2
     end
 
-    ai *= c⁻⁴
-    aj *= c⁻⁴
+    a₁ *= c⁻⁴
+    a₂ *= c⁻⁴
 
     dv[1, i] += a₁[1]
     dv[1, j] += a₂[1]
@@ -644,7 +644,7 @@ end
 
 
 
-@fastmath function PN2p5_acceleration(dv, rs, vs,
+@fastmath function PN2p5_acceleration!(dv, rs, vs,
                                       pair::Tuple{Int, Int},
                                       params::SimulationParams)                            
     # i = 1, j = 2
@@ -710,7 +710,7 @@ end
     nothing
 end
 
-@fastmath function PN1_to_2p5_acceleration(dv, rs, vs,
+@fastmath function PN1_to_2p5_acceleration!(dv, rs, vs,
                                   pair::Tuple{Int, Int},
                                   params::SimulationParams)                           
     i, j = pair
