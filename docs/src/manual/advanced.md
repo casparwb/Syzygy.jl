@@ -41,19 +41,19 @@ end
 
 ## Adding another potential
 
-To add a new potential and acceleration function, you first need to define the acceleration function itself, which should be an in-place function that calculates the pairwise acceleration for two particles (i, j) and adds it to the acceleration vectors (dvi and dvj). The function must return `nothing`. 
+To add a new potential and acceleration function, you first need to define the acceleration function itself, which should be an in-place function that calculates the pairwise acceleration for two particles (i, j) and adds it to the acceleration matrix (dv). The function must return `nothing`. 
 Example:
 
 ```julia
-function my_acceleration_function!(dvi, dvj, rs, vs, pair, params)
+function my_acceleration_function!(dv, rs, vs, pair, params)
 
     i, j = pair
     mi, mj = params.M[i], params.M[j]
     ai = some_acceleration(i, mj)
     aj = some_acceleration(j, mi)
 
-    dvi .+= ai
-    dvj .+= aj
+    dv[:,i] .+= ai
+    dv[:,j] .+= aj
     nothing
 end
 ```
@@ -68,7 +68,7 @@ Finally, you add a method to the `Syzygy.get_accelerating_function` such that it
 
 ```julia
 function Syzygy.get_accelerating_function(potential::MyPotential)
-    (dvi, dvj, rs, vs, pair, time, params)-> my_acceleration_function!(dvi, dvj, rs, vs, pair, params)
+    (dv, rs, vs, pair, time, params)-> my_acceleration_function!(dv, rs, vs, pair, params)
 end
 ```
 
