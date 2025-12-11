@@ -60,7 +60,7 @@ end
 # Equilibrium Tides
 ######################################
 """
-apsidal_motion_constant_over_tidal_timescale(mass::Unitful.Mass, radius,
+apsidal_motion_constant_over_tidal_timescale(mass::Quantity, radius,
                                              envelope_mass, envelope_radius,
                                              stellar_type, luminosity, 
                                              mass_perturber,
@@ -73,7 +73,7 @@ tidal timescale `T`. If the stellar type of the tidal object is a type with a ra
 a core helium burning star, or a massive main sequence star, the prescription from 
 Hurley et al. 2002 will be used (Eq. 42). Otherwise, the the prescription from Preece et al. 2022 is used.
 """
-function apsidal_motion_constant_over_tidal_timescale(mass::Unitful.Mass, radius,
+function apsidal_motion_constant_over_tidal_timescale(mass::Quantity, radius,
                                                       envelope_mass, envelope_radius,
                                                       stellar_type, luminosity, 
                                                       mass_perturber,
@@ -163,7 +163,7 @@ end
 
 
 
-# function k_over_T(mass::Unitful.Mass, radius, core_mass, age,
+# function k_over_T(mass::Quantity, radius, core_mass, age,
 #                   core_radius, stellar_type, luminosity,
 #                   mass_perturber, semi_major_axis, Z=0.02)
 
@@ -210,7 +210,7 @@ end
 #     end
 # end
 
-function k_over_T_convective(mass::Unitful.Mass, radius, envelope_mass, envelope_radius,
+function k_over_T_convective(mass::Quantity, radius, envelope_mass, envelope_radius,
                              luminosity, Z=0.02)
                              
      return k_over_T_convective_(mass, radius, envelope_mass, envelope_radius, luminosity, Z)
@@ -256,8 +256,8 @@ function get_k_interpolator(;order=(3,3), Z=0.0134, lb_multiplier=1, ub_multipli
         JLD2.load(k_data_location, "beta")
     end
 
-    logm = ustrip.(u"Msun", masses) .|> log10
-    logg = ustrip.(u"cm/s^2", logg)
+    logm = ustrip(u"Msun", masses) .|> log10
+    logg = ustrip(u"cm/s^2", logg)
     logk2 = logk2
 
     coordinates = [SA[col...] for col in (eachcol([logm logg]'))]

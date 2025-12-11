@@ -9,11 +9,11 @@ using LinearAlgebra: norm
     #     ein = 0.6
     #     eout = 0.2
 
-    #     νin = (π/4)u"rad"
-    #     νout = (2π/3)u"rad"
+    #     νin = (π/4)
+    #     νout = (2π/3)
 
-    #     ωout = (π/3)u"rad"
-    #     ωin = (0.0)u"rad"
+    #     ωout = (π/3)
+    #     ωin = (0.0)
 
     #     Ωout = ωout
     #     Ωin  = ωin
@@ -59,13 +59,13 @@ using LinearAlgebra: norm
         ein = 0.6
         eout = 0.2
 
-        i = [0.0, π/4]u"rad"
+        i = [0.0, π/4]
 
-        νin = (π/4)u"rad"
-        νout = (2π/3)u"rad"
+        νin = π/4
+        νout = 2π/3
 
-        ωout = (π/3)u"rad"
-        ωin = (0.0)u"rad"
+        ωout = π/3
+        ωin = 0.0
 
         Ωout = ωout
         Ωin  = ωin
@@ -85,16 +85,16 @@ using LinearAlgebra: norm
 
         rin = triple.particles.position[[1, 2]]
         vin = triple.particles.velocity[[1, 2]]
-        min = masses[[1, 2]]
+        m_in = SVector{2}(masses[[1, 2]])
 
-        r_com_in = Syzygy.centre_of_mass(rin, min)
-        v_com_in = Syzygy.centre_of_mass(vin, min)
+        r_com_in = Syzygy.centre_of_mass(rin, m_in)
+        v_com_in = Syzygy.centre_of_mass(vin, m_in)
 
-        rout = [r_com_in, triple.particles.position[3]]
-        vout = [v_com_in, triple.particles.velocity[3]]
-        mout = [masses[3], sum(min)]
+        rout = SA[r_com_in, triple.particles.position[3]]
+        vout = SA[v_com_in, triple.particles.velocity[3]]
+        mout = SA[masses[3], sum(m_in)]
 
-        calculated_inner_binary_elements = Syzygy.binary_elements(rin, vin, min)
+        calculated_inner_binary_elements = Syzygy.binary_elements(rin, vin, m_in)
         calculated_outer_binary_elements = Syzygy.binary_elements(rout, vout, mout)
 
         @testset "$el" for el in propertynames(calculated_inner_binary_elements)
@@ -108,8 +108,8 @@ using LinearAlgebra: norm
             @test Syzygy.mutual_inclination(h1, h123) ≈ i[2]
         end
 
-        νin = (0)u"rad"
-        νout = (π)u"rad"
+        νin = 0
+        νout = 1π
         
         masses = [2.0, 1.0, 3.0]u"Msun"
 

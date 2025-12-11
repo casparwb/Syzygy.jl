@@ -476,7 +476,7 @@ function unbound_callback!(integrator, retcode; max_a_factor=100, check_drifter=
             if Etot > zero(Etot)
                 retcode[:Escape] = escapee
                 terminate!(integrator)
-            elseif check_drifter && d >= ustrip(unit_length, 1u"pc")      # Body is 1 parsec away from binary
+            elseif check_drifter && d >= ustrip(unit_length, 1u"Constants.pc")      # Body is 1 parsec away from binary
                 retcode[:Drifter] = escapee
                 terminate!(integrator)
             end

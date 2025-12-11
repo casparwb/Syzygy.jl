@@ -49,8 +49,109 @@ end
 
 Newtonian gravitational potential. Corresponds to the acceleration function `Syzygy.pure_gravitational_acceleration!!`.
 """
-struct PureGravitationalPotential <: MultiBodyPotential end
+struct PureGravitationalPotential{T <: Real} <: MultiBodyPotential
+    G::T
+end
 
+function PureGravitationalPotential(system)
+    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
+
+    G = get_G_in_system_units(system)
+    return PureGravitationalPotential(G)
+end
+
+
+struct PN1Potential{T} <: MultiBodyPotential
+    G::T
+    G²::T
+    c⁻²::T
+end
+
+function PN1Potential(system)
+    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
+
+    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
+    G = get_G_in_system_units(system)
+    c = get_c_in_system_units(system)
+
+    G² = G*G
+    c⁻² = 1/c^2
+
+    return PN1Potential(G, G², c⁻²)
+end
+
+PN1Potential(G, c) = PN1Potential(G, G*G, 1/c^2)
+
+struct PN2Potential{T} <: MultiBodyPotential
+    G::T
+    G²::T
+    G³::T
+    c⁻⁴::T
+end
+
+function PN2Potential(system)
+    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
+
+    G = get_G_in_system_units(system)
+    c = get_c_in_system_units(system)
+
+    G² = G*G
+    G³ = G²*G
+    c⁻⁴ = 1/c^4
+
+    return PN2Potential(G, G², G³, c⁻⁴)
+end
+
+PN2Potential(G, c) = PN2Potential(G, G^2, G^3, 1/c^4)
+
+struct PN2p5Potential{T} <: MultiBodyPotential
+    G::T
+    G²::T
+    G³::T
+    c⁻⁵::T
+end
+
+function PN2p5Potential(system)
+    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
+
+    G = get_G_in_system_units(system)
+    c = get_c_in_system_units(system)
+
+    G² = G*G
+    G³ = G²*G
+    c⁻⁵ = 1/c^5
+
+    return PN2p5Potential(G, G², G³, c⁻⁵)
+end
+
+PN2p5Potential(G, c) = PN2p5Potential(G, G^2, G^3, 1/c^5)
+
+struct PNPotential{T} <: MultiBodyPotential 
+    G::T
+    G²::T
+    G³::T
+    c⁻²::T
+    c⁻⁴::T
+    c⁻⁵::T
+end
+
+function PNPotential(system)
+    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
+
+    G = get_G_in_system_units(system)
+    c = get_c_in_system_units(system)
+
+    G² = G*G
+    G³ = G²*G
+
+    c⁻² = 1/c^2
+    c⁻⁴ = 1/c^4
+    c⁻⁵ = 1/c^5
+
+    return PNPotential(G, G², G³, c⁻², c⁻⁴, c⁻⁵)
+end
+
+PNPotential(G, c) = PNPotential(G, G^2, G^3, 1/c^2, 1/c^4, 1/c^5)
 
 """
     DynamicalTidalPotential(n_t, polytropic_index)
@@ -135,20 +236,6 @@ Corresponds to the acceleration function `Syzygy.equilibrium_tidal_acceleration!
 """
 struct EquilibriumTidalPotential <: MultiBodyPotential end
 
-
-
-struct PN1Potential            <: MultiBodyPotential end
-
-struct PN2Potential            <: MultiBodyPotential end
-
-struct PN2p5Potential          <: MultiBodyPotential end
-
-struct PN3Potential            <: MultiBodyPotential end
-
-struct PN3_5Potential          <: MultiBodyPotential end
-
-struct PNPotential             <: MultiBodyPotential end
-
 ###################################################################################################################
 
 
@@ -162,7 +249,8 @@ Gravitational acceleration on bodies i and j, with `(i, j) = pair`.
 """
 function pure_gravitational_acceleration!(dv, rs,
                                          pair::Tuple{Int, Int},
-                                         params::SimulationParams)
+                                         params::SimulationParams,
+                                         pot::PureGravitationalPotential)
     
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -174,7 +262,7 @@ function pure_gravitational_acceleration!(dv, rs,
 
     m₁ = params.masses[i]
     m₂ = params.masses[j]
-    Gr⁻² = -UNITLESS_G/r^2
+    Gr⁻² = -pot.G/r^2
 
     a = Gr⁻²*n̂
 
@@ -203,7 +291,7 @@ Acceleration function from dynamical tides. This model is adapted from
 function dynamical_tidal_acceleration!(dv, rs, vs,
                                      pair::Tuple{Int, Int},
                                      params::SimulationParams,
-                                     potential::DynamicalTidalPotential)
+                                     pot::DynamicalTidalPotential)
     
     # by j on i -> j is (p)erturber, i is (t)idal object
     
@@ -273,7 +361,7 @@ Acceleration function from equilibrium tides using the Hut 1981 prescription.
 function equilibrium_tidal_acceleration!(dv, rs, vs,
                                         pair::Tuple{Int, Int},
                                         params::SimulationParams,
-                                        potential::TimeDependentEquilibriumTidalPotential) 
+                                        pot::TimeDependentEquilibriumTidalPotential) 
 
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -319,8 +407,8 @@ function equilibrium_tidal_acceleration!(dv, rs, vs,
 
             Ω = norm(S̄₁)
             
-            logg = potential.logg[k]
-            logm = potential.logm[k]
+            logg = pot.logg[k]
+            logm = pot.logm[k]
             k = asidal_motion_constant_interpolated(logm, logg)
 
             μ = UNITLESS_G*m₂/r²
@@ -352,8 +440,8 @@ function equilibrium_tidal_acceleration!(dv, rs, vs,
 
             Ω = norm(S̄₂)
             
-            logg = potential.logg[k]
-            logm = potential.logm[k]
+            logg = pot.logg[k]
+            logm = pot.logm[k]
             k = asidal_motion_constant_interpolated(logm, logg)
 
             μ = UNITLESS_G*m₁/r²
@@ -382,7 +470,7 @@ end
 function equilibrium_tidal_acceleration!(dv, rs, vs,
                                         pair::Tuple{Int, Int},
                                         params::SimulationParams,
-                                        potential::EquilibriumTidalPotential) 
+                                        pot::EquilibriumTidalPotential) 
 
     i, j = pair
     stellar_type_1 = params.stellar_type_numbers[i]
@@ -481,7 +569,8 @@ end
 
 @fastmath function PN1_acceleration!(dv, rs, vs,
                                     pair::Tuple{Int, Int},
-                                    params::SimulationParams)
+                                    params::SimulationParams,
+                                    pot::PN1Potential)
                            
     i, j = pair # i = 1, j = 2
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -510,9 +599,9 @@ end
     nv₁ = dot(n, v̄₁)
     nv₂ = dot(n, v̄₂)
 
-    G = UNITLESS_G
-    G_r = G*r⁻¹
-    G_r² = G_r*r⁻¹
+    G = pot.G
+    # G_r = G*r⁻¹
+    # G_r² = G_r*r⁻¹
 
     m₁m₂ = m₂m₁ = m₁*m₂
 
@@ -526,8 +615,8 @@ end
          (5G²_r³*m₂m₁ + 4G²_r³*m₁^2 + G_r²*m₁*(1.5nv₁^2 - v₂² + 4v₂v₁ - 2v₁²) )*n + G_r²*m₁*(4nv₂ - 3nv₁)*v̄
     end
 
-    ai *= c⁻²
-    aj *= c⁻²
+    ai *= pot.c⁻²
+    aj *= pot.c⁻²
 
     dv[1, i] += ai[1]
     dv[1, j] += aj[1]
@@ -546,7 +635,8 @@ end
 
 @fastmath function PN2_acceleration!(dv, rs, vs,
                                     pair::Tuple{Int, Int},
-                                    params::SimulationParams)
+                                    params::SimulationParams,
+                                    pot::PN2Potential)
                            
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -589,10 +679,10 @@ end
     m₁²m₂ = m₂m₁² = m₁^2*m₂
     m₁m₂² = m₂²m₁ = m₁*m₂^2
 
-    G_r = UNITLESS_G*r⁻¹
+    G_r = pot.G*r⁻¹
     G_r² = G_r*r⁻¹
-    G²_r³ = G²*r⁻¹^3
-    G³_r⁴ = G³*r⁻¹^4
+    G²_r³ = pot.G²*r⁻¹^3
+    G³_r⁴ = pot.G³*r⁻¹^4
 
     # PN-2 acceleration:
     # expression is split up to avoid allocations that can appear in long expressions
@@ -628,8 +718,8 @@ end
         a₁1 + a₂2
     end
 
-    a₁ *= c⁻⁴
-    a₂ *= c⁻⁴
+    a₁ *= pot.c⁻⁴
+    a₂ *= pot.c⁻⁴
 
     dv[1, i] += a₁[1]
     dv[1, j] += a₂[1]
@@ -646,7 +736,8 @@ end
 
 @fastmath function PN2p5_acceleration!(dv, rs, vs,
                                       pair::Tuple{Int, Int},
-                                      params::SimulationParams)                            
+                                      params::SimulationParams,
+                                      pot::PN2p5Potential)                            
     # i = 1, j = 2
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -675,8 +766,8 @@ end
     m₁²m₂ = m₂m₁² = m₁^2*m₂
     m₁m₂² = m₂²m₁ = m₁*m₂^2
 
-    G²_r³ = G²*r⁻¹^3
-    G³_r⁴ = G³*r⁻¹^4
+    G²_r³ = pot.G²*r⁻¹^3
+    G³_r⁴ = pot.G³*r⁻¹^4
 
     #################### PN-2.5 acceleration ####################
     # acceleration for body 1 (i)
@@ -696,8 +787,8 @@ end
     ###############################################################
 
 
-    a₁ *= c⁻⁵
-    a₂ *= c⁻⁵
+    a₁ *= pot.c⁻⁵
+    a₂ *= pot.c⁻⁵
 
     dv[1, i] += a₁[1]
     dv[1, j] += a₂[1]
@@ -712,7 +803,8 @@ end
 
 @fastmath function PN1_to_2p5_acceleration!(dv, rs, vs,
                                   pair::Tuple{Int, Int},
-                                  params::SimulationParams)                           
+                                  params::SimulationParams,
+                                  pot::PNPotential)                           
     i, j = pair
 
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -758,11 +850,11 @@ end
     m₁²m₂ = m₂m₁² = m₁^2*m₂
     m₁m₂² = m₂²m₁ = m₁*m₂^2
 
-    G = UNITLESS_G
+    G = pot.G
     G_r = G*r⁻¹
     G_r² = G_r*r⁻¹
-    G²_r³ = G²*r⁻¹^3
-    G³_r⁴ = G³*r⁻¹^4
+    G²_r³ = pot.G²*r⁻¹^3
+    G³_r⁴ = pot.G³*r⁻¹^4
 
     ai_PN1, ai_PN2, ai_PN2p5 = let
         
@@ -836,8 +928,8 @@ end
         PN1, PN2, PN2p5
     end
 
-    a₁ = ai_PN1*c⁻² + ai_PN2*c⁻⁴ + ai_PN2p5*c⁻⁵
-    a₂ = aj_PN1*c⁻² + aj_PN2*c⁻⁴ + aj_PN2p5*c⁻⁵
+    a₁ = ai_PN1*pot.c⁻² + ai_PN2*pot.c⁻⁴ + ai_PN2p5*pot.c⁻⁵
+    a₂ = aj_PN1*pot.c⁻² + aj_PN2*pot.c⁻⁴ + aj_PN2p5*pot.c⁻⁵
 
 
     dv[1, i] += a₁[1]

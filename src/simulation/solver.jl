@@ -10,6 +10,8 @@ Simulate the given simulation setup.
 """
 function simulate(simulation::MultiBodySimulation)
 
+    unit_length, unit_mass, unit_time = simulation.ic.units.u_length, simulation.ic.units.u_mass, simulation.ic.units.u_time
+
     args        = simulation.args
     diffeq_args = simulation.diffeq_args
 
@@ -62,7 +64,7 @@ function simulate(simulation::MultiBodySimulation)
     try
         if args[:showprogress]
             for i in integrator
-                next!(prog; showvalues=[(Symbol("System time"), u"yr"(integrator.t * unit_time)),
+                next!(prog; showvalues=[(Symbol("System time"), integrator.t * unit_time),
                                         (Symbol("System %"), (integrator.t - simulation.tspan[1])/maxtime*100)], 
                                         spinner="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
             end
@@ -74,7 +76,7 @@ function simulate(simulation::MultiBodySimulation)
         retcodes[:DiffEq] = Symbol("$(integrator.sol.retcode)")
     catch e
         if e isa InterruptException
-            @info "Stopped at t = $(u"yr"(integrator.t * unit_time))"
+            @info "Stopped at t = $(integrator.t * unit_time)"
             savevalues!(integrator, true)
             retcodes[:DiffEq] = :Interrupted
         else
@@ -91,7 +93,7 @@ function simulate(simulation::MultiBodySimulation)
             @info "Simulation successful."
         else
             outcome = retcodes#collect(keys(retcodes))
-            t = u"yr"(integrator.t * unit_time)
+            t = integrator.t * unit_time
             @info "Outcome: " t outcome
         end
     end
@@ -161,15 +163,13 @@ function simulate(res::SimulationResult, time; args...)
 end
 
 
-function simulate(sol::MultiBodySolution, time)
-
-end
-
 function total_energy(result::SimulationResult, time)
     masses = result.ode_params.masses
     idx = findmin(x -> abs(x - time), result.solution.t)[2]
 
+
+    G = get_G_in_system_units(result.simulation.ic)
     total_energy([result.solution.u[idx].x[2][1:3, i] for i ∈ eachindex(masses)], 
                  [result.solution.u[idx].x[1][1:3, i] for i ∈ eachindex(masses)],
-                 masses)  
+                 masses, G)  
 end

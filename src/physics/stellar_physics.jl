@@ -6,7 +6,7 @@ function envelope_structure(mass::Real, radius, core_mass, core_radius, stellar_
     return envelope_radius, envelope_mass
 end
 
-function envelope_structure(mass::Unitful.Mass, radius, core_mass, core_radius, stellar_type, age, Z=0.02)
+function envelope_structure(mass::Quantity, radius, core_mass, core_radius, stellar_type, age, Z=0.02)
     
     mass = ustrip(u"Msun", mass)
     radius = ustrip(u"Rsun", radius)
@@ -46,7 +46,7 @@ function zero_age_main_sequence_radius(M::Real)
     (θ*M^2.5 + ι*M^6.5 + κ*M^11 + λ*M^19 + μ*M^19.5)/(ν + ξ*M^2 + o*M^8.5 + M^18.5 + Π*M^19.5)
 end
 
-function zero_age_main_sequence_radius(mass::Unitful.Mass)
+function zero_age_main_sequence_radius(mass::Quantity)
     zero_age_main_sequence_radius(ustrip(u"Msun", mass))
 end
 
@@ -202,7 +202,7 @@ function main_sequence_lifetime(M::Real, Z=0.02)
     return tMS, tBGB
 end
 
-main_sequence_lifetime(M::Unitful.Mass, Z=0.02) = main_sequence_lifetime(ustrip(u"Msun", M), Z)
+main_sequence_lifetime(M::Quantity, Z=0.02) = main_sequence_lifetime(ustrip(u"Msun", M), Z)
 
 
 function mass_luminosity_relation(M)

@@ -6,13 +6,13 @@
     ein = 0.6
     eout = 0.2
 
-    i = [0.0, π/4]u"rad"
+    i = [0.0, π/4]
 
-    νin = (π/4)u"rad"
-    νout = (2π/3)u"rad"
+    νin = (π/4)
+    νout = (2π/3)
 
-    ωout = (π/3)u"rad"
-    ωin = (0.0)u"rad"
+    ωout = (π/3)
+    ωin = (0.0)
 
     Ωout = ωout
     Ωin  = ωin

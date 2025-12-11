@@ -15,29 +15,44 @@ struct BinaryIndex
     i::Int
 end
 
-#################################### Multibody system setup #########################################
-struct OrbitalElements{aT, PT, eT, ωT, iT, ΩT, νT}
-    a::aT # semi-major axis
-    P::PT # orbital period
-    e::eT # eccentricity
-    ω::ωT # argument of periapsis
-    i::iT # inclination (with respect to xy-plane)
-    Ω::ΩT # longitude of ascending node
-    ν::νT # true anomaly
+struct SyzygyUnits{T} # system-specific units
+    u_length::T
+    u_mass::T
+    u_time::T
+
+    function SyzygyUnits(u_length=unit_length, u_mass=unit_mass, u_time=unit_time)
+        @assert isone(ulength(uexpand(u_length)))
+        @assert isone(umass(uexpand(u_mass)))
+        @assert isone(utime(uexpand(u_time))) 
+        return new{typeof(u_length)}(u_length, u_mass, u_time)
+    end
 end
 
-OrbitalElements(;a=0.0u"AU", P=0.0u"d", e=0.0, ω=0.0u"°", i=0.0u"°", Ω=0.0u"°", ν=0.0u"°") = OrbitalElements(a, P, e, ω, i, Ω, ν)
+const Units = SyzygyUnits
 
-struct StellarStructure{tT, m1T, m2T, m3T, RT, ST, LT}
+#################################### Multibody system setup #########################################
+struct OrbitalElements{qT, rT}
+    a::qT # semi-major axis
+    P::qT # orbital period
+    e::rT # eccentricity
+    ω::rT # argument of periapsis
+    i::rT # inclination (with respect to xy-plane)
+    Ω::rT # longitude of ascending node
+    ν::rT # true anomaly
+end
+
+OrbitalElements(;a=0.0u"AU", P=0.0u"d", e=0.0, ω=0.0, i=0.0, Ω=0.0, ν=0.0) = OrbitalElements(a, P, e, ω, i, Ω, ν)
+
+struct StellarStructure{tT, T}
     stellar_type::tT   
-    mass::m1T             # total mass
-    radius::RT           # total radius
-    spin::ST             # spin
-    luminosity::LT       # total luminosity
-    core_radius::RT      # core radius
-    core_mass::m2T        # core mass
-    envelope_radius::RT  # envelope radius
-    envelope_mass::m3T    # envelope mass
+    mass::T             # total mass
+    radius::T           # total radius
+    spin::T             # spin
+    luminosity::T       # total luminosity
+    core_radius::T      # core radius
+    core_mass::T        # core mass
+    envelope_radius::T  # envelope radius
+    envelope_mass::T    # envelope mass
 end
 
 struct Particle{siblingType, posType, velType, structType} <: AbstractParticle
@@ -71,6 +86,7 @@ struct HierarchicalMultiple{timeType, bodType, pairType, binType, hierType} <: M
     levels::SVector{N, Int} where N
     root::Binary
     hierarchy::hierType
+    units::SyzygyUnits
 end
 
 struct NonHierarchicalSystem{tT, T, pT} <: MultiBodyInitialConditions
@@ -78,6 +94,7 @@ struct NonHierarchicalSystem{tT, T, pT} <: MultiBodyInitialConditions
     time::tT
     particles::T
     pairs::pT
+    units::SyzygyUnits
 end
 ####################################################################################################
 
@@ -104,7 +121,7 @@ end
 
 
 ####################################### Simulation postprocess #########################################
-struct SimulationResult{cType, rType <: Quantity{T} where T <: Real, opType, aType}
+struct SimulationResult{cType, rType, opType, aType}
     solution::DiffEqBase.AbstractTimeseriesSolution
     simulation::MultiBodySimulation
     retcode::cType
@@ -113,13 +130,11 @@ struct SimulationResult{cType, rType <: Quantity{T} where T <: Real, opType, aTy
     args::aType
 end
 
-struct MultiBodySolution{tT, rT, vT, ST, SvT, sT, oT, pT}
+struct MultiBodySolution{T, tT, sT, oT, pT}
     ic::MultiBodyInitialConditions # initial conditions
     t::tT # time
-    r::rT # positions
-    v::vT # velocities
-    S::ST # spin
-    Sv::SvT # spin velocities
+    r::T # positions
+    v::T # velocities
     structure::sT
     ode_system::oT 
     ode_params::pT
@@ -135,7 +150,7 @@ end
 
 ################################ Framework for the different potentials ################################
 function get_accelerating_function(potential::PureGravitationalPotential)
-    (dv, rs, vs, pair, time, params) -> pure_gravitational_acceleration!(dv, rs, pair, params)
+    (dv, rs, vs, pair, time, params) -> pure_gravitational_acceleration!(dv, rs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::DynamicalTidalPotential)
@@ -151,19 +166,19 @@ function get_accelerating_function(potential::EquilibriumTidalPotential)
 end
 
 function get_accelerating_function(potential::PN1Potential)
-    (dv, rs, vs, pair, time, params) -> PN1_acceleration!(dv, rs, vs, pair, params)
+    (dv, rs, vs, pair, time, params) -> PN1_acceleration!(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::PN2Potential)
-    (dv, rs, vs, pair, time, params) -> PN2_acceleration!(dv, rs, vs, pair, params)
+    (dv, rs, vs, pair, time, params) -> PN2_acceleration!(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::PN2p5Potential)
-    (dv, rs, vs, pair, time, params) -> PN2p5_acceleration!(dv, rs, vs, pair, params)
+    (dv, rs, vs, pair, time, params) -> PN2p5_acceleration!(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::PNPotential)
-    (dv, rs, vs, pair, time, params) -> PN1_to_2p5_acceleration!(dv, rs, vs, pair, params)
+    (dv, rs, vs, pair, time, params) -> PN1_to_2p5_acceleration!(dv, rs, vs, pair, params, potential)
 end
 ######################################################################################################
 

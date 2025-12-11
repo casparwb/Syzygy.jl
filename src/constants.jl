@@ -1,15 +1,15 @@
 using StaticArrays
 
-const GRAVCONST = 6.6743015e-11u"m^3/kg/s^2" |> upreferred
-const UNITLESS_G = ustrip(unit(upreferred(GRAVCONST)), GRAVCONST)
+const GRAVCONST = 6.6743015e-11u"m^3/kg/s^2"# uconvert(unit_length^3*unit_mass^-1*unit_time^-2, 6.6743015e-11u"m^3/kg/s^2")
+const UNITLESS_G = ustrip(u"m^3/kg/s^2", GRAVCONST)
 const G² = UNITLESS_G^2
 const G³ = UNITLESS_G^3
 const G⁴ = UNITLESS_G^4
 
-const speed_of_light = 299_792_458u"m/s" |> upreferred
+const speed_of_light = 299_792_458.0u"m/s"#uconvert(unit_length/unit_time, 299_792_458u"m/s")
 const SPEED_OF_LIGHT = speed_of_light
 const LIGHTSPEED = speed_of_light
-const UNITLESS_c = ustrip(unit_length/unit_time, speed_of_light)
+const UNITLESS_c = ustrip(u"m/s", speed_of_light)
 const c² = UNITLESS_c*UNITLESS_c
 const c³ = c²*UNITLESS_c
 const c⁴ = c³*UNITLESS_c
@@ -24,10 +24,10 @@ const div_208_15 = 208/15
 
 const π² = π^2
 
-const surface_gravity_unit_conversion_factor = ustrip(u"cm/s^2", 1.0*unit_length/unit_time^2)
-const to_Myr_conversion_factor = upreferred(1unit_time/1u"Myr")
+const surface_gravity_unit_conversion_factor = ustrip(u"cm/s^2", 1.0*default_unit_length/default_unit_time^2)
+const to_Myr_conversion_factor = default_unit_time/1u"Myr"
 # const k_over_T_conversion_factor = unit_system == "Solar" ? ustrip(u"yr^-1", cbrt(1.0u"Lsun*Msun^-1*Rsun^-2")) : ustrip(u"yr^-1", upreferred(cbrt(1.0u"Lsun*Msun^-1*Rsun^-2")))
-const k_over_T_conversion_factor = ustrip(u"yr^-1", cbrt(1.0*upreferred(u"Lsun")*Syzygy.unit_mass^-1*Syzygy.unit_length^-2))
+const k_over_T_conversion_factor = ustrip(u"yr^-1", cbrt(1.0*default_unit_length^2*default_unit_mass/default_unit_time^3*default_unit_mass^-1*default_unit_length^-2))
 
 const stellar_type = Dict(  "deeply or fully convective low mass MS star" => 0,
                             "Main Sequence Star" => 1,
@@ -92,3 +92,15 @@ const hierarchy_labels = ["Primary", "Secondary", "Tertiary",
                           "Septenary", "Octonary", "Oonary", "Denary"]
 
 const tidal_read_lock = ReentrantLock()
+
+function get_G_in_system_units(system)
+    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
+
+    G = ustrip(u_length^3/u_mass/u_time^2, GRAVCONST)
+end
+
+function get_c_in_system_units(system)
+    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
+
+    c = ustrip(u_length/u_time, speed_of_light)
+end

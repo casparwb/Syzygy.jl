@@ -19,6 +19,20 @@ function Base.show(io::IO, system::T where T <: HierarchicalMultiple)
 
 end
 
+function Base.show(io::IO, system::T where T <: NonHierarchicalSystem)
+
+    print(io, "N particles: ")
+    show(io, system.n)
+    println(io,"\n")
+
+    for i in 1:min(system.n, 10)
+        show(io, system.particles[i])
+        println(io)
+    end
+
+end
+
+
 function Base.show(io::IO, binary::T where T <: Binary)
 
     indent = get(io, :indent, 2 + binary.level*2)
@@ -98,7 +112,7 @@ function Base.show(io::IO, elements::OrbitalElements)#{T, T, T, T, T, T, T}) whe
     for el in els
         print(io, " $el: ")
         prop = getproperty(elements, el)
-        prop = prop isa Quantity ? round(prop.val, digits=2)*unit(prop) : round(prop, digits=2)
+        prop = prop isa Quantity ? round(prop.value, digits=2)*oneunit(prop) : round(prop, digits=2)
         # prop = round(prop.val, digits=2)*unit(prop)
         show(io, prop)
         print(io, " | ")
@@ -128,7 +142,7 @@ function Base.show(io::IO, structure::StellarStructure)
         elseif prop isa StellarType
             show(io, prop.number)
         else
-            prop = prop isa Quantity ? round(prop.val, digits=2)*unit(prop) : round(prop, digits=2)
+            prop = prop isa Quantity ? round(prop.value, digits=2)*oneunit(prop) : round(prop, digits=2)
             show(io, prop)
         end
         println(io)#, " | ")
@@ -142,7 +156,7 @@ function Base.show(io::IO, sim::MultiBodySimulation)
     println(io, "\nSimulation setup\n-------------------------------")
 
     print(io, "\nTime span: ")
-    timespan = u"kyr".(sim.tspan .* unit_time)
+    timespan = sim.tspan .* sim.ic.units.u_time
     print(io, timespan)
 
     println("\n")
@@ -217,7 +231,7 @@ function Base.show(io::IO, sol::MultiBodySolution)
     show(io, length(sol.t))
     println(io)
     print(io, "Time span: ")
-    timespan = u"kyr".([sol.t[1], sol.t[end]])
+    timespan = (sol.t[1], sol.t[end])
     show(io, (timespan[1], timespan[2]))
 
     if !ismissing(sol.ode_system)
