@@ -218,7 +218,7 @@ end
 
 function k_over_T_convective(mass::Float64, radius, envelope_mass, envelope_radius,
                              luminosity, Z=0.02)
-    return k_over_T_convective_(mass, radius, envelope_mass, envelope_radius, luminosity, Z)*k_over_T_conversion_factor
+    return k_over_T_convective_(mass, radius, envelope_mass, envelope_radius, luminosity, Z)
 end
 
 function k_over_T_convective_(mass, radius, envelope_mass, envelope_radius,

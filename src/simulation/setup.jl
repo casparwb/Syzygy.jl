@@ -455,6 +455,8 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
     stellar_types = SVector(stellar_types...)
     stellar_type_nums = SVector(stellar_type_nums...)
 
+    k_over_T_conversion_factor = ustrip(u"yr^-1", cbrt(1.0*unit_length^2*unit_mass/unit_time^3*unit_mass^-1*unit_length^-2))
+
     ode_params = TidalSimulationParams(radii, 
                                        masses, 
                                        luminosities, 
@@ -468,7 +470,8 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
                                        R³_over_Gms,
                                        pertuber_mass_ratio_factors,
                                        kT_rad_factors,
-                                       kT_convs)
+                                       kT_convs,
+                                       k_over_T_conversion_factor)
 
     return ode_params
 end

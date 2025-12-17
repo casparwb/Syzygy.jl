@@ -15,13 +15,13 @@ struct DefaultSimulationParams{FloatVecType, IntVecType, stpVecType} <: Simulati
     stellar_type_numbers::IntVecType
 end
 
-struct TidalSimulationParams{FloatVecType, IntVecType, stpVecType, MutableFloatVecType, IntMatType} <: SimulationParams
+struct TidalSimulationParams{FloatVecType, IntVecType, stpVecType, MutableFloatVecType, IntMatType, T} <: SimulationParams
     radii::FloatVecType # radii
     masses::FloatVecType # masses
     luminosities::FloatVecType # luminosities
     stellar_types::stpVecType 
     stellar_type_numbers::IntVecType
-    Z::Float64 
+    Z::T 
     envelope_masses::FloatVecType 
     envelope_radii::FloatVecType 
     apsidal_motion_constants::FloatVecType 
@@ -30,6 +30,7 @@ struct TidalSimulationParams{FloatVecType, IntVecType, stpVecType, MutableFloatV
     pertuber_mass_ratio_factors::IntMatType
     k_over_T_rad_factors::FloatVecType
     k_over_T_conv::FloatVecType
+    k_over_T_conversion_factor::T
 end
 
 # struct PNSimulationParams{RType, MType, M2_type, LType, SType, stpType, cMType, cRType, ageType} <: SimulationParams
@@ -401,7 +402,7 @@ function equilibrium_tidal_acceleration!(dv, rs, vs,
             core_mass   = params.core_masses[k]
             core_radius = params.core_radii[k]
             luminosity  = params.luminosities[k]
-            age_Myr     = params.ages[k]*to_Myr_conversion_factor
+            age_Myr     = params.ages[k]#*to_Myr_conversion_factor # change
 
             R = Rs[k]
 
@@ -434,7 +435,7 @@ function equilibrium_tidal_acceleration!(dv, rs, vs,
             core_mass   = params.core_masses[k]
             core_radius = params.core_radii[k]
             luminosity  = params.luminosities[k]
-            age_Myr     = params.ages[k]*to_Myr_conversion_factor
+            age_Myr     = params.ages[k]#*to_Myr_conversion_factor # change
 
             R = Rs[k]
 
@@ -502,26 +503,23 @@ function equilibrium_tidal_acceleration!(dv, rs, vs,
     θ_dot_norm = norm(θ_dot)
     θ_hat = v̄/v
 
-    separation⁻⁵ = 1/semi_major_axis(r, v^2, m₂+m₁)^5
+    separation⁻⁵ = 1/semi_major_axis(r, v^2, m₂+m₁m, pot.G)^5
 
     # tidal force on 1 by 2
     a₁ = let
         if stellar_type_1 > 9
             SA[0.0, 0.0, 0.0]
         else    
-            μ = UNITLESS_G*m₂*r⁻¹*r⁻¹
+            μ = pot.G*m₂*r⁻¹*r⁻¹
 
-            # envelope_mass = params.envelope_masses[i]
-            # envelope_radius = params.envelope_radii[i]
-            # luminosity = params.luminosities[i]
             R = params.radii[i]
             Ω = params.rotational_angular_velocities[i]
-            # k_over_T = apsidal_motion_constant_over_tidal_timescale(m₁, R, envelope_mass, envelope_radius,
-            #                                                    stellar_type_1, luminosity, 
-            #                                                    m₂, sma, params.Z)
+
             q_fac = params.pertuber_mass_ratio_factors[i,j]
-            k_over_T = get_k_over_T(m₁, stellar_type_1, params.k_over_T_conv[i], params.k_over_T_rad_factors[i], 
-                                    separation⁻⁵, q_fac)
+            k_over_T = get_k_over_T(m₁, stellar_type_1, 
+                                    params.k_over_T_conv[i], 
+                                    params.k_over_T_rad_factors[i], 
+                                    separation⁻⁵, q_fac)*params.k_over_T_conversion_factor
             k = params.apsidal_motion_constants[i]
             kτ = params.R³_over_Gm[i]*k_over_T#R^3/(UNITLESS_G*m₁)*k_T
 
@@ -534,21 +532,16 @@ function equilibrium_tidal_acceleration!(dv, rs, vs,
         if stellar_type_2 > 9 
             SA[0.0, 0.0, 0.0]
         else    
-            μ = UNITLESS_G*m₁*r⁻¹*r⁻¹
+            μ = pot.G*m₁*r⁻¹*r⁻¹
 
-            # envelope_mass = params.envelope_masses[j]
-            # envelope_radius = params.envelope_radii[j]
-            # luminosity  = params.luminosities[j]
             R = params.radii[j]
             Ω = params.rotational_angular_velocities[j]
-            # k_T = apsidal_motion_constant_over_tidal_timescale(m₂, R, envelope_mass, envelope_radius,
-            #                                                    stellar_type_2, luminosity, 
-            #                                                    m₁, sma, params.Z)
+
             q_fac = params.pertuber_mass_ratio_factors[j,i]
             k_over_T = get_k_over_T(m₁, stellar_type_2, 
                                     params.k_over_T_conv[j],
                                     params.k_over_T_rad_factors[j], 
-                                    separation⁻⁵, q_fac)
+                                    separation⁻⁵, q_fac)*params.k_over_T_conversion_factor
             k = params.apsidal_motion_constants[j]
             kτ = params.R³_over_Gm[j]*k_over_T
 
