@@ -265,7 +265,7 @@ function get_callback(cb::IonizationCB, system, retcodes, args)
     G_system = get_G_in_system_units(system)
 
     condition_ionization(u, t, integrator) = true
-    max_distance =  cb.max_a_factor*ustrip(unit_length, system.binaries[2].elements.a)
+    max_distance =  cb.max_a_factor*ustrip(system.units.u_length, system.binaries[2].elements.a)
     affect_ionization!(integrator) = ionization_callback!(integrator, retcodes, max_distance, G_system)
     callback_ionization = DiscreteCallback(condition_ionization, affect_ionization!, save_positions=(false, false))
 
@@ -455,7 +455,7 @@ function unbound_callback!(integrator, retcode, G, ulength_parsec; max_a_factor=
 
         # binary properties of remaining components
         M_bin = SA[integrator.p.masses[binary_ids[1]], integrator.p.masses[binary_ids[2]]]
-        a_bin = semi_major_axis(norm(r_rel_bin), norm(v_rel_bin)^2, M_bin[1] + M_bin[2])
+        a_bin = semi_major_axis(norm(r_rel_bin), norm(v_rel_bin)^2, M_bin[1] + M_bin[2], G)
         a_bin < zero(a_bin) && continue
 
         r_bin = centre_of_mass(SA[r_comp1, r_comp2], M_bin)
@@ -743,8 +743,8 @@ function ionization_callback!(integrator, retcodes, max_distance, G)
     distances_from_COM = SA[d1, d2, d3]
     distances_now = SA[d12, d23, d13]
 
-    K = 0.5*m * SA[norm(v1)^2, norm(v2)^2, norm(v3)^2]
-    U = -G*m * SA[m[2]/d12 + m[3]/d13,
+    K = 0.5*m .* SA[norm(v1)^2, norm(v2)^2, norm(v3)^2]
+    U = -G*m .* SA[m[2]/d12 + m[3]/d13,
                   m[1]/d12 + m[3]/d23,
                   m[1]/d13 + m[2]/d23]
 
@@ -758,8 +758,8 @@ function ionization_callback!(integrator, retcodes, max_distance, G)
     
     distances_next = SA[norm(r13), norm(r23), norm(r13)]
 
-    criteria_1 = all(x -> x > distances_now, distances_next)
-    criteria_2 = all(x -> x >= max_distance, distances_from_COM)
+    criteria_1 = all(distances_next .> distances_now)
+    criteria_2 = all(distances_from_COM .> max_distance)
     criteria_3 = all(x -> x > 0, K + U)
 
     if criteria_1 && criteria_2 && criteria_3
