@@ -17,7 +17,7 @@ function semi_major_axis(d, v², M, G)
 end
 
 semi_major_axis(d::Quantity, v², M) = semi_major_axis(d, v², M, GRAVCONST)
-semi_major_axis(d::Real, v², M) = semi_major_axis(d, v², M, UNITLESS_G)
+# semi_major_axis(d::Real, v², M) = semi_major_axis(d, v², M, UNITLESS_G)
 
 """
     orbital_period(a, M)
@@ -33,7 +33,7 @@ function orbital_period(a, M, G)
 end
 
 orbital_period(a, M::Quantity) = orbital_period(a, M, GRAVCONST)
-orbital_period(a, M::Real) = orbital_period(a, M, UNITLESS_G)
+# orbital_period(a, M::Real) = orbital_period(a, M, UNITLESS_G)
 
 @doc raw"""
     eccentricity_vector(r, v, d, M)
@@ -59,7 +59,7 @@ end
 # end
 
 eccentricity_vector(r, v, d::Quantity, M) = eccentricity_vector(r, v, d, M, GRAVCONST)
-eccentricity_vector(r, v, d::Real, M, G=UNITLESS_G) = eccentricity_vector(r, v, d, M)
+# eccentricity_vector(r, v, d::Real, M, G) = eccentricity_vector(r, v, d, M, G)
 
 
 # function eccentricity(r, v, d, m::AbstractVector, G)
@@ -81,8 +81,8 @@ function eccentricity(r, v, d, M, G)
     return norm(eccentricity_vector(r, v, d, M, G))
 end
 
-eccentricity(r, v, d::Quantity, M) = eccentricity(r, v, d, M, GRAVCONST)
-eccentricity(r, v, d::Real, M) = eccentricity(r, v, d, M, UNITLESS_G)
+eccentricity(r, v, d::Quantity, M) = Float64(eccentricity(r, v, d, M, GRAVCONST))
+# eccentricity(r, v, d::Real, M) = eccentricity(r, v, d, M, UNITLESS_G)
 
 
 
@@ -108,10 +108,15 @@ end
 Return the longitude of ascending node of a body in an orbit with angular momentum `h`.
 """
 function longitude_of_ascending_node(h)
-    n = SA[-h[2], h[1], zero(h[1])]
-    Ω = acos(n[1]/norm(n))
+    h1, h2 = h
+    h0 = zero(h[1])
+    # n = SA[-h[2], h[1], zero(h[1])]
+
+    n_norm = sqrt(h2*h2 + h1*h1)
+
+    Ω = acos(-h2/n_norm)
     isnan(Ω) && return 0.0
-    n[2] >= n[3] && return (Ω)
+    h1 >= h0 && return Ω
     return (2π - Ω)
 end
 
@@ -123,10 +128,16 @@ velocity `v`, angular momentum `h` and mass `m`.
 """
 function argument_of_periapsis(r, v, h, m, G)
     μ = G*m
-    n = SA[-h[2], h[1], zero(h[1])]
+
+    h1, h2 = h
+    h0 = zero(h[1])
+    n = SA[-h2, h1, h0]
     e = (v × h) ./ μ .- r ./ norm(r)
 
-    ω = acos(dot(e, n)/(norm(n)*norm(e)))
+    n_norm = sqrt(h2*h2 + h1*h1)
+    e_norm = norm(e)
+
+    ω = acos(dot(e, n)/(n_norm*e_norm))
     if isnan(ω) 
         ω = atan(e[2], e[1])
         return ifelse(h[3] < zero(h[3]), 2π - ω, ω)
@@ -136,7 +147,7 @@ function argument_of_periapsis(r, v, h, m, G)
 end
 
 argument_of_periapsis(r, v, h, M::Quantity) = argument_of_periapsis(r, v, h, M, GRAVCONST)
-argument_of_periapsis(r, v, h, M::Real) = argument_of_periapsis(r, v, h, M, UNITLESS_G)
+# argument_of_periapsis(r, v, h, M::Real) = argument_of_periapsis(r, v, h, M, UNITLESS_G)
 
 """
     true_anomaly(r, v, h, M, G)
@@ -147,9 +158,10 @@ velocity `r`, angular momentum `h` and mass `m`.
 function true_anomaly(r, v, h, m, G)
     μ = G*m
     r_norm = norm(r)
-    e = (v × h)/μ .- r/r_norm
+    r_hat = r ./ r_norm
+    e = (v × h) ./ μ .- r_hat
     
-    vᵣ = dot(r/r_norm, v)
+    vᵣ = dot(r_hat, v)
     arg = dot(e, r)/(norm(e)*r_norm)
     ν = acos(arg)
 
@@ -164,7 +176,7 @@ function true_anomaly(r, v, h, m, G)
 end
 
 true_anomaly(r, v, h, M::Quantity) = true_anomaly(r, v, h, M, GRAVCONST)
-true_anomaly(r, v, h, M::Real) = true_anomaly(r, v, h, M, UNITLESS_G)
+# true_anomaly(r, v, h, M::Real) = true_anomaly(r, v, h, M, UNITLESS_G)
 
 
 """
@@ -241,7 +253,7 @@ function binary_elements(positions, velocities, masses)
 
     a = semi_major_axis(d, v^2, M)
     e = eccentricity(r_rel, v_rel, d, M) 
-
+    
     P = orbital_period(a, M)
     h = angular_momentum(r_rel, v_rel)
     ω = argument_of_periapsis(r_rel, v_rel, h, M) 
@@ -271,7 +283,7 @@ function is_binary(r1, r2, v1, v2, m1, m2, G)
 end
 
 is_binary(r1, r2, v1, v2, m1, m2::Quantity) = is_binary(r1, r2, v1, v2, m1, m2, GRAVCONST)
-is_binary(r1, r2, v1, v2, m1, m2::Real) = is_binary(r1, r2, v1, v2, m1, m2, UNITLESS_G)
+# is_binary(r1, r2, v1, v2, m1, m2::Real) = is_binary(r1, r2, v1, v2, m1, m2, UNITLESS_G)
 
 
 function is_binary(positions::AbstractVector, velocities::AbstractVector, masses::AbstractVector)
