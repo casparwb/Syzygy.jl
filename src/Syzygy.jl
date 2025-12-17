@@ -1,4 +1,4 @@
-__precompile__(false)
+# __precompile__(false)
 
 module Syzygy
     using PrecompileTools, Reexport, Preferences
@@ -16,7 +16,8 @@ module Syzygy
     if !(:AU in DynamicQuantities.UNIT_SYMBOLS)
         @register_unit AU 149597870700u"m" 
     end
-
+    
+    @reexport using DynamicQuantities
     const default_unit_length, default_unit_mass, default_unit_time = u"m", u"kg", u"s"
 
     include("constants.jl")
