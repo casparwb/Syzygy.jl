@@ -399,7 +399,7 @@ end
 
         ylabel := "Inclination [°]"
 
-        x_ax, rad2deg.(i_mut)
+        x_ax, i_mut
     end
 
 
