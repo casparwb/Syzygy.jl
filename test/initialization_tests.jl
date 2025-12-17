@@ -1,4 +1,5 @@
 using LinearAlgebra: norm
+using StaticArrays
 @testset "Setup" begin
 
     # @testset "State vectors to elements" begin
@@ -180,7 +181,7 @@ using LinearAlgebra: norm
         end
     
         @testset "Quadruple" begin
-            quad_3p1 = multibodysystem(ones(4)u"Msun", a=a .* [1.0, 1.0, 10.0], hierarchy=[4, 1, 1, 1])
+            quad_3p1 = multibodysystem(ones(4)u"Msun", a=a .* [0.1, 1.0, 10.0], hierarchy=[4, 1, 1, 1])
             quad_2p2 = multibodysystem(ones(4)u"Msun", a=a .* [1.0, 1.0, 10.0], hierarchy=[4, 2, 1])
         
             let p = quad_3p1.particles.position, m = quad_3p1.particles.mass
@@ -216,7 +217,7 @@ using LinearAlgebra: norm
     
         @testset "Quintuple" begin
             quint_4p1 = multibodysystem(ones(5)u"Msun", a=a .* [0.1, 1.0, 5.0, 10.0], hierarchy=[5, 1, 1, 1, 1])
-            quint_2p2p1 = multibodysystem(ones(5)u"Msun", a=a .* [0.1, 1.0, 5.0, 10.0], hierarchy=[5, 2, 1, 1])
+            quint_2p2p1 = multibodysystem(ones(5)u"Msun", a=a .* [1.0, 1.0, 5.0, 10.0], hierarchy=[5, 2, 1, 1])
     
             let p = quint_4p1.particles.position, m = quint_4p1.particles.mass
                 r12 = p[1] .- p[2]
