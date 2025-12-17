@@ -28,15 +28,15 @@ function centre_of_mass(positions::AbstractVector, masses::AbstractVector)
         @MVector zeros(eltype(positions[1][1]), 3)
     end 
 
-    f = oneunit(one_over_m)
+    # f = oneunit(one_over_m)
     @inbounds for i in eachindex(masses)
         m = masses[i]
         pos = positions[i]
         for k = 1:3
-            com[k] += m*pos[k]*f
+            com[k] += m*pos[k]*one_over_m
         end
     end
-    return SVector(com*ustrip(1/default_unit_mass, one_over_m))
+    return SVector(com)#*ustrip(1/default_unit_mass, one_over_m))
 end
 
 
@@ -57,20 +57,6 @@ function centre_of_mass(positions::AbstractMatrix, masses::AbstractVector)
     end
     return SVector(com)#*one_over_m)#ustrip(1/default_unit_mass, one_over_m))
 end
-
-# function centre_of_mass(positions::AbstractMatrix, masses::AbstractMatrix)
-#     one_over_m = 1.0/sum(masses)
-
-#     com = @MVector zeros(eltype(positions), 3) 
-
-#     f = oneunit(one_over_m)    
-#     @inbounds for i ∈ axes(masses, 2)
-#         for k = 1:3
-#             com[k] += masses[k,i]*positions[k,i]*f
-#         end
-#     end
-#     return SVector(com*ustrip(unit_mass, one_over_m))
-# end
 
 function center_of_mass(positions, masses)
     return centre_of_mass(positions, masses)
@@ -96,7 +82,7 @@ julia> com_tspan = Syzygy.centre_of_mass(sol, tspan=(sol.t[1], sol.t[2]))
 ```
 """
 function centre_of_mass(sol::MultiBodySolution, 
-                        bodies=eachindex(sol.ic.particles); 
+                        bodies=1:sol.ic.n; 
                         tspan=extrema(sol.t))
     time = sol.t
     tspan = isnothing(tspan) ? extrema(time) : tspan
@@ -105,7 +91,7 @@ function centre_of_mass(sol::MultiBodySolution,
     com = QuantityArray(zeros(3, length(indices)), dimension(sol.r))
     masses = sol.ic.particles.mass[bodies]
     for (c, idx) in enumerate(indices)
-        r = [sol.r[:,body,idx] for body in bodies]
+        r = [SVector{3}(sol.r[:,body,idx]) for body in bodies]
         com[:,c] = centre_of_mass(r, masses)
     end
 
@@ -120,34 +106,33 @@ Return the center of mass velocity.
 """
 function centre_of_mass_velocity(velocities::AbstractVector, masses::AbstractVector)
     one_over_m = 1.0/sum(masses)
-    f = oneunit(one_over_m)
 
     vel_com = if velocities[1][1] isa Quantity
-        MVector{3}(QuantityArray(zeros(3), dimension(velocities[1][1])))
+        MVector{3}(QuantityArray(zeros(3), dimension(velocities[1][1])/dimension(one_over_m)))
     else
         @MVector zeros(eltype(velocities[1][1]), 3)
     end 
+
     @inbounds for i in eachindex(velocities)
-        vel_com .+= masses[i].*velocities[i] .* f
+        vel_com .+= masses[i] .* velocities[i]
     end
     
-    return SVector(vel_com*ustrip(1/default_unit_mass, one_over_m))
+    return SVector(vel_com .* one_over_m)
 end
 
 function centre_of_mass_velocity(velocities::AbstractMatrix, masses::AbstractVector)
     one_over_m = 1.0/sum(masses)
-    f = oneunit(one_over_m)
 
     vel_com = if velocities[1] isa Quantity
-        MVector{3}(QuantityArray(zeros(3), dimension(velocities[1])))
+        MVector{3}(QuantityArray(zeros(3), dimension(velocities[1])/dimension(one_over_m)))
     else
         @MVector zeros(eltype(velocities[1]), 3)
     end 
 
     @inbounds for (m, vel) in zip(masses, eachcol(velocities))
-        vel_com .+= m .* vel .* f
+        vel_com .+= m .* vel
     end
-    return SVector(vel_com*ustrip(1/default_unit_mass, one_over_m))
+    return SVector(vel_com .* one_over_m)
 end
 
 function centre_of_mass_velocity(sol::MultiBodySolution, 
