@@ -17,7 +17,6 @@ module Syzygy
         @register_unit AU 149597870700u"m" 
     end
     
-    @reexport using DynamicQuantities
     const default_unit_length, default_unit_mass, default_unit_time = u"m", u"kg", u"s"
 
     include("constants.jl")
