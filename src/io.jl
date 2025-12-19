@@ -25,8 +25,16 @@ function Base.show(io::IO, system::T where T <: NonHierarchicalSystem)
     show(io, system.n)
     println(io,"\n")
 
-    for i in 1:min(system.n, 10)
+    MAX_OUTPUT = 5
+
+    for i in 1:min(system.n, MAX_OUTPUT)
         show(io, system.particles[i])
+        println(io)
+    end
+
+    if system.n > MAX_OUTPUT
+        println("\n ...... \n")
+        show(io, system.particles[system.n])
         println(io)
     end
 
