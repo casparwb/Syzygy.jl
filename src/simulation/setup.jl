@@ -71,7 +71,8 @@ function parse_arguments!(kwargs::Dict)
                         :params => DefaultSimulationParams,
                         :verbose   => false, :max_cpu_time => Inf,
                         :precision => :Float64, :stellar_evolution => false,
-                        :param_options => Dict()
+                        :param_options => Dict(),
+                        :softening => 0.0,
                         )
 
     args = copy(default_args)
@@ -141,7 +142,7 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     kwargs = Dict{Symbol, Any}(kwargs)
     args = parse_arguments!(kwargs)
 
-    args[:potential] = pop!(kwargs, :potential, [PureGravitationalPotential(system)])
+    args[:potential] = pop!(kwargs, :potential, [PureGravitationalPotential(system, softening=args[:softening])])
     dtype = get_datatype_from_precision(args[:precision])
     args[:dtype] = dtype
     particles = system.particles

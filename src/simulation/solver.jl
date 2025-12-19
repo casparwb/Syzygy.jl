@@ -32,18 +32,20 @@ function simulate(simulation::MultiBodySimulation)
     # ##############################################################################################################
     # #              This block allows the full simulation to run without allocations. Don't know why.             #
     # ##############################################################################################################
-    let
-        ode_prob_static = sodeprob_static(simulation, args[:dtype])
+    if simulation.ic.n < 10
+        let
+            ode_prob_static = sodeprob_static(simulation, args[:dtype])
 
-        integrator_static = OrdinaryDiffEqRKN.init(ode_prob_static, args[:alg], saveat=args[:saveat], maxiters=args[:maxiters], 
-                                                abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
-                                                diffeq_args...)
-        try
-            step!(integrator_static)
-        catch err
-            nothing
-        finally
-            terminate!(integrator_static)
+            integrator_static = OrdinaryDiffEqRKN.init(ode_prob_static, args[:alg], saveat=args[:saveat], maxiters=args[:maxiters], 
+                                                    abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
+                                                    diffeq_args...)
+            try
+                step!(integrator_static)
+            catch err
+                nothing
+            finally
+                terminate!(integrator_static)
+            end
         end
     end
     # ##############################################################################################################

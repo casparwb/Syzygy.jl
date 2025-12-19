@@ -1,7 +1,7 @@
 using DiffEqBase, StaticArrays
 using FunctionWranglers
 using ArbNumerics
-using RecursiveArrayTools: ArrayPartition
+using FixedSizeArrays
 
 abstract type MultiBodyInitialConditions end
 abstract type AbstractBinary end
@@ -130,12 +130,11 @@ struct SimulationResult{cType, rType, opType, aType}
     args::aType
 end
 
-struct MultiBodySolution{T, tT, sT, oT, pT}
+struct MultiBodySolution{T, tT, oT, pT}
     ic::MultiBodyInitialConditions # initial conditions
     t::tT # time
     r::T # positions
     v::T # velocities
-    structure::sT
     ode_system::oT 
     ode_params::pT
 end
@@ -195,8 +194,15 @@ end
 ###################################### The in-place ODE solver ######################################
 function make_initial_conditions(us, vs, dtype::Type{<:AbstractFloat})
     n = length(us)
-    u0 = MMatrix{3, n, dtype}(reduce(hcat, us))
-    v0 = MMatrix{3, n, dtype}(reduce(hcat, vs))
+    # u0 = MMatrix{3, n, dtype}(reduce(hcat, us))
+    # v0 = MMatrix{3, n, dtype}(reduce(hcat, vs))
+    u0, v0 = if n < 10
+        MMatrix{3, n, dtype}(reduce(hcat, us)),
+        MMatrix{3, n, dtype}(reduce(hcat, vs))
+    else
+        FixedSizeArray(reduce(hcat, us)), 
+        FixedSizeArray(reduce(hcat, vs))
+    end
 
     return u0, v0
 end
@@ -272,6 +278,7 @@ function get_initial_conditions_static(simulation::MultiBodySimulation)
     u0 = SMatrix{3, n}(reduce(hcat, us))
     v0 = SMatrix{3, n}(reduce(hcat, vs))
 
+
     (u0, v0, n)
 end
 
@@ -315,57 +322,6 @@ function sodeprob_static(simulation::MultiBodySimulation, u0, v0, dv)
 end
 
 #################################################################################################
-
-function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
-                                          acc_funcs::AccelerationFunctions, 
-                                          dtype::Type{ArbFloat})
-                                          
-    u0, v0 = get_initial_conditions(simulation, dtype)
-
-    ODEProblem(simulation, acc_funcs, u0, v0)
-end
-
-function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
-                                          acc_funcs::AccelerationFunctions, 
-                                          dtype::Type{<:AbstractFloat})
-
-    u0, v0 = get_initial_conditions(simulation, dtype)
-
-    ODEProblem(simulation, acc_funcs, u0, v0)
-end
-
-function DiffEqBase.ODEProblem(simulation::MultiBodySimulation, 
-                               acc_funcs::AccelerationFunctions, 
-                               r0, v0)
-
-    pairs = simulation.ic.pairs
-
-    n = size(r0, 2)
-    N = acc_funcs.N
-    accelerations = FunctionWrangler(acc_funcs.fs)
-    output = Vector{Nothing}(undef, N)
-
-    dtype = eltype(r0)
-    dtype_0 = zero(dtype)
-    function ode_system!(du, u, p, t)
-        fill!(du, dtype_0)
-        @inbounds for pair in pairs
-            
-            dv = du.x[1]
-            r = u.x[2]
-            v = u.x[1]
-
-            smap!(output, accelerations, dv, r, v, pair, t, p)
-        end
-
-        du.x[2] .= u.x[1]
-        return nothing
-    end
-
-    u0 = ArrayPartition(v0, r0)
-
-    ODEProblem(ode_system!, u0, simulation.tspan, simulation.params)
-end
 
 ######################################## Helper functions #######################################
 
@@ -431,4 +387,13 @@ function Base.getproperty(binary::Binary, sym::Symbol)
         getfield(binary, sym)
     end
 end
+
+# function Base.getproperty(binary::MultiBodySolution, sym::Symbol)
+#     sym = get(alternative_orbital_element_names, sym, sym)
+#     if 
+
+#     else
+#         getfield(binary, sym)
+#     end
+# end
 #################################################################################################
