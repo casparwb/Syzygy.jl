@@ -45,9 +45,9 @@ const multibodysystem_parameter_aliases = Dict(:radii => :R,
 
 function parse_multibodysystem_args(keyword_arguments)
     keyword_arguments = Dict(keyword_arguments)
-    default_param_values = Dict{Symbol, Any}(:R      => 1.0u"Rsun", 
+    default_param_values = Dict{Symbol, Any}(:R      => 0.0u"Rsun", 
                                              :S      => 0.0u"1/yr", 
-                                             :L      => 1.0u"Lsun", 
+                                             :L      => 0.0u"Lsun", 
                                              :R_core => 0.0u"Rsun",
                                              :m_core => 0.0u"Msun",
                                              :R_env  => 0.0u"Rsun",
@@ -60,7 +60,7 @@ function parse_multibodysystem_args(keyword_arguments)
                                              :e      => 0.1, 
                                              :stellar_types  => 1,
                                              :units => SyzygyUnits(u"Rsun", u"Msun", u"yr"),
-                                             :nbody_units => false)
+                                             :nbody_units => true)
 
     args_out = copy(default_param_values)
 
