@@ -52,13 +52,14 @@ Newtonian gravitational potential. Corresponds to the acceleration function `Syz
 """
 struct PureGravitationalPotential{T <: Real} <: MultiBodyPotential
     G::T
+    ϵ::T
 end
 
-function PureGravitationalPotential(system)
+function PureGravitationalPotential(system; softening=0.0)
     u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
 
     G = get_G_in_system_units(system)
-    return PureGravitationalPotential(G)
+    return PureGravitationalPotential(G, softening)
 end
 
 
@@ -263,7 +264,7 @@ function pure_gravitational_acceleration!(dv, rs,
 
     m₁ = params.masses[i]
     m₂ = params.masses[j]
-    Gr⁻² = -pot.G/r^2
+    Gr⁻² = -pot.G/(r^2 + pot.ϵ)
 
     a = Gr⁻²*n̂
 
