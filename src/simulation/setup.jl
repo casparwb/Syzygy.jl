@@ -3,8 +3,8 @@ using ArbNumerics, DoubleFloats
 
 function bodies(system::T where T <: MultiBodyInitialConditions, dtype=Float64)
 
-    positions  = [zeros(dtype, 3) for i = 1:system.n]
-    velocities = [zeros(dtype, 3) for i = 1:system.n]
+    positions  = [zeros(dtype, 3) for _ in 1:system.n]
+    velocities = [zeros(dtype, 3) for _ in 1:system.n]
     masses     =  zeros(dtype, system.n)
 
     u_l, u_m, u_t = system.units.u_length, system.units.u_mass, system.units.u_time
@@ -22,10 +22,9 @@ function bodies(positions, velocities, masses, units, dtype=Float64)
 
     u_l, u_m, u_t = units.u_length, units.u_mass, units.u_time
 
-
-    positions  = [dtype.(ustrip.(unit_length, p)) for p in positions]
-    velocities = [dtype.(ustrip.(unit_length/unit_time, v)) for v in velocities]
-    masses     = [dtype(ustrip.(unit_mass, m)) for m in masses]
+    positions  = [dtype.(ustrip.(u_l, p)) for p in positions]
+    velocities = [dtype.(ustrip.(u_l/u_t, v)) for v in velocities]
+    masses     = [dtype(ustrip.(u_m, m)) for m in masses]
 
     SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(positions, velocities, masses)]...]
 end
@@ -63,7 +62,7 @@ function parse_arguments!(kwargs::Dict)
 
     default_args = Dict(
                         :t0        => nothing,  :dt     => 0.0u"s", :t_sim => 1.0,
-                        :alg       => DPRKN8(), :saveat => [], :npoints => 0,
+                        :alg       => ODESolvers.DPRKN8, :saveat => [], :npoints => 0,
                         :save_every => nothing, :maxiters  => Inf,
                         :abstol    => 1.0e-10, :reltol  => 1.0e-10,
                         :callbacks => AbstractSyzygyCallback[CollisionCB()], 
@@ -76,7 +75,7 @@ function parse_arguments!(kwargs::Dict)
                         )
 
     args = copy(default_args)
-    for (k, v) in kwargs
+    for (k, _) in kwargs
         if haskey(args, k)
             args[k] = pop!(kwargs, k)
         end
@@ -290,8 +289,8 @@ end
 
 function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64; options)
     unit_length, unit_mass, unit_time = system.units.u_length, system.units.u_mass, system.units.u_time
-
-    @warn "Tidal params expects units of R⊙, M⊙, and yr."
+    unit_power = unit_mass*unit_length^2/unit_time^3
+    # @warn "Tidal params expects units of R⊙, M⊙, and yr."
     # if unit_system != "Solar"
     #     @warn """Default unit system is not set to solar units, which is what the tidal prescription expects. Conversion is currently not supported. Set the units by calling `Syzygy.set_units("Solar")` """
     # end
@@ -311,13 +310,14 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
 
     set_stellar_structure = get(options, :set_stellar_structure, false)
 
+    
     for i = 1:n_bodies
         particle = system.particles[i]
         envelope_radius, envelope_mass = if set_stellar_structure
-            if particle.structure.stellar_type isa Star && particle.mass < 1.25u"Msun"
+            if particle.structure.stellar_type isa Star && particle.mass < 1.25Msun
                 envelope_structure(system.particles[i], age, Z)
             else
-                0.0u"Rsun", 0.0u"Rsun"
+                0.0Rsun, 0.0Rsun
             end
         else
             particle.structure.R_env, particle.structure.m_env
@@ -342,15 +342,16 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
     else
         nothing
     end
+    
    
     apsidal_motion_constants = Float64[]
     rotational_angular_velocities = Float64[]
     for i = 1:n_bodies
         particle = system.particles[i]
 
-        mass         = particle.structure.m      |> upreferred |> ustrip 
-        luminosity   = particle.structure.L      |> upreferred |> ustrip
-        radius       = particle.structure.R      |> upreferred |> ustrip 
+        mass         = ustrip(unit_mass, particle.structure.m) 
+        luminosity   = ustrip(unit_power, particle.structure.L)
+        radius       = ustrip(unit_length, particle.structure.R) 
         stellar_type = particle.structure.stellar_type 
 
         push!(masses,        mass)
@@ -368,7 +369,7 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
 
             if isnothing(supplied_apsidal_motion_constants)
                 logg = log10(ustrip(u"cm/s^2", (GRAVCONST*m/R^2))) 
-                logm = log10(ustrip(u"Msun", m))
+                logm = log10(ustrip(Msun, m))
 
                 logg = clamp(logg, -0.4617, 4.61961)
                 logm = clamp(logm, 0.74565, 34.99814)
@@ -384,20 +385,20 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
 
             if isnothing(supplied_rotational_angular_velocities) && set_spin
                 Ω = stellar_rotational_frequency(m, R)
-                push!(rotational_angular_velocities, ustrip(unit(1/unit_time), 2π*Ω))
+                push!(rotational_angular_velocities, ustrip(1/unit_time, 2π*Ω))
             end
         end
     end
 
     if !set_spin
-        rotational_angular_velocities = 2π*ustrip(unit_time^(-1), system.particles.spin)
+        rotational_angular_velocities = 2π*ustrip.(unit_time^(-1), system.particles.spin)
     end
 
     apsidal_motion_constants      = isnothing(supplied_apsidal_motion_constants)      ? SA[apsidal_motion_constants...]      : SA[supplied_apsidal_motion_constants...]
     rotational_angular_velocities = if isnothing(supplied_rotational_angular_velocities) 
         SA[rotational_angular_velocities...] 
     else
-        SA[ustrip(unit_time^-1, supplied_rotational_angular_velocities)...]
+        SA[ustrip.(unit_time^-1, supplied_rotational_angular_velocities)...]
     end
     
     rotational_angular_velocities = if get(options, :evolve_spins, true) 
@@ -418,8 +419,8 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
 
     fake_perturber_mass = 1.0 # M⊙
     kT_rad_factors = let
-        ms = ustrip(u"Msun", system.particles.mass)
-        R²s = ustrip(u"Rsun^2", system.particles.radius .^ 2)
+        ms = ustrip.(Msun, system.particles.mass)
+        R²s = ustrip.(Rsun^2, system.particles.radius .^ 2)
 
         q₂s = fake_perturber_mass ./ ms
         
@@ -427,7 +428,7 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
         @. tmp/(1 + q₂s)^(5/6)
     end
 
-    kT_convs = ustrip(u"yr^-1", kT_convs)
+    kT_convs = ustrip.(u"yr^-1", kT_convs)
 
     kT_convs = map(x -> ifelse(isnan(x) || isinf(x), 0.0, x), kT_convs)
     kT_rad_factors = map(x -> ifelse(isnan(x) || isinf(x), 0.0, x), kT_rad_factors)
@@ -439,8 +440,8 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
     end
 
     R³_over_Gms = let
-        ms = ustrip(unit_mass, system.particles.mass)
-        R³s = ustrip(u"Rsun^3", system.particles.radius .^ 3)
+        ms = ustrip.(unit_mass, system.particles.mass)
+        R³s = ustrip.(Rsun^3, system.particles.radius .^ 3)
 
         [R³/(UNITLESS_G*m) for (R³, m) in zip(R³s, ms)]
     end
