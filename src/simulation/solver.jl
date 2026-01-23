@@ -1,7 +1,36 @@
 include("./callbacks.jl")
 include("./setup.jl")
 
-using OrdinaryDiffEqRKN, StaticArrays, ProgressMeter
+using DiffEqBase, StaticArrays, ProgressMeter
+
+function initialize_integrator(simulation)
+    acc_funcs = gather_accelerations_for_potentials(simulation)
+
+    args        = simulation.args
+    diffeq_args = simulation.diffeq_args
+    ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
+
+    retcodes = Dict{Symbol, Any}()
+
+    if !isinf(args[:max_cpu_time]) && !(CPUTimeCB in typeof.(args[:callbacks]))
+        push!(args[:callbacks], CPUTimeCB())
+    end
+
+    cbs = setup_callbacks(args[:callbacks], 
+                          simulation.ic, 
+                          simulation.params, 
+                          retcodes, args)
+
+    callbacks = isnothing(cbs) ? nothing : CallbackSet(cbs...)
+
+    integrator = DiffEqBase.init(ode_problem, args[:alg], saveat=args[:saveat], 
+                                        callback=callbacks, maxiters=args[:maxiters], 
+                                        abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
+                                        diffeq_args...)
+
+    return integrator, retcodes
+end
+
 
 """
     simulate(simulation::MultiBodySimulation)
@@ -15,20 +44,6 @@ function simulate(simulation::MultiBodySimulation)
     args        = simulation.args
     diffeq_args = simulation.diffeq_args
 
-    retcodes = Dict{Symbol, Any}()#(:Success => false)
-
-    if !isinf(args[:max_cpu_time]) && !(CPUTimeCB in typeof.(args[:callbacks]))
-        push!(args[:callbacks], CPUTimeCB())
-    end
-
-    cbs = setup_callbacks(args[:callbacks], 
-                          simulation.ic, 
-                          simulation.params, 
-                          retcodes, args)
-
-    callbacks = isnothing(cbs) ? nothing : CallbackSet(cbs...)
-
-
     # ##############################################################################################################
     # #              This block allows the full simulation to run without allocations. Don't know why.             #
     # ##############################################################################################################
@@ -36,7 +51,7 @@ function simulate(simulation::MultiBodySimulation)
         let
             ode_prob_static = sodeprob_static(simulation, args[:dtype])
 
-            integrator_static = OrdinaryDiffEqRKN.init(ode_prob_static, args[:alg], saveat=args[:saveat], maxiters=args[:maxiters], 
+            integrator_static = DiffEqBase.init(ode_prob_static, args[:alg], saveat=args[:saveat], maxiters=args[:maxiters], 
                                                     abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                                     diffeq_args...)
             try
@@ -50,18 +65,11 @@ function simulate(simulation::MultiBodySimulation)
     end
     # ##############################################################################################################
 
-    acc_funcs = gather_accelerations_for_potentials(simulation)
-    ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
+    integrator, retcodes = initialize_integrator(simulation)
 
-    integrator = OrdinaryDiffEqRKN.init(ode_problem, args[:alg], saveat=args[:saveat], 
-                                        callback=callbacks, maxiters=args[:maxiters], 
-                                        abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
-                                        diffeq_args...)
-
-    # return integrator
     start_time = time()
 
-    prog = ProgressUnknown("Evolving system:", showspeed=true, spinner=true, enabled=args[:showprogress])
+    prog = ProgressUnknown(desc="Evolving system:", showspeed=true, spinner=true, enabled=args[:showprogress])
     maxtime = simulation.tspan[end]
     try
         if args[:showprogress]
@@ -94,7 +102,7 @@ function simulate(simulation::MultiBodySimulation)
         if retcodes[:DiffEq] == :Success
             @info "Simulation successful."
         else
-            outcome = retcodes#collect(keys(retcodes))
+            outcome = retcodes
             t = integrator.t * unit_time
             @info "Outcome: " t outcome
         end
