@@ -308,7 +308,7 @@ function semi_major_axis(sol::MultiBodySolution; bodies=(1, 2), tspan=extrema(so
 
     # ids = 
     i, j = bodies
-    a = QuantityArray(zeros(length(sol.t)), unit_length)
+    a = QuantityArray(zeros(length(sol.t)), default_unit_length)
 
     M = sum(sol.ic.particles.mass[SA[bodies[1], bodies[2]]])
     for idx in eachindex(sol.t)
