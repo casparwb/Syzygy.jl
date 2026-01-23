@@ -45,6 +45,7 @@ const multibodysystem_parameter_aliases = Dict(:radii => :R,
 
 function parse_multibodysystem_args(keyword_arguments)
     keyword_arguments = Dict(keyword_arguments)
+
     default_param_values = Dict{Symbol, Any}(:R      => 0.0u"Rsun", 
                                              :S      => 0.0u"1/yr", 
                                              :L      => 0.0u"Lsun", 
@@ -58,7 +59,7 @@ function parse_multibodysystem_args(keyword_arguments)
                                              :Ω      => 0.0, 
                                              :ν      => 1π,
                                              :e      => 0.1, 
-                                             :stellar_types  => 1,
+                                             :stellar_types  => 20,
                                              :units => SyzygyUnits(u"Rsun", u"Msun", u"yr"),
                                              :nbody_units => true)
 
@@ -80,14 +81,14 @@ function check_units(masses, radii, spins, luminosities,
                      longitude_of_ascending_nodes, 
                      true_anomalies)
 
-    @assert all(x -> isone(umass(uexpand(x))), masses) "Unit of masses is not correct. Got $(unit.(masses)), expected mass"
-    @assert all(x -> isone(ulength(uexpand(x))), radii) "Unit of radii is not correct. Got $(unit.(radii)), expected length"
+    @assert all(x -> isone(umass(uexpand(x))), masses) "Unit of masses is not correct. Got $(dimension(masses)), expected mass"
+    @assert all(x -> isone(ulength(uexpand(x))), radii) "Unit of radii is not correct. Got $(dimension(radii)), expected length"
     # @assert all(x -> dimension(x) == Power, luminosities) "Unit of luminosities is not correct. Got $(unit.(luminosities)), expected power"
-    @assert all(x -> isone(ulength(uexpand(x))), core_radii) "Unit of core radii is not correct. Got $(unit.(core_radii)), expected length"
-    @assert all(x -> isone(umass(uexpand(x))), core_masses) "Unit of core masses is not correct. Got $(unit.(core_masses)), expected mass"
-    @assert all(x -> isone(ulength(uexpand(x))), envelope_radii) "Unit of envelope radii is not correct. Got $(unit.(envelope_radii)), expected length"
-    @assert all(x -> isone(umass(uexpand(x))), envelope_masses) "Unit of envelope masses is not correct. Got $(unit.(envelope_masses)), expected mass"
-    @assert all(x -> isone(ulength(uexpand(x))), semi_major_axes) "Unit of semi-major axes is not correct. Got $(unit.(semi_major_axes)), expected length"
+    @assert all(x -> isone(ulength(uexpand(x))), core_radii) "Unit of core radii is not correct. Got $(dimension(core_radii)), expected length"
+    @assert all(x -> isone(umass(uexpand(x))), core_masses) "Unit of core masses is not correct. Got $(dimension(core_masses)), expected mass"
+    @assert all(x -> isone(ulength(uexpand(x))), envelope_radii) "Unit of envelope radii is not correct. Got $(dimension(envelope_radii)), expected length"
+    @assert all(x -> isone(umass(uexpand(x))), envelope_masses) "Unit of envelope masses is not correct. Got $(dimension(envelope_masses)), expected mass"
+    @assert all(x -> isone(ulength(uexpand(x))), semi_major_axes) "Unit of semi-major axes is not correct. Got $(dimension(semi_major_axes)), expected length"
 
     # @assert all(x -> (unit(x) == u"rad" || unit(x) == u"°"), argument_of_periapses) "Unit of argument of periapses is not correct. Got $(unit.(argument_of_periapses)), expected angle (rad or °)"
     # @assert all(x -> (unit(x) == u"rad" || unit(x) == u"°"), inclinations) "Unit of inclinations is not correct. Got $(unit.(inclinations)), expected angle (rad or °)"
