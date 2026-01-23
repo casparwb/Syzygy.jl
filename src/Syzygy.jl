@@ -1,23 +1,30 @@
 # __precompile__(false)
 
 module Syzygy
-    using PrecompileTools, Reexport, Preferences
+    using PrecompileTools, Reexport
     @reexport using DynamicQuantities
 
-    if !(:Rsun in DynamicQuantities.UNIT_SYMBOLS) 
-        @register_unit Rsun 6.975e8u"m" 
-    end
-    if !(:Msun in DynamicQuantities.UNIT_SYMBOLS) 
-        @register_unit Msun 1.9884754153381438e30u"kg" 
-    end
-    if !(:Lsun in DynamicQuantities.UNIT_SYMBOLS) 
-        @register_unit Lsun 3.828e26u"W" 
-    end
-    if !(:AU in DynamicQuantities.UNIT_SYMBOLS)
-        @register_unit AU 149597870700u"m" 
-    end
+    @register_unit Rsun 6.975e8u"m" 
+
+    @register_unit Msun 1.9884754153381438e30u"kg" 
+
+    @register_unit Lsun 3.828e26u"W" 
+
+    @register_unit AU 149597870700u"m" 
+
+    # if !(:Rsun in DynamicQuantities.UNIT_SYMBOLS) 
+    #     @register_unit Rsun 6.975e8u"m" 
+    # end
+    # if !(:Msun in DynamicQuantities.UNIT_SYMBOLS) 
+    #     @register_unit Msun 1.9884754153381438e30u"kg" 
+    # end
+    # if !(:Lsun in DynamicQuantities.UNIT_SYMBOLS) 
+    #     @register_unit Lsun 3.828e26u"W" 
+    # end
+    # if !(:AU in DynamicQuantities.UNIT_SYMBOLS)
+    #     @register_unit AU 149597870700u"m" 
+    # end
     
-    export Rsun, Msun, Lsun, AU
     const default_unit_length, default_unit_mass, default_unit_time = u"m", u"kg", u"s"
 
     include("constants.jl")
