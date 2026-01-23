@@ -68,11 +68,11 @@ end
     xlabel := dimlabels[dims[1]]
     ylabel := dimlabels[dims[2]]
     zlabel := length(dims) == 3 ? dimlabels[dims[3]] : nothing
- 
 
     r = [res.solution.u[i].x[2][:,bodies] for i ∈ indices]
     masses = res.simulation.params.masses[bodies]
 
+    local shift_coord
     if ref_frame == "com"
         com = zeros(eltype(r[1][1]), 3, length(indices))
         for i in eachindex(indices)
@@ -99,14 +99,14 @@ end
 end
 
 @recipe function f(eO::OrbitPlot; bodies="all", dims=[1, 2, 3],
-                     tspan=nothing, step=1, ref_frame="com", axis_units=u"Rsun")
+                     tspan=nothing, step=1, ref_frame="com")
 
     sol = eO.args[1]
     @assert sol isa MultiBodySolution "First argument must be a `MultiBodySolution`. Got $(typeof(sol))"
 
-    u_length, u_mass, u_time = let units = sol.ic.units
-        units.u_length, units.u_mass, units.u_time
-    end
+    # u_length, u_mass, u_time = let units = sol.ic.units
+    #     units.u_length, units.u_mass, units.u_time
+    # end
 
     if bodies isa String 
         bodies = keys(sol.ic.particles) |> collect |> sort
@@ -131,7 +131,7 @@ end
     zlabel := length(dims) == 3 ? dimlabels[dims[3]] : nothing
     aspect_ratio --> 1
 
-    time = ustrip.(u_time, sol.t)
+    # time = ustrip.(sol.t)
 
     if ref_frame == "com"
         shift_coord = centre_of_mass(sol, bodies, tspan=tspan)#[:,indices]
@@ -143,7 +143,7 @@ end
     end
 
     for idx in bodies
-        data = Tuple([ustrip.(axis_units, sol.r[dim=dim,particle=idx,time=indices] .- shift_coord[dim,1:step:end]) for dim in dims])
+        data = Tuple([ustrip.(sol.r[dim=dim,particle=idx,time=indices] .- shift_coord[dim,1:step:end]) for dim in dims])
         @series begin 
             label --> labels[idx]
             data
@@ -152,17 +152,17 @@ end
 
 end
 
-@recipe function f(eP::EnergyPlot; norm=true, tspan=nothing, step=1, t_unit=u"kyr")
+@recipe function f(eP::EnergyPlot; norm=true, tspan=nothing, step=1)
 
     sol = eP.args[1]
-    time = sol.t  .|> t_unit
+    time = sol.t
 
     tspan = isnothing(tspan) ? extrema(time) : tspan
 
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
     indices = indices[1]:step:indices[2]
 
-    t = time[indices]
+    t = ustrip.(time[indices])
     Ekin = kinetic_energy(sol)[indices]
     Epot = potential_energy(sol)[indices]
 
@@ -203,7 +203,7 @@ end
         title --> "Kinetic"
         xticks := nothing
         label := false
-        ustrip(t), Ekin
+        t, Ekin
     end
 
     # Subplot 2 (total energy)
@@ -217,7 +217,7 @@ end
         # ylims --> (-100.01Elims[1], 100.01Elims[2])
         title --> "Total"
         xticks := nothing
-        ustrip(t), Etot
+        t, Etot
     end
 
     # Subplot 1 (potential energy)
@@ -246,22 +246,22 @@ end
     n = sol.ic.n
     tspan = isnothing(tspan) ? extrema(time) : tspan
     
-    u_length, u_mass, u_time = let units = sol.ic.units
-        units.u_length, units.u_mass, units.u_time
-    end
-    u_vel = u_length/u_time
-    u_acc = u_vel/u_time
+    # u_length, u_mass, u_time = let units = sol.ic.units
+    #     units.u_length, units.u_mass, units.u_time
+    # end
+    # u_vel = u_length/u_time
+    # u_acc = u_vel/u_time
 
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
     indices = indices[1]:indices[2]
 
-    time = ustrip.(u_time, time)
+    time = ustrip.(time)
     
     N = length(indices)
     bodies = isnothing(bodies) ? (1:ic.n) : bodies 
 
     dvs = zeros(3, 3)
-    accel = zeros(3, length(bodies), N)#QuantityArray(zeros(3, length(bodies), N), u_acc)
+    accel = zeros(3, length(bodies), N)
 
     a_func = Syzygy.get_accelerating_function(pot)
 
@@ -270,16 +270,14 @@ end
             i, j = pair
             fill!(dvs, 0.0)
 
-            r = SMatrix{3, n}(ustrip.(u_length, sol.r[:,:,t]))
-            v = SMatrix{3, n}(ustrip.(u_vel, sol.v[:,:,t]))
+            r = SMatrix{3, n}(ustrip.(sol.r[:,:,t]))
+            v = SMatrix{3, n}(ustrip.(sol.v[:,:,t]))
 
             a_func(dvs, r, v, pair, time[t], p)
-            accel[:, i, t] .+= dvs[:,i] #.* u_acc
-            accel[:, j, t] .+= dvs[:,j] #.* u_acc
+            accel[:, i, t] .+= dvs[:,i] 
+            accel[:, j, t] .+= dvs[:,j] 
         end
     end
-
-    accel
 
     ylims --> :auto
     xlims --> :auto
@@ -305,9 +303,9 @@ end
     triple = sol.ic
     time = sol.t
 
-    u_length, u_mass, u_time = let units = triple.units
-        units.u_length, units.u_mass, units.u_time
-    end
+    # u_length, u_mass, u_time = let units = triple.units
+    #     units.u_length, units.u_mass, units.u_time
+    # end
 
     @assert sol.ic.n == 3 "Only valid for triples."
 
@@ -346,7 +344,7 @@ end
 
     t = time
     x_ax = if xax == "time"
-        ustrip.(u_time, time)
+        ustrip.(time)
     elseif xax == "inner"
         t ./ sol.ic.binaries[1].elements.P
     elseif xax == "outer"
@@ -495,14 +493,14 @@ end
 @recipe function f(eD::DistancePlot; tspan=nothing, step=1)
 
     sol = eD.args[1]
-    time = sol.t  .|> u"Myr"
+    time = sol.t
 
     tspan = isnothing(tspan) ? extrema(time) : tspan
 
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
     indices = indices[1]:step:indices[2]
 
-    t = time[indices]
+    t = ustrip.(time[indices])
 
     # r1 = sol.r[:,1,indices] .|> u"AU"
     # r2 = sol.r[:,2,indices] .|> u"AU"
@@ -514,8 +512,9 @@ end
     distances(r1, r2) = norm.(eachcol(r1 .- r2))
     legend := :left
     pairs = sol.ic.pairs
-    distances = Dict(p => distances(sol.r[particle=p[1]], sol.r[particle=p[2]]) .|> u"Rsun" for p in pairs)
-
+    distances = Dict(p => distances(sol.r[particle=p[1]], sol.r[particle=p[2]]) for p in pairs)
+    distances = Dict(k => ustrip.(v ./ first(v)) for (k, v) in distances)
+    
     layout --> (2, 1)
     for pair in pairs
         @series begin
@@ -524,7 +523,7 @@ end
             xticks --> nothing
             label --> "$pair"
             ylabel --> "Distance"
-            ustrip(t), distances[pair] ./ first(distances[pair])
+            t, distances[pair]
         end
     end
 
@@ -534,7 +533,7 @@ end
 @recipe function f(eS::AngularMomentumPlot; total=false, tspan=nothing, step=1)
 
     sol = eS.args[1]
-    time = sol.t  .|> u"Myr"
+    time = sol.t 
 
     tspan = isnothing(tspan) ? extrema(time) : tspan
 
@@ -552,7 +551,7 @@ end
     # end
 
     nbodies = sol.ic.n
-    total_angular_momentum = zeros(typeof(1.0u"m^2/s"), 3, length(t))
+    total_angular_momentum = QuantityArray(zeros(3, length(t)), u"m^2/s")#zeros(typeof(1.0u"m^2/s"), 3, length(t))
     for i in eachindex(t)
         for body in 1:nbodies
             total_angular_momentum[:, i] = sol.r[:,body,i] × (sol.v[:,body,i])
@@ -614,7 +613,7 @@ end
     titlefontsize --> 20
     tickfontsize --> 10
 
-    t = ustrip.(t_unit, time)
+    t = ustrip.(time)
 
     # Eccentricity plot
     @series begin
@@ -680,7 +679,7 @@ end
     titlefontsize --> 20
     tickfontsize --> 10
 
-    t = ustrip.(t_unit, time)
+    t = ustrip.(time)
 
     # Inner sma plot
     @series begin
