@@ -379,7 +379,9 @@ end
 
 function collision_check(d, R1, R2, m1, m2, stellar_type1::Int, stellar_type2::Int, grav_rad_multiple, Gc⁻²)
     
-    if (0 <= stellar_type1 <= 9) && (0 <= stellar_type2 <= 9) # two stars
+    if (stellar_type1 == 20) && (stellar_type2 == 20) # two generic objects
+        return collision_check_radius(d, R1, R2)
+    elseif (0 <= stellar_type1 <= 9) && (0 <= stellar_type2 <= 9) # two stars
         return collision_check_radius(d, R1, R2)
     elseif  (0 <= stellar_type1 <= 9) && (10 <= stellar_type2 <= 14) # one star, one CO
         return collision_check_tidal_disruption(d, R1, m2, m1)

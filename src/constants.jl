@@ -1,12 +1,15 @@
 using StaticArrays
 
-const GRAVCONST = 6.6743015e-11u"m^3/kg/s^2"# uconvert(unit_length^3*unit_mass^-1*unit_time^-2, 6.6743015e-11u"m^3/kg/s^2")
+const au = AU
+export Rsun, Msun, Lsun, AU, au
+
+const GRAVCONST = 6.6743015e-11u"m^3/kg/s^2"
 const UNITLESS_G = ustrip(u"m^3/kg/s^2", GRAVCONST)
 const G² = UNITLESS_G^2
 const G³ = UNITLESS_G^3
 const G⁴ = UNITLESS_G^4
 
-const speed_of_light = 299_792_458.0u"m/s"#uconvert(unit_length/unit_time, 299_792_458u"m/s")
+const speed_of_light = 299_792_458.0u"m/s"
 const SPEED_OF_LIGHT = speed_of_light
 const LIGHTSPEED = speed_of_light
 const UNITLESS_c = ustrip(u"m/s", speed_of_light)
@@ -43,7 +46,8 @@ const stellar_type = Dict(  "deeply or fully convective low mass MS star" => 0,
                             "Unknown stellar type" => 16,
                             "Pre-main-sequence Star" => 17,
                             "Planet" => 18,
-                            "Brown Dwarf" => 19)
+                            "Brown Dwarf" => 19,
+                            "Generic stellar type" => 20)
 
 
 const stellar_type_index = Dict(5  => "First Asymptotic Giant Branch",
@@ -65,7 +69,8 @@ const stellar_type_index = Dict(5  => "First Asymptotic Giant Branch",
                                 15 => "Massless Supernova",
                                 2  => "Hertzsprung Gap",
                                 10 => "Helium White Dwarf",
-                                18 => "Planet")
+                                18 => "Planet",
+                                20 => "Generic stellar type")
 
 
 const tidal_structure_coefficients = Dict{Tuple{Float64, Int64}, SVector{6, Float64}}(
