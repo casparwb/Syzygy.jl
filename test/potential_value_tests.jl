@@ -9,12 +9,10 @@ using Test
 
         """
 
-        n = 2
+        # n = 2
         masses = [2.0, 1.0]
         radii = zeros(2)
         stellar_types = [14, 14]
-
-        ages = zeros(2)
 
         params = Syzygy.DefaultSimulationParams(radii, masses, [Syzygy.stellar_types[s] for s in stellar_types], stellar_types)
 

@@ -4,8 +4,8 @@ using StaticArrays
 
     # @testset "State vectors to elements" begin
 
-    #     ain = 0.1u"AU"
-    #     aout = 1.0u"AU"
+    #     ain = 0.1au
+    #     aout = 1.0au
 
     #     ein = 0.6
     #     eout = 0.2
@@ -19,7 +19,7 @@ using StaticArrays
     #     Ωout = ωout
     #     Ωin  = ωin
         
-    #     masses = [2.0, 1.0, 3.0]u"Msun"
+    #     masses = [2.0, 1.0, 3.0]Msun
 
     #     triple = multibodysystem(masses, a=[ain, aout], 
     #                                     e=[ein, eout],
@@ -54,8 +54,8 @@ using StaticArrays
 
     @testset "Triple initilization" begin
 
-        ain = 0.1u"AU"
-        aout = 1.0u"AU"
+        ain = 0.1au
+        aout = 1.0au
 
         ein = 0.6
         eout = 0.2
@@ -71,7 +71,7 @@ using StaticArrays
         Ωout = ωout
         Ωin  = ωin
         
-        masses = [2.0, 1.0, 3.0]u"Msun"
+        masses = [2.0, 1.0, 3.0]Msun
 
         triple = multibodysystem(masses, a=[ain, aout], 
                                         e=[ein, eout],
@@ -112,7 +112,7 @@ using StaticArrays
         νin = 0
         νout = 1π
         
-        masses = [2.0, 1.0, 3.0]u"Msun"
+        masses = [2.0, 1.0, 3.0]Msun
 
         triple = multibodysystem(masses, a=[ain, aout], 
                                         e=[ein, eout],
@@ -152,14 +152,11 @@ using StaticArrays
 
     @testset "Arbitrary hierarchy" begin
     
-        a = 1.0u"AU"
-        # binary = multibodysystem(ones(2)u"Msun", a=a)
-        # quint_2p2p1 = multibodysystem(ones(5)u"Msun", a=a .* [0.1, 1.0, 5.0, 10.0], hierarchy=[5, 2, 2, 1])
-        # quint_3p2   = multibodysystem(ones(5)u"Msun", a=a .* [0.1, 1.0, 5.0, 10.0], hierarchy=[5, 1, 2, 1])
-        
+        a = 1.0au
+
         
         @testset "Triple" begin
-            triple = multibodysystem(ones(3)u"Msun", a=a .* [0.1, 1.0])
+            triple = multibodysystem(ones(3)Msun, a=a .* [0.1, 1.0])
             p = triple.particles.position
             m = triple.particles.mass
     
@@ -181,8 +178,8 @@ using StaticArrays
         end
     
         @testset "Quadruple" begin
-            quad_3p1 = multibodysystem(ones(4)u"Msun", a=a .* [0.1, 1.0, 10.0], hierarchy=[4, 1, 1, 1])
-            quad_2p2 = multibodysystem(ones(4)u"Msun", a=a .* [1.0, 1.0, 10.0], hierarchy=[4, 2, 1])
+            quad_3p1 = multibodysystem(ones(4)Msun, a=a .* [0.1, 1.0, 10.0], hierarchy=[4, 1, 1, 1])
+            quad_2p2 = multibodysystem(ones(4)Msun, a=a .* [1.0, 1.0, 10.0], hierarchy=[4, 2, 1])
         
             let p = quad_3p1.particles.position, m = quad_3p1.particles.mass
                 r12 = p[1] .- p[2]
@@ -216,8 +213,8 @@ using StaticArrays
         end
     
         @testset "Quintuple" begin
-            quint_4p1 = multibodysystem(ones(5)u"Msun", a=a .* [0.1, 1.0, 5.0, 10.0], hierarchy=[5, 1, 1, 1, 1])
-            quint_2p2p1 = multibodysystem(ones(5)u"Msun", a=a .* [1.0, 1.0, 5.0, 10.0], hierarchy=[5, 2, 1, 1])
+            quint_4p1 = multibodysystem(ones(5)Msun, a=a .* [0.1, 1.0, 5.0, 10.0], hierarchy=[5, 1, 1, 1, 1])
+            quint_2p2p1 = multibodysystem(ones(5)Msun, a=a .* [1.0, 1.0, 5.0, 10.0], hierarchy=[5, 2, 1, 1])
     
             let p = quint_4p1.particles.position, m = quint_4p1.particles.mass
                 r12 = p[1] .- p[2]

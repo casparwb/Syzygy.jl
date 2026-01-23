@@ -13,18 +13,19 @@ using Test
 
     unit_mass, unit_length, unit_time = Syzygy.default_unit_mass, Syzygy.default_unit_length, Syzygy.default_unit_time
     unit_speed = unit_length/unit_time
+    Rsun_yr = Rsun/u"yr"
     @testset "Pure gravity" begin
         # assuming solar units
 
-        masses =ustrip(unit_mass, 1.0*ones(3)u"Msun")
-        radii = ustrip(unit_length, 1.0*ones(3)u"Rsun")
+        masses =ustrip(unit_mass, 1.0*ones(3)Msun)
+        radii = ustrip(unit_length, 1.0*ones(3)Rsun)
         stellar_types = [1, 1]
 
         params = Syzygy.DefaultSimulationParams(radii, masses, [Syzygy.stellar_types[s] for s in stellar_types], stellar_types)
         y = 2*sin(deg2rad(60))
-        r1 = ustrip(unit_length, [-1.0, 0.0, 0.0]u"Rsun")
-        r2 = ustrip(unit_length, [1.0, 0.0, 0.0]u"Rsun")
-        r3 = ustrip(unit_length, [0.0, y, 0.0]u"Rsun")
+        r1 = ustrip(unit_length, [-1.0, 0.0, 0.0]Rsun)
+        r2 = ustrip(unit_length, [1.0, 0.0, 0.0]Rsun)
+        r3 = ustrip(unit_length, [0.0, y, 0.0]Rsun)
         rs = [r1 r2 r3]
 
         pair12 = (1, 2)
@@ -43,8 +44,8 @@ using Test
 
     @testset "PN-1" begin
 
-        masses =ustrip(unit_mass, 1.0*ones(3)u"Msun")
-        radii = ustrip(unit_length, 1.0*ones(3)u"Rsun")
+        masses =ustrip(unit_mass, 1.0*ones(3)Msun)
+        radii = ustrip(unit_length, 1.0*ones(3)Rsun)
         stellar_types = [14, 14]
 
 
@@ -52,12 +53,12 @@ using Test
 
         dv = zeros(3, 2)
 
-        r1 = ustrip(unit_length, [-1.0, 0.0, 0.0]u"Rsun")
-        r2 = ustrip(unit_length, [1.0, 0.0, 0.0]u"Rsun")
+        r1 = ustrip(unit_length, [-1.0, 0.0, 0.0]Rsun)
+        r2 = ustrip(unit_length, [1.0, 0.0, 0.0]Rsun)
         rs = [r1 r2]
 
-        v1 = ustrip(unit_speed, [0.0, -100.0, 0.0]u"Rsun/yr")
-        v2 = ustrip(unit_speed, [0.0, 100.0, 0.0]u"Rsun/yr")
+        v1 = ustrip(unit_speed, [0.0, -100.0, 0.0]Rsun_yr)
+        v2 = ustrip(unit_speed, [0.0, 100.0, 0.0]Rsun_yr)
         vs = [v1 v2]
 
         pair = (1, 2)
@@ -71,8 +72,8 @@ using Test
 
     @testset "PN-2" begin
 
-        masses = ustrip(unit_mass, 1.0*ones(3)u"Msun")
-        radii = ustrip(unit_length, 1.0*ones(3)u"Rsun")
+        masses = ustrip(unit_mass, 1.0*ones(3)Msun)
+        radii = ustrip(unit_length, 1.0*ones(3)Rsun)
         stellar_types = [14, 14]
 
 
@@ -80,12 +81,12 @@ using Test
 
         dv = zeros(3, 2)
 
-        r1 = ustrip(unit_length, [-1.0, 0.0, 0.0]u"Rsun")
-        r2 = ustrip(unit_length, [1.0, 0.0, 0.0]u"Rsun")
+        r1 = ustrip(unit_length, [-1.0, 0.0, 0.0]Rsun)
+        r2 = ustrip(unit_length, [1.0, 0.0, 0.0]Rsun)
         rs = [r1 r2]
 
-        v1 = ustrip(unit_speed, [0.0, -100.0, 0.0]u"Rsun/yr")
-        v2 = ustrip(unit_speed, [0.0, 100.0, 0.0]u"Rsun/yr")
+        v1 = ustrip(unit_speed, [0.0, -100.0, 0.0]Rsun_yr)
+        v2 = ustrip(unit_speed, [0.0, 100.0, 0.0]Rsun_yr)
         vs = [v1 v2]
 
         pair = (1, 2)
@@ -99,8 +100,8 @@ using Test
 
     @testset "PN-2.5" begin
 
-        masses =ustrip(unit_mass, 1.0*ones(3)u"Msun")
-        radii = ustrip(unit_length, 1.0*ones(3)u"Rsun")
+        masses =ustrip(unit_mass, 1.0*ones(3)Msun)
+        radii = ustrip(unit_length, 1.0*ones(3)Rsun)
         stellar_types = [14, 14]
 
 
@@ -108,12 +109,12 @@ using Test
 
         dv = zeros(3, 2)
 
-        r1 = ustrip(unit_length, [-1.0, 0.0, 0.0]u"Rsun")
-        r2 = ustrip(unit_length, [1.0, 0.0, 0.0]u"Rsun")
+        r1 = ustrip(unit_length, [-1.0, 0.0, 0.0]Rsun)
+        r2 = ustrip(unit_length, [1.0, 0.0, 0.0]Rsun)
         rs = [r1 r2]
 
-        v1 = ustrip(unit_speed, [0.0, -100.0, 0.0]u"Rsun/yr")
-        v2 = ustrip(unit_speed, [0.0, 100.0, 0.0]u"Rsun/yr")
+        v1 = ustrip(unit_speed, [0.0, -100.0, 0.0]Rsun_yr)
+        v2 = ustrip(unit_speed, [0.0, 100.0, 0.0]Rsun_yr)
         vs = [v1 v2]
 
         pair = (1, 2)
@@ -127,8 +128,8 @@ using Test
 
     @testset "PN1 to 2.5" begin
 
-        masses = ustrip(unit_mass, 1.0*ones(3)u"Msun")
-        radii = ustrip(unit_length, 1.0*ones(3)u"Rsun")
+        masses = ustrip(unit_mass, 1.0*ones(3)Msun)
+        radii = ustrip(unit_length, 1.0*ones(3)Rsun)
         stellar_types = [14, 14]
 
 
@@ -136,12 +137,12 @@ using Test
 
         dv = zeros(3, 2)
 
-        r1 = ustrip(unit_length, [-1.0, 0.0, 0.0]u"Rsun")
-        r2 = ustrip(unit_length, [1.0, 0.0, 0.0]u"Rsun")
+        r1 = ustrip(unit_length, [-1.0, 0.0, 0.0]Rsun)
+        r2 = ustrip(unit_length, [1.0, 0.0, 0.0]Rsun)
         rs = [r1 r2]
 
-        v1 = ustrip(unit_speed, [0.0, -100.0, 0.0]u"Rsun/yr")
-        v2 = ustrip(unit_speed, [0.0, 100.0, 0.0]u"Rsun/yr")
+        v1 = ustrip(unit_speed, [0.0, -100.0, 0.0]Rsun_yr)
+        v2 = ustrip(unit_speed, [0.0, 100.0, 0.0]Rsun_yr)
         vs = [v1 v2]
 
         pair = (1, 2)
@@ -168,8 +169,8 @@ using Test
 
     # @testset "Static equilibrium tides" begin
 
-    #     masses = 1.0*ones(2)u"Msun"
-    #     radii = 1.0*ones(2)u"Rsun"#5.0*ones(2)u"Rsun"
+    #     masses = 1.0*ones(2)Msun
+    #     radii = 1.0*ones(2)Rsun#5.0*ones(2)Rsun
     #     luminosities = 1.0*ones(2)u"Lsun"
     #     stellar_types = [1, 1]
 
@@ -178,7 +179,7 @@ using Test
 
     #     ages = zeros(2)u"yr"
 
-    #     binary = multibodysystem(masses, a=10.0u"Rsun", R=radii, m_core = M_cores, R_core = R_cores)
+    #     binary = multibodysystem(masses, a=10.0Rsun, R=radii, m_core = M_cores, R_core = R_cores)
 
     #     params = Syzygy.TidalSimulationParams(Float64.(ustrip.(radii)), Float64.(ustrip.(masses)), 
     #                                           Float64.(ustrip.(luminosities)), [Syzygy.stellar_types[s] for s in stellar_types], stellar_types, 
@@ -200,8 +201,8 @@ using Test
 
     # @testset "Dynamical tides" begin
 
-    #     masses = 1.0*ones(2)u"Msun"
-    #     radii = [1.0, 1.0]u"Rsun"
+    #     masses = 1.0*ones(2)Msun
+    #     radii = [1.0, 1.0]Rsun
     #     luminosities = 1.0*ones(2)u"Lsun"
     #     stellar_types = [1, 1]
 
@@ -210,7 +211,7 @@ using Test
 
     #     ages = zeros(2)u"yr"
 
-    #     binary = multibodysystem(masses, a=5.0u"Rsun", e=0.4, R=radii, m_core = M_cores, R_core = R_cores)
+    #     binary = multibodysystem(masses, a=5.0Rsun, e=0.4, R=radii, m_core = M_cores, R_core = R_cores)
 
     #     params = Syzygy.TidalSimulationParams(Float64.(ustrip.(radii)), 
     #                                             Float64.(ustrip.(masses)), 
@@ -223,8 +224,8 @@ using Test
 
     #     dv = zeros(3, 2)
         
-    #     rs = reduce(hcat, binary.particles.position) .|> u"Rsun" .|> ustrip
-    #     vs = reduce(hcat, (binary.particles.velocity)) .|> u"Rsun/yr" .|> ustrip
+    #     rs = reduce(hcat, binary.particles.position) .|> Rsun .|> ustrip
+    #     vs = reduce(hcat, (binary.particles.velocity)) .|> Rsun_yr .|> ustrip
 
     #     pot = DynamicalTidalPotential(4, [1.5, 1.5])
 

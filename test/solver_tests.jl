@@ -2,8 +2,8 @@
 
     @testset "IC to ODE" begin
 
-        ain = 0.1u"AU"
-        aout = 1.0u"AU"
+        ain = 0.1au
+        aout = 1.0au
 
         ein = 0.6
         eout = 0.2
@@ -19,7 +19,7 @@
         Ωout = ωout
         Ωin  = ωin
         
-        masses = [2.0, 1.0, 3.0]u"Msun"
+        masses = [2.0, 1.0, 3.0]Msun
 
         triple = multibodysystem(masses, a=[ain, aout], 
                                         e=[ein, eout],
@@ -49,12 +49,12 @@
         
         @testset "Collision" begin
             
-            a = 5.0u"Rsun"
+            a = 5.0Rsun
             e = 0.6
             ν = (π/2)
             rp = a*(1 - e)
             R = [rp/2, rp/2] .* 1.01
-            masses = [2.0, 1.0]u"Msun"
+            masses = [2.0, 1.0]Msun
             binary = multibodysystem(masses, a=a, e=e, R = R)
 
             res = simulate(binary, t_sim=1.0, callbacks=[CollisionCB()])
@@ -65,12 +65,12 @@
 
         # @testset "New collision" begin
             
-        #     a = 5.0u"Rsun"
+        #     a = 5.0Rsun
         #     e = 0.6
         #     ν = (π/2)
         #     rp = a*(1 - e)
         #     R = [rp/2, rp/2] .* 1.01
-        #     masses = [2.0, 1.0]u"Msun"
+        #     masses = [2.0, 1.0]Msun
         #     binary = multibodysystem(masses, a=a, e=e, R = R)
 
         #     res = simulate(binary, t_sim=1.0, callbacks=[Syzygy.NewCollisionCB()])
@@ -80,11 +80,11 @@
         # end
 
         @testset "Running with callbacks" begin
-            a = [1.0, 5.0]u"AU"
+            a = [1.0, 5.0]au
             e = [0.6, 0.1]
             ν = (π/2)
 
-            masses = [2.0, 0.5, 1.0]u"Msun"
+            masses = [2.0, 0.5, 1.0]Msun
             triple = multibodysystem(masses, a=a, e=e)
 
             @testset "$cb" for cb in callbacks
@@ -98,7 +98,7 @@
         
     @testset "Arbitrary precision" begin
 
-        binary = multibodysystem(ones(2)u"Msun")
+        binary = multibodysystem(ones(2)Msun)
 
         res = simulate(binary, t_sim=1)
 
