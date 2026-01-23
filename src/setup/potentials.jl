@@ -56,8 +56,6 @@ struct PureGravitationalPotential{T <: Real} <: MultiBodyPotential
 end
 
 function PureGravitationalPotential(system; softening=0.0)
-    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
-
     G = get_G_in_system_units(system)
     return PureGravitationalPotential(G, softening)
 end
@@ -70,9 +68,6 @@ struct PN1Potential{T} <: MultiBodyPotential
 end
 
 function PN1Potential(system)
-    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
-
-    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
     G = get_G_in_system_units(system)
     c = get_c_in_system_units(system)
 
@@ -92,8 +87,6 @@ struct PN2Potential{T} <: MultiBodyPotential
 end
 
 function PN2Potential(system)
-    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
-
     G = get_G_in_system_units(system)
     c = get_c_in_system_units(system)
 
@@ -114,8 +107,6 @@ struct PN2p5Potential{T} <: MultiBodyPotential
 end
 
 function PN2p5Potential(system)
-    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
-
     G = get_G_in_system_units(system)
     c = get_c_in_system_units(system)
 
@@ -138,8 +129,6 @@ struct PNPotential{T} <: MultiBodyPotential
 end
 
 function PNPotential(system)
-    u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
-
     G = get_G_in_system_units(system)
     c = get_c_in_system_units(system)
 
@@ -236,7 +225,14 @@ Corresponds to the acceleration function `Syzygy.equilibrium_tidal_acceleration!
 - `supplied_apsidal_motion_constants`
 - `supplied_rotational_angular_velocities`
 """
-struct EquilibriumTidalPotential <: MultiBodyPotential end
+struct EquilibriumTidalPotential{T <: Real} <: MultiBodyPotential
+    G::T
+end
+
+function EquilibriumTidalPotential(system)
+    G = get_G_in_system_units(system)
+    return EquilibriumTidalPotential(G)
+end
 
 ###################################################################################################################
 
@@ -250,9 +246,9 @@ struct EquilibriumTidalPotential <: MultiBodyPotential end
 Gravitational acceleration on bodies i and j, with `(i, j) = pair`.
 """
 function pure_gravitational_acceleration!(dv, rs,
-                                         pair::Tuple{Int, Int},
-                                         params::SimulationParams,
-                                         pot::PureGravitationalPotential)
+                                          pair::Tuple{Int, Int},
+                                          params::SimulationParams,
+                                          pot::PureGravitationalPotential)
     
     i, j = pair
     r̄₁ = @SVector [rs[1, i], rs[2, i], rs[3, i]]
@@ -499,6 +495,7 @@ function equilibrium_tidal_acceleration!(dv, rs, vs,
 
     m₁ = params.masses[i]
     m₂ = params.masses[j]
+    m₁m = m₁*m₂
 
     θ_dot = (r̄ × v̄)*r⁻¹*r⁻¹
     θ_dot_norm = norm(θ_dot)
