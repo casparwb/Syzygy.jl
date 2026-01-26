@@ -1,4 +1,5 @@
 using FastChebInterp
+using CSV
 
 ######################################
 # Dynamical Tides
@@ -72,6 +73,7 @@ calculate and return the fraction of the apsidal motion constant `k` over the
 tidal timescale `T`. If the stellar type of the tidal object is a type with a radiative envelope, such as 
 a core helium burning star, or a massive main sequence star, the prescription from 
 Hurley et al. 2002 will be used (Eq. 42). Otherwise, the the prescription from Preece et al. 2022 is used.
+Value returned is in units of 1/s.
 """
 function apsidal_motion_constant_over_tidal_timescale(mass::Quantity, radius,
                                                       envelope_mass, envelope_radius,
@@ -89,15 +91,14 @@ function apsidal_motion_constant_over_tidal_timescale(mass::Quantity, radius,
         end
     end
 
-    mass = ustrip(u"Msun", mass)
-    radius = ustrip(u"Rsun", radius)
-    envelope_mass = ustrip(u"Msun", envelope_mass)
-    envelope_radius = ustrip(u"Rsun", envelope_radius)
-    # luminosity = ustrip(upreferred(u"Lsun"), luminosity)
-    luminosity = ustrip(upreferred(u"Lsun"), luminosity)
+    mass = ustrip(Msun, mass)
+    radius = ustrip(Rsun, radius)
+    envelope_mass = ustrip(Msun, envelope_mass)
+    envelope_radius = ustrip(Rsun, envelope_radius)
+    luminosity = ustrip(Msun*Rsun^2/1u"s"^3, luminosity) # m² kg s⁻³
 
-    mass_perturber = ustrip(u"Msun", mass_perturber)
-    semi_major_axis = ustrip(u"Rsun", semi_major_axis)
+    mass_perturber = ustrip(Msun, mass_perturber)
+    semi_major_axis = ustrip(Rsun, semi_major_axis)
 
     apsidal_motion_constant_over_tidal_timescale(mass, radius,
                                                  envelope_mass, envelope_radius,
@@ -244,21 +245,20 @@ end
 
 function get_k_interpolator(;order=(3,3), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
     Z = Z == 0.02 ? 0.0134 : Z
-    k_data_location = joinpath(@__DIR__, "..", "..", "deps", "tidal_evolution_constants", "grid_Z=$Z.jld2")
+    k_data_location = joinpath(@__DIR__, "..", "..", "deps", "tidal_evolution_constants", "grid_Z=$Z.csv")
     
     if !isfile(k_data_location)
         @error "Tidal evolution constant data file $(split(k_data_location, "/")[end]) not found."
     end
 
-    masses, logg, logk2 = lock(tidal_read_lock) do
-        JLD2.load(k_data_location, "Mass"),
-        JLD2.load(k_data_location, "logg"),
-        JLD2.load(k_data_location, "beta")
+    masses_Msun, logg_cms⁻², logk2 = lock(tidal_read_lock) do
+        fl = CSV.File(k_data_location)
+        
+        map(x -> getproperty(fl, x), (:Mass_Msun, Symbol("logg_cm/s^2"), :logk2))
     end
 
-    logm = ustrip(u"Msun", masses) .|> log10
-    logg = ustrip(u"cm/s^2", logg)
-    logk2 = logk2
+    logm = masses_Msun .|> log10
+    logg = logg_cms⁻²
 
     coordinates = [SA[col...] for col in (eachcol([logm logg]'))]
 
@@ -273,29 +273,30 @@ function get_k_interpolator(;order=(3,3), Z=0.0134, lb_multiplier=1, ub_multipli
     return k_itp
 end
 
+
 function get_beta_interpolator(;order=(3,3), Z=0.0134, lb_multiplier=1, ub_multiplier=1)
+    
     Z = Z == 0.02 ? 0.0134 : Z
-    k_data_location = joinpath(@__DIR__, "..", "..", "deps", "tidal_evolution_constants", "grid_Z=$Z.jld2")
+    k_data_location = joinpath(@__DIR__, "..", "..", "deps", "tidal_evolution_constants", "grid_Z=$Z.csv")
     
     if !isfile(k_data_location)
         @error "Tidal evolution constant data file $(split(k_data_location, "/")[end]) not found."
     end
     
-    masses, logg, logk2 = lock(tidal_read_lock) do
-        JLD2.load(k_data_location, "Mass"),
-        JLD2.load(k_data_location, "logg"),
-        JLD2.load(k_data_location, "beta")
+    masses_Msun, logg_cms⁻², beta = lock(tidal_read_lock) do
+        fl = CSV.File(k_data_location)
+        
+        map(x -> getproperty(fl, x), (:Mass_Msun, Symbol("logg_cm/s^2"), :beta))
     end
 
-    logm = ustrip.(u"Msun", masses) .|> log10
-    logg = ustrip.(u"cm/s^2", logg)
-    logk2 = logk2
+    logm = masses_Msun .|> log10
+    logg = logg_cms⁻²
 
     coordinates = [SA[col...] for col in (eachcol([logm logg]'))]
 
     lb = [minimum(logm), minimum(logg)] .* lb_multiplier
 	ub = [maximum(logm), maximum(logg)] .* ub_multiplier
-    interpolator = chebregression(coordinates, logk2, lb, ub, order)
+    interpolator = chebregression(coordinates, beta, lb, ub, order)
     beta_itp(logm, logg) = interpolator(SA[logm, logg])
 
     return beta_itp
