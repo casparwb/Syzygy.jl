@@ -3,7 +3,7 @@
 <div align="center">
     <picture>
       <source media="(prefers-color-scheme: dark)" 
-        srcset="logo-big-svg.svg" >
+        srcset="logo_text.svg" >
       <img alt="Syzygy.jl logo" 
         src="logo.svg" width="450">
     </picture>
