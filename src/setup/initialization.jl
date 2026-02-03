@@ -60,7 +60,7 @@ function parse_multibodysystem_args(keyword_arguments)
                                              :ν      => 1π,
                                              :e      => 0.1, 
                                              :stellar_types  => 20,
-                                             :units => SyzygyUnits(u"Rsun", u"Msun", u"yr"),
+                                             :units => nothing,
                                              :nbody_units => true)
 
     args_out = copy(default_param_values)
@@ -74,7 +74,7 @@ function parse_multibodysystem_args(keyword_arguments)
     return args_out
 end
 
-function check_units(masses, radii, spins, luminosities, 
+function check_given_units(masses, radii, spins, luminosities, 
                      core_radii, core_masses, 
                      envelope_radii, envelope_masses, 
                      semi_major_axes, argument_of_periapses, inclinations, 
@@ -202,15 +202,6 @@ function multibodysystem(masses;
     m_core = eltype(masses).(m_core)
     m_env = eltype(masses).(m_env)
 
-
-    # S = if S isa Number 
-    #     [[S, zero(S), zero(S)] for i in 1:n_bodies]
-    # elseif S isa Vector{<:Number}
-    #    [[ss, zero(ss), zero(ss)] for ss in S]
-    # else
-    #     S
-    # end
-
     a = ifelse(a isa Number, repeat([a], n_bins), a)
     e = ifelse(e isa Number, repeat([e], n_bins), e)
     ω = ifelse(ω isa Number, repeat([ω], n_bins), ω)
@@ -218,10 +209,10 @@ function multibodysystem(masses;
     Ω = ifelse(Ω isa Number, repeat([Ω], n_bins), Ω)
     ν = ifelse(ν isa Number, repeat([ν], n_bins), ν)
 
-    check_units(masses, R, S, L, 
-                R_core, m_core, 
-                R_env, m_env, 
-                a, ω, i, Ω, ν)
+    check_given_units(masses, R, S, L, 
+                      R_core, m_core, 
+                      R_env, m_env, 
+                      a, ω, i, Ω, ν)
 
 
     hierarchical_multibodysystem_preprocess(masses, R, S, L, 
@@ -439,8 +430,10 @@ function hierarchical_multibodysystem(masses, hierarchy,
         positions = [p.position for (_, p) in bodies]
         length_unit, mass_unit, time_unit = get_nbody_units(masses, positions)
         SyzygyUnits(length_unit, mass_unit, time_unit)
-    else
+    elseif !isnothing(unit_system)
         unit_system
+    else
+        throw(ArgumentError("No unit system specified. Either set `nbody_units=true`, or give an instance of `Syzygy.Units`."))
     end
     
 

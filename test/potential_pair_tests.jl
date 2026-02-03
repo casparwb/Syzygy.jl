@@ -5,7 +5,7 @@ using Test
 @testset "Potential pairs" begin
     G = Syzygy.UNITLESS_G
     c = Syzygy.UNITLESS_c
-    gravpot = Syzygy.PureGravitationalPotential(G)
+    gravpot = Syzygy.PureGravitationalPotential(G, 0.0)
     PN1pot = Syzygy.PN1Potential(G, c)
     PN2pot = Syzygy.PN2Potential(G, c)
     PN2p5pot = Syzygy.PN2p5Potential(G, c)

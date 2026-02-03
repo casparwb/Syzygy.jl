@@ -22,7 +22,7 @@ using Test
         r2 = [1.0, 0.0, 0.0]
         rs = [r1 r2]
 
-        pot = Syzygy.PureGravitationalPotential(Syzygy.UNITLESS_G)
+        pot = Syzygy.PureGravitationalPotential(Syzygy.UNITLESS_G, 0.0)
         Syzygy.pure_gravitational_acceleration!(dvs, rs, (1, 2), params, pot)
        
         expected_force = ustrip(3.337e-11u"N")
