@@ -1,6 +1,7 @@
 ## Units
 
 ```@example units
+using Syzygy
 # mass units:
 m1 = 1.0u"kg"
 m2 = 1.0u"Constants.M_sun"
@@ -144,7 +145,7 @@ nothing # hide
 # set up callbacks and potentials
 
 callbacks = [CollisionCB(1, 50)] # we'll reduce the separation for checking for collision
-potentials = [PureGravitationalPotential(), PNPotential()]
+potentials = [PureGravitationalPotential(bbh), PNPotential(bbh)]
 
 # the default algorithm (DPRKN8) does not support velocity-dependent 
 # acceleration functions, so we have to use a different one.
