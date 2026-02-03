@@ -1,24 +1,25 @@
 using LinearAlgebra: norm
+using StaticArrays
 @testset "Setup" begin
 
     # @testset "State vectors to elements" begin
 
-    #     ain = 0.1u"AU"
-    #     aout = 1.0u"AU"
+    #     ain = 0.1au
+    #     aout = 1.0au
 
     #     ein = 0.6
     #     eout = 0.2
 
-    #     νin = (π/4)u"rad"
-    #     νout = (2π/3)u"rad"
+    #     νin = (π/4)
+    #     νout = (2π/3)
 
-    #     ωout = (π/3)u"rad"
-    #     ωin = (0.0)u"rad"
+    #     ωout = (π/3)
+    #     ωin = (0.0)
 
     #     Ωout = ωout
     #     Ωin  = ωin
         
-    #     masses = [2.0, 1.0, 3.0]u"Msun"
+    #     masses = [2.0, 1.0, 3.0]Msun
 
     #     triple = multibodysystem(masses, a=[ain, aout], 
     #                                     e=[ein, eout],
@@ -53,24 +54,24 @@ using LinearAlgebra: norm
 
     @testset "Triple initilization" begin
 
-        ain = 0.1u"AU"
-        aout = 1.0u"AU"
+        ain = 0.1au
+        aout = 1.0au
 
         ein = 0.6
         eout = 0.2
 
-        i = [0.0, π/4]u"rad"
+        i = [0.0, π/4]
 
-        νin = (π/4)u"rad"
-        νout = (2π/3)u"rad"
+        νin = π/4
+        νout = 2π/3
 
-        ωout = (π/3)u"rad"
-        ωin = (0.0)u"rad"
+        ωout = π/3
+        ωin = 0.0
 
         Ωout = ωout
         Ωin  = ωin
         
-        masses = [2.0, 1.0, 3.0]u"Msun"
+        masses = [2.0, 1.0, 3.0]Msun
 
         triple = multibodysystem(masses, a=[ain, aout], 
                                         e=[ein, eout],
@@ -85,16 +86,16 @@ using LinearAlgebra: norm
 
         rin = triple.particles.position[[1, 2]]
         vin = triple.particles.velocity[[1, 2]]
-        min = masses[[1, 2]]
+        m_in = SVector{2}(masses[[1, 2]])
 
-        r_com_in = Syzygy.centre_of_mass(rin, min)
-        v_com_in = Syzygy.centre_of_mass(vin, min)
+        r_com_in = Syzygy.centre_of_mass(rin, m_in)
+        v_com_in = Syzygy.centre_of_mass(vin, m_in)
 
-        rout = [r_com_in, triple.particles.position[3]]
-        vout = [v_com_in, triple.particles.velocity[3]]
-        mout = [masses[3], sum(min)]
+        rout = SA[r_com_in, triple.particles.position[3]]
+        vout = SA[v_com_in, triple.particles.velocity[3]]
+        mout = SA[masses[3], sum(m_in)]
 
-        calculated_inner_binary_elements = Syzygy.binary_elements(rin, vin, min)
+        calculated_inner_binary_elements = Syzygy.binary_elements(rin, vin, m_in)
         calculated_outer_binary_elements = Syzygy.binary_elements(rout, vout, mout)
 
         @testset "$el" for el in propertynames(calculated_inner_binary_elements)
@@ -108,10 +109,10 @@ using LinearAlgebra: norm
             @test Syzygy.mutual_inclination(h1, h123) ≈ i[2]
         end
 
-        νin = (0)u"rad"
-        νout = (π)u"rad"
+        νin = 0
+        νout = 1π
         
-        masses = [2.0, 1.0, 3.0]u"Msun"
+        masses = [2.0, 1.0, 3.0]Msun
 
         triple = multibodysystem(masses, a=[ain, aout], 
                                         e=[ein, eout],
@@ -151,14 +152,11 @@ using LinearAlgebra: norm
 
     @testset "Arbitrary hierarchy" begin
     
-        a = 1.0u"AU"
-        # binary = multibodysystem(ones(2)u"Msun", a=a)
-        # quint_2p2p1 = multibodysystem(ones(5)u"Msun", a=a .* [0.1, 1.0, 5.0, 10.0], hierarchy=[5, 2, 2, 1])
-        # quint_3p2   = multibodysystem(ones(5)u"Msun", a=a .* [0.1, 1.0, 5.0, 10.0], hierarchy=[5, 1, 2, 1])
-        
+        a = 1.0au
+
         
         @testset "Triple" begin
-            triple = multibodysystem(ones(3)u"Msun", a=a .* [0.1, 1.0])
+            triple = multibodysystem(ones(3)Msun, a=a .* [0.1, 1.0])
             p = triple.particles.position
             m = triple.particles.mass
     
@@ -180,8 +178,8 @@ using LinearAlgebra: norm
         end
     
         @testset "Quadruple" begin
-            quad_3p1 = multibodysystem(ones(4)u"Msun", a=a .* [1.0, 1.0, 10.0], hierarchy=[4, 1, 1, 1])
-            quad_2p2 = multibodysystem(ones(4)u"Msun", a=a .* [1.0, 1.0, 10.0], hierarchy=[4, 2, 1])
+            quad_3p1 = multibodysystem(ones(4)Msun, a=a .* [0.1, 1.0, 10.0], hierarchy=[4, 1, 1, 1])
+            quad_2p2 = multibodysystem(ones(4)Msun, a=a .* [1.0, 1.0, 10.0], hierarchy=[4, 2, 1])
         
             let p = quad_3p1.particles.position, m = quad_3p1.particles.mass
                 r12 = p[1] .- p[2]
@@ -215,8 +213,8 @@ using LinearAlgebra: norm
         end
     
         @testset "Quintuple" begin
-            quint_4p1 = multibodysystem(ones(5)u"Msun", a=a .* [0.1, 1.0, 5.0, 10.0], hierarchy=[5, 1, 1, 1, 1])
-            quint_2p2p1 = multibodysystem(ones(5)u"Msun", a=a .* [0.1, 1.0, 5.0, 10.0], hierarchy=[5, 2, 1, 1])
+            quint_4p1 = multibodysystem(ones(5)Msun, a=a .* [0.1, 1.0, 5.0, 10.0], hierarchy=[5, 1, 1, 1, 1])
+            quint_2p2p1 = multibodysystem(ones(5)Msun, a=a .* [1.0, 1.0, 5.0, 10.0], hierarchy=[5, 2, 1, 1])
     
             let p = quint_4p1.particles.position, m = quint_4p1.particles.mass
                 r12 = p[1] .- p[2]

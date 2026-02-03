@@ -2,24 +2,24 @@
 
     @testset "IC to ODE" begin
 
-        ain = 0.1u"AU"
-        aout = 1.0u"AU"
+        ain = 0.1au
+        aout = 1.0au
 
         ein = 0.6
         eout = 0.2
 
-        i = [0.0, π/4]u"rad"
+        i = [0.0, π/4]
 
-        νin = (π/4)u"rad"
-        νout = (2π/3)u"rad"
+        νin = (π/4)
+        νout = (2π/3)
 
-        ωout = (π/3)u"rad"
-        ωin = (0.0)u"rad"
+        ωout = (π/3)
+        ωin = (0.0)
 
         Ωout = ωout
         Ωin  = ωin
         
-        masses = [2.0, 1.0, 3.0]u"Msun"
+        masses = [2.0, 1.0, 3.0]Msun
 
         triple = multibodysystem(masses, a=[ain, aout], 
                                         e=[ein, eout],
@@ -28,14 +28,14 @@
                                         Ω=[Ωin, Ωout],
                                         i=i)
 
-
+        unit_length, unit_mass, unit_time = triple.units.u_length, triple.units.u_mass, triple.units.u_time
         sim = simulation(triple, t_sim=10)
         bodies = sim.bodies
 
         @testset "Particle $i to ODE" for i = 1:3
-            @test bodies[i].mass ≈ triple.particles[i].mass |> ustrip
-            @test bodies[i].position ≈ triple.particles[i].position .|> ustrip
-            @test bodies[i].velocity ≈ triple.particles[i].velocity .|> ustrip
+            @test bodies[i].mass ≈ ustrip(unit_mass, triple.particles[i].mass)
+            @test bodies[i].position ≈ ustrip.(unit_length, triple.particles[i].position)
+            @test bodies[i].velocity ≈ ustrip.(unit_length/unit_time, triple.particles[i].velocity) 
             # @test bodies[i].spin ≈ triple.particles[i].structure.S .|> ustrip
         end
 
@@ -49,12 +49,12 @@
         
         @testset "Collision" begin
             
-            a = 5.0u"Rsun"
+            a = 5.0Rsun
             e = 0.6
-            ν = (π/2)u"rad"
+            ν = (π/2)
             rp = a*(1 - e)
             R = [rp/2, rp/2] .* 1.01
-            masses = [2.0, 1.0]u"Msun"
+            masses = [2.0, 1.0]Msun
             binary = multibodysystem(masses, a=a, e=e, R = R)
 
             res = simulate(binary, t_sim=1.0, callbacks=[CollisionCB()])
@@ -65,12 +65,12 @@
 
         # @testset "New collision" begin
             
-        #     a = 5.0u"Rsun"
+        #     a = 5.0Rsun
         #     e = 0.6
-        #     ν = (π/2)u"rad"
+        #     ν = (π/2)
         #     rp = a*(1 - e)
         #     R = [rp/2, rp/2] .* 1.01
-        #     masses = [2.0, 1.0]u"Msun"
+        #     masses = [2.0, 1.0]Msun
         #     binary = multibodysystem(masses, a=a, e=e, R = R)
 
         #     res = simulate(binary, t_sim=1.0, callbacks=[Syzygy.NewCollisionCB()])
@@ -80,11 +80,11 @@
         # end
 
         @testset "Running with callbacks" begin
-            a = [1.0, 5.0]u"AU"
+            a = [1.0, 5.0]au
             e = [0.6, 0.1]
-            ν = (π/2)u"rad"
+            ν = (π/2)
 
-            masses = [2.0, 0.5, 1.0]u"Msun"
+            masses = [2.0, 0.5, 1.0]Msun
             triple = multibodysystem(masses, a=a, e=e)
 
             @testset "$cb" for cb in callbacks
@@ -98,7 +98,7 @@
         
     @testset "Arbitrary precision" begin
 
-        binary = multibodysystem(ones(2)u"Msun")
+        binary = multibodysystem(ones(2)Msun)
 
         res = simulate(binary, t_sim=1)
 

@@ -168,6 +168,14 @@ struct BrownDwarf <: SubStellarObject
     BrownDwarf() = new(19)
 end
 
+"""
+Generic stellar type
+"""
+struct GenericStellarType <: StellarType
+    number::Int
+    GenericStellarType() = new(20)
+end
+
 const  stellar_types = Dict{Int, StellarType}(
                                 0  => DeeplyOrFullyConvectiveLowMassMainSequence(),
                                 1  => MainSequence(),
@@ -188,11 +196,13 @@ const  stellar_types = Dict{Int, StellarType}(
                                 16 => UnknownStellarType(),
                                 17 => PreMainSequence(),
                                 18 => Planet(),
-                                19 => BrownDwarf()
+                                19 => BrownDwarf(),
+                                20 => GenericStellarType()
                             )
 
 function stellar_type_from_index(index)
-    @assert (0 <= index <= 19) "Stellar index must be in the range {0, 19}."
+    min_index, max_index = extrema(keys(stellar_types))
+    @assert (min_index <= index <= max_index) "Stellar index must be in the range {0, 20}."
     stellar_types[index]
 end
 

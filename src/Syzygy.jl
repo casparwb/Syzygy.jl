@@ -1,17 +1,34 @@
 # __precompile__(false)
 
 module Syzygy
-    using PrecompileTools, Reexport, Preferences
-    @reexport using Unitful, UnitfulAstro
-    include("units.jl")
+    using PrecompileTools, Reexport
+    @reexport using DynamicQuantities
 
-    function __init__()
-        Unitful.register(Syzygy)
-        merge!(Unitful.promotion, localpromotion)
-    end
+    @register_unit Rsun 6.975e8u"m" 
 
+    @register_unit Msun 1.9884754153381438e30u"kg" 
+
+    @register_unit Lsun 3.828e26u"W" 
+
+    @register_unit AU 149597870700u"m" 
+
+    # if !(:Rsun in DynamicQuantities.UNIT_SYMBOLS) 
+    #     @register_unit Rsun 6.975e8u"m" 
+    # end
+    # if !(:Msun in DynamicQuantities.UNIT_SYMBOLS) 
+    #     @register_unit Msun 1.9884754153381438e30u"kg" 
+    # end
+    # if !(:Lsun in DynamicQuantities.UNIT_SYMBOLS) 
+    #     @register_unit Lsun 3.828e26u"W" 
+    # end
+    # if !(:AU in DynamicQuantities.UNIT_SYMBOLS)
+    #     @register_unit AU 149597870700u"m" 
+    # end
+    
+    const default_unit_length, default_unit_mass, default_unit_time = u"m", u"kg", u"s"
 
     include("constants.jl")
+
 
     include("ode_solvers.jl")
     
@@ -57,26 +74,16 @@ module Syzygy
     const postprocess = to_solution
     export postprocess
    
+    export Units
 
     @compile_workload begin
-        triple = multibodysystem([1.0, 1.0, 1.0]u"Msun", a=[0.1, 1.0]u"AU", e=[0.4, 0.2])
-        res = simulate(triple, t_sim=1, save_everystep=false)
-        # simulate(triple, t_sim=10, save_everystep=false, showprogress=false, max_cpu_time=1,
-        #          callbacks=[CollisionCB()])
-        # simulate(triple, t_sim=10, save_everystep=false, showprogress=false, max_cpu_time=1,
-        #          callbacks=[CollisionCB(), EscapeCB(100, 100)])
-        # simulate(triple, t_sim=10, save_everystep=false, showprogress=false, max_cpu_time=1,
-        #          callbacks=[CollisionCB(), EscapeCB(100, 100)], potential=[PureGravitationalPotential(), PNPotential()])
-        # res = simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
-        #          callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)])
-        # simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
-        #          callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)],
-        #          potential=[PureGravitationalPotential(), DynamicalTidalPotential(4, [1.5, 1.5, 1.5])])
-        # simulate(triple, t_sim=10, save_everystep=false, showprogress=false, 
-        #          callbacks=[CollisionCB(), EscapeCB(100, 100), RocheLobeOverflowCB(100)],
-        #          potential=[PureGravitationalPotential(), EquilibriumTidalPotential(triple)])
+        triple = multibodysystem([1.0, 1.0, 1.0]Msun, a=[0.1, 1.0]AU, e=[0.4, 0.2])
+        res = simulate(triple, t_sim=0.1, save_everystep=false)
 
-        sol = to_solution(res)
+        threebody = multibodysystem(rand(3)u"kg", rand(3)u"m", rand(3)u"m/s", nbody_units=true)
+        simulate(threebody, t_sim=0.1threebody.units.u_time)
+
+        postprocess(res)
     end
 
 end

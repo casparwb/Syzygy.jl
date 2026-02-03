@@ -13,203 +13,15 @@ using RecipesBase
 @userplot ElementPlot
 @userplot PrecessionPlot
 
-# function animate_threebody(sol::TripleSolution, name; 
-#                            max_diff=100, nframes=200, fps=20,
-#                            save_params=true)
 
-#     r₁, r₂, r₃ = u"AU".(sol.r₁), u"AU".(sol.r₂), u"AU".(sol.r₃)
-
-#     max_1, max_2 = maximum.((abs.(r₁[:, 1:end÷10]), abs.(r₂[:, 1:end÷10])), dims=2)
-#     max_3 = maximum(abs.(r₃[:, 1:end÷10]), dims=2)
-#     max_x12 = max(max_1[1], max_2[1]).val * 2.0
-#     max_y12 = max(max_1[2], max_2[2]).val * 2.0
-#     max_z12 = max(max_1[3], max_2[3]).val * 2.0
-
-#     max_x3 = max_3[1].val * 1.5#1.1
-#     max_y3 = max_3[2].val * 1.5#1.1
-#     max_z3 = max_3[3].val * 1.5#1.5
-
-#     if all(iszero.((max_z12, max_z3)))
-#         max12 = (max_x12, max_y12)
-#         max3 = (max_x3, max_y3)
-#         anim =  animate_threebody_2d(r₁, r₂, r₃, sol.t, max12, max3, max_diff, nframes)
-#     else
-#         max12 = (max_x12, max_y12, max_z12)
-#         max3 = (max_x3, max_y3, max_z3)
-#         anim =  animate_threebody_3d(r₁, r₂, r₃, sol.t, max12, max3, max_diff, nframes)
-#     end
-
-#     if occursin(".gif", name)
-#         gif(anim, joinpath(@__DIR__, "..", "..", "figures", name), fps=fps)
-#     else
-#         name = endswith(name, ".mp4") ? name : name*".mp4"
-#         mp4(anim, joinpath(@__DIR__, "..", "..", "figures", name), fps=fps)
-#     end
-
-#     if save_params
-#         outfile = replace(replace(name, ".gif" => ""), ".mp4"  => "")
-#         outfile = joinpath(@__DIR__, "..", "..", "data", outfile*".jld2")
-#         if !isfile(outfile)
-#             @info "Saving parameters to" relpath(outfile)
-#             JLD2.save(outfile, "params", sol.ic)
-#         end
-#     end
-
-#     nothing
-# end
-
-# function animate_threebody_3d(r₁, r₂, r₃, t, max12, max3, max_diff=100, nframes=200)
-#     max_x12, max_y12, max_z12 = max12
-#     max_x3, max_y3, max_z3 = max3
-
-#     max_x = max(max_x12, max_x3)
-#     max_y = max(max_y12, max_y3)
-#     max_z = max(max_z12, max_z3)
-
-#     N_step = max_diff/10 |> x -> round(Int, x)
-#     r₁_coords = [eltype(r₁)[r₁[1,1]], eltype(r₁)[r₁[1,1]], eltype(r₁)[r₁[1,1]]]
-#     r₂_coords = [eltype(r₂)[r₂[1,1]], eltype(r₂)[r₂[1,1]], eltype(r₂)[r₂[1,1]]]
-#     r₃_coords = [eltype(r₃)[r₃[1,1]], eltype(r₃)[r₃[1,1]], eltype(r₃)[r₃[1,1]]]
-#     nframes = min(length(t), nframes) |> Int
-#     progress = Progress(nframes)
-
-#     c = [1, 2, 3]
-
-#     times = round.(u"yr", t, digits=0)
-#     anim = @animate for i in eachindex(t)[1:end÷nframes:end]
-#         startidx = i > max_diff ? i-max_diff : 1
-
-#         # p = plot(xlims=(-max_y, max_y), 
-#         #          ylims=(-max_y, max_y), 
-#         #          zlims=(-max_z, max_z), xlabel="x", ylabel="y", zlabel="z")
-
-#         p123 = plot(xlims=(-max_x, max_x), 
-#                     ylims = (-max_y, max_y), 
-#                     zlims = (-max_z, max_z), xlabel="x", ylabel="y", zlabel="z", 
-#                     title="t = $(times[i])")
-#         p12 = plot(xlims=(-max_x12, max_x12), 
-#                     ylims = (-max_y12, max_y12), 
-#                     zlims = (-max_z12, max_z12), xlabel="x", ylabel="y", zlabel="z")
-
-#         # p3 = plot(xlims=(-max_x3, max_x3), 
-#         #          ylims=(-max_y3, max_y3), 
-#         #          zlims=(-max_z3, max_z3), xlabel="x", ylabel="y", zlabel="z")
-
-#         r₁_coords[1][1] = r₁[1,i]
-#         r₁_coords[2][1] = r₁[2,i]
-#         r₁_coords[3][1] = r₁[3,i]
-
-#         r₂_coords[1][1] = r₂[1,i]
-#         r₂_coords[2][1] = r₂[2,i]
-#         r₂_coords[3][1] = r₂[3,i]
-
-#         r₃_coords[1][1] = r₃[1,i]
-#         r₃_coords[2][1] = r₃[2,i]
-#         r₃_coords[3][1] = r₃[3,i]
-
-#         scatter!(p12, r₁_coords..., c=c[1], markersize=2, label="Primary")
-#         scatter!(p12, r₂_coords..., c=c[2], markersize=2, label="Secondary")
-#         # scatter!(p3,  r₃_coords..., c=c[3], markersize=2, label="Tertiary")
-#         # @show size(xs_1)
-#         plot!(p12, r₁[1,startidx:i], r₁[2,startidx:i], r₁[3,startidx:i], 
-#                    c=c[1], label=false, alpha=0.8)
-#         plot!(p12, r₂[1,startidx:i], r₂[2,startidx:i], r₂[3,startidx:i], 
-#                    c=c[2], label=false, alpha=0.8)
-#         # plot!(p3,  r₃[1,startidx:i], r₃[2,startidx:i], r₃[3,startidx:i], 
-#         #    c=c[3], label=false, alpha=0.8)
-
-
-#         scatter!(p123, r₁_coords..., c=c[1], markersize=2, label="Primary")
-#         scatter!(p123, r₂_coords..., c=c[2], markersize=2, label="Secondary")
-#         scatter!(p123, r₃_coords..., c=c[3], markersize=2, label="Tertiary")
-#         # @show size(xs_1)
-#         plot!(p123, r₁[1,startidx:i], r₁[2,startidx:i], r₁[3,startidx:i], 
-#                     c=c[1], label=false, alpha=0.8)
-#         plot!(p123, r₂[1,startidx:i], r₂[2,startidx:i], r₂[3,startidx:i], 
-#                     c=c[2], label=false, alpha=0.8)
-#         plot!(p123, r₃[1,startidx:i], r₃[2,startidx:i], r₃[3,startidx:i], 
-#                     c=c[3], label=false, alpha=0.8)
-
-
-#         next!(progress)
-#         plot(p123, p12, layout=(1, 2), size=(800, 400))
-#     end
-#     return anim
-# end
-
-# function animate_threebody_2d(r₁, r₂, r₃, t, max12, max3, max_diff=100, nframes=200)
-#     max_x12, max_y12 = max12
-#     max_x3, max_y3 = max3
-
-#     max_x = max(max_x12, max_x3)
-#     max_y = max(max_y12, max_y3)
-
-#     c = [1, 2, 3]
-
-#     r₁_coords = [eltype(r₁)[r₁[1,1]], eltype(r₁)[r₁[1,1]]]
-#     r₂_coords = [eltype(r₂)[r₂[1,1]], eltype(r₂)[r₂[1,1]]]
-#     r₃_coords = [eltype(r₃)[r₃[1,1]], eltype(r₃)[r₃[1,1]]]
-#     nframes   = min(length(t), nframes) |> Int
-#     progress  = Progress(nframes)
-
-#     times = round.(u"yr", t, digits=0)
-#     anim = @animate for i in eachindex(t)[1:end÷nframes:end]
-#         startidx = i > max_diff ? i-max_diff : 1
-
-
-#         p123 = plot(xlims=(-max_x, max_x), 
-#                     ylims=(-max_y, max_y), 
-#                     xlabel="x", ylabel="y", zlabel="z",
-#                     title="t = $(times[i])")
-
-#         p12 = plot(xlims=(-max_x12, max_x12), 
-#                    ylims=(-max_y12, max_y12),
-#                    xlabel="x", ylabel="y", zlabel="z")
-
-#         r₁_coords[1][1] = r₁[1,i]
-#         r₁_coords[2][1] = r₁[2,i]
-
-#         r₂_coords[1][1] = r₂[1,i]
-#         r₂_coords[2][1] = r₂[2,i]
-
-#         r₃_coords[1][1] = r₃[1,i]
-#         r₃_coords[2][1] = r₃[2,i]
-
-#         scatter!(p123, r₁_coords..., c=c[1], markersize=2, label="Primary")
-#         scatter!(p123, r₂_coords..., c=c[2], markersize=2, label="Secondary")
-#         scatter!(p123, r₃_coords..., c=c[3], markersize=2, label="Tertiary")
-
-#         scatter!(p12, r₁_coords..., c=c[1], markersize=2, label="Primary")
-#         scatter!(p12, r₂_coords..., c=c[2], markersize=2, label="Secondary")
-#         # @show size(xs_1)
-#         plot!(p123, r₁[1,startidx:i], r₁[2,startidx:i], 
-#                     c=c[1], label=false, alpha=0.8)
-#         plot!(p123, r₂[1,startidx:i], r₂[2,startidx:i], 
-#                     c=c[2], label=false, alpha=0.8)
-#         plot!(p123, r₃[1,startidx:i], r₃[2,startidx:i], 
-#                     c=c[3], label=false, alpha=0.8)
-
-#         plot!(p12, r₁[1,startidx:i], r₁[2,startidx:i], 
-#                     c=c[1], label=false, alpha=0.8)
-#         plot!(p12, r₂[1,startidx:i], r₂[2,startidx:i], 
-#                     c=c[2], label=false, alpha=0.8)
-
-#         next!(progress)
-#         plot(p123, p12, layout=(1, 2), size=(800, 400))
-#     end
-
-#     return anim
-# end
-
-
-@recipe function plot(ic::HierarchicalMultiple; 
+@recipe function plot(ic::MultiBodyInitialConditions; 
                       bodies=collect(keys(ic.particles)), dims=[1,2])
 
     particles = [ic.particles[body] for body in sort(bodies)]
 
     aspect_ratio --> 1
 
-    masses = [p.mass for p in particles]
+    masses = [ustrip(ic.units.u_mass, p.mass) for p in particles]
     m_0_1 = (masses .- minimum(masses))/(maximum(masses) - minimum(masses))
     # mratio = masses ./ maximum(masses) .* 5
     markersizes = all(isnan, m_0_1) ? repeat([5], length(masses)) : (m_0_1 .* 5) .+ 8
@@ -222,8 +34,8 @@ using RecipesBase
         @series begin
             seriestype --> :scatter
             markersize := markersizes[particle.key.i]
-            label --> "Particle $(particle.key.i) ($(particle.mass))"
-            data = Tuple([[u"AU"(r)] for r in particle.position[dims]])
+            label --> "Particle $(particle.key.i) ($(ustrip(ic.units.u_mass, particle.mass)))"
+            data = Tuple([[ustrip(ic.units.u_length, r)] for r in particle.position[dims]])
             # rs = r.(particle.)
             data
         end
@@ -231,7 +43,7 @@ using RecipesBase
 end 
 
 @recipe function plot(res::SimulationResult; bodies="all", dims=[1, 2, 3],
-                     tspan=nothing, step=1, ref_frame="com")
+                     tspan=nothing, step=1, ref_frame="nothing")
 
     # labels = ["Primary", "Secondary"]
     if bodies isa String 
@@ -241,12 +53,12 @@ end
     @assert length(bodies) <= res.simulation.ic.n "Number of bodies to plot is greater than bodies in system."
     
     if all(isone, res.simulation.ic.hierarchy[2:end])
-        labels = hierarchy_labels#[bodies]
+        labels = hierarchy_labels
     else
         labels = ["Partcle $i" for i in bodies]
     end
 
-    time = res.solution.t  .* u"s"
+    time = res.solution.t
     tspan = isnothing(tspan) ? extrema(time) : tspan
 
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
@@ -256,13 +68,13 @@ end
     xlabel := dimlabels[dims[1]]
     ylabel := dimlabels[dims[2]]
     zlabel := length(dims) == 3 ? dimlabels[dims[3]] : nothing
-    # aspect_ratio --> 1
 
-    r = [res.solution.u[i].x[2][:,bodies] .* u"m" for i ∈ indices]
-    masses = get_masses(res.simulation)[bodies] .* u"kg"
+    r = [res.solution.u[i].x[2][:,bodies] for i ∈ indices]
+    masses = res.simulation.params.masses[bodies]
 
+    local shift_coord
     if ref_frame == "com"
-        com = zeros(eltype(r[1]), 3, length(indices))
+        com = zeros(eltype(r[1][1]), 3, length(indices))
         for i in eachindex(indices)
             com[:,i] .= centre_of_mass(r[i], masses)
         end
@@ -270,14 +82,13 @@ end
     elseif !isnothing(tryparse(Int, ref_frame))
         ref_frame_idx = parse(Int, ref_frame)
         shift_coord = reduce(hcat, [rr[:,ref_frame_idx] for rr in r])
-        
     else
-        shift_coord = fill(0.0u"m", (3, length(indices)))
+        shift_coord = fill(zero(r[1][1]), (3, length(indices)))
     end
 
 
     for idx in eachindex(bodies)
-        data = [r[i][dims,idx] .- shift_coord[dims,i] .|> u"Rsun" for i ∈ indices]
+        data = [r[i][dims,idx] .- shift_coord[dims,i] for i ∈ indices]
         data = Tuple([[d[dim] for d in data] for dim in dims])
         @series begin 
             label --> labels[idx]
@@ -288,10 +99,14 @@ end
 end
 
 @recipe function f(eO::OrbitPlot; bodies="all", dims=[1, 2, 3],
-                     tspan=nothing, step=1, ref_frame="com", axis_units=u"Rsun")
+                     tspan=nothing, step=1, ref_frame="com")
 
     sol = eO.args[1]
     @assert sol isa MultiBodySolution "First argument must be a `MultiBodySolution`. Got $(typeof(sol))"
+
+    # u_length, u_mass, u_time = let units = sol.ic.units
+    #     units.u_length, units.u_mass, units.u_time
+    # end
 
     if bodies isa String 
         bodies = keys(sol.ic.particles) |> collect |> sort
@@ -316,6 +131,7 @@ end
     zlabel := length(dims) == 3 ? dimlabels[dims[3]] : nothing
     aspect_ratio --> 1
 
+    # time = ustrip.(sol.t)
 
     if ref_frame == "com"
         shift_coord = centre_of_mass(sol, bodies, tspan=tspan)#[:,indices]
@@ -323,11 +139,11 @@ end
         ref_frame_idx = parse(Int, ref_frame)
         shift_coord = sol.r[:,ref_frame_idx, indices]
     else
-        shift_coord = fill(0.0u"m", (3, length(indices)))
+        shift_coord = fill(zero(unit_length), (3, length(indices)))
     end
 
     for idx in bodies
-        data = Tuple([sol.r[dim=dim,particle=idx,time=indices] .- shift_coord[dim,1:step:end]  .|> axis_units for dim in dims])
+        data = Tuple([ustrip.(sol.r[dim=dim,particle=idx,time=indices] .- shift_coord[dim,1:step:end]) for dim in dims])
         @series begin 
             label --> labels[idx]
             data
@@ -336,17 +152,17 @@ end
 
 end
 
-@recipe function f(eP::EnergyPlot; norm=true, tspan=nothing, step=1, t_unit=u"kyr")
+@recipe function f(eP::EnergyPlot; norm=true, tspan=nothing, step=1)
 
     sol = eP.args[1]
-    time = sol.t  .|> t_unit
+    time = sol.t
 
     tspan = isnothing(tspan) ? extrema(time) : tspan
 
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
     indices = indices[1]:step:indices[2]
 
-    t = time[indices]
+    t = ustrip.(time[indices])
     Ekin = kinetic_energy(sol)[indices]
     Epot = potential_energy(sol)[indices]
 
@@ -387,7 +203,7 @@ end
         title --> "Kinetic"
         xticks := nothing
         label := false
-        ustrip(t), Ekin
+        t, Ekin
     end
 
     # Subplot 2 (total energy)
@@ -401,7 +217,7 @@ end
         # ylims --> (-100.01Elims[1], 100.01Elims[2])
         title --> "Total"
         xticks := nothing
-        ustrip(t), Etot
+        t, Etot
     end
 
     # Subplot 1 (potential energy)
@@ -420,8 +236,7 @@ end
     end
 end
 
-@recipe function f(eA::AccelerationPlot; 
-                                         pot=PureGravitationalPotential(),
+@recipe function f(eA::AccelerationPlot; pot=PureGravitationalPotential,
                                          bodies=nothing, tspan=nothing)
 
     sol = eA.args[1]
@@ -431,41 +246,44 @@ end
     n = sol.ic.n
     tspan = isnothing(tspan) ? extrema(time) : tspan
     
+    # u_length, u_mass, u_time = let units = sol.ic.units
+    #     units.u_length, units.u_mass, units.u_time
+    # end
+    # u_vel = u_length/u_time
+    # u_acc = u_vel/u_time
+
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
     indices = indices[1]:indices[2]
+
+    time = ustrip.(time)
     
     N = length(indices)
     bodies = isnothing(bodies) ? (1:ic.n) : bodies 
 
-    dvi, dvj = zeros(3), zeros(3)
-    accel = zeros(typeof(1.0u"m/s^2"), 3, length(bodies), N)
+    dvs = zeros(3, 3)
+    accel = zeros(3, length(bodies), N)
 
     a_func = Syzygy.get_accelerating_function(pot)
 
     for t in indices
         for pair in sol.ic.pairs
             i, j = pair
-            fill!(dvi, 0.0)
-            fill!(dvj, 0.0)
+            fill!(dvs, 0.0)
 
-            r = SMatrix{3, n}(sol.r[:,:,t]) .|> upreferred |> ustrip
-            v = SMatrix{3, n}(sol.v[:,:,t]) .|> upreferred |> ustrip
+            r = SMatrix{3, n}(ustrip.(sol.r[:,:,t]))
+            v = SMatrix{3, n}(ustrip.(sol.v[:,:,t]))
 
-            a_func(dvi, dvj, r, v, pair, time[t], p)
-            accel[:, i, t] .+= dvi .* unit_length/unit_time^2
-            accel[:, j, t] .+= dvj .* unit_length/unit_time^2
+            a_func(dvs, r, v, pair, time[t], p)
+            accel[:, i, t] .+= dvs[:,i] 
+            accel[:, j, t] .+= dvs[:,j] 
         end
     end
-
-    accel
 
     ylims --> :auto
     xlims --> :auto
     title --> nameof(typeof(pot))
     ylabel --> "Acceleration"
-    xlabel --> "Time [$(unit_time)]"
-
-    time = upreferred.(time ./ ic.binaries[1].elements.P)
+    xlabel --> "Time "
 
     for (j, b) in enumerate(bodies)
         @series begin
@@ -479,32 +297,42 @@ end
 end 
 
 
-@recipe function f(kP::KozaiLidovPlot; xax="time", loge=false, t_unit=u"yr")
+@recipe function f(kP::KozaiLidovPlot; xax="time", loge=false)
 
     sol = kP.args[1]
     triple = sol.ic
     time = sol.t
 
+    # u_length, u_mass, u_time = let units = triple.units
+    #     units.u_length, units.u_mass, units.u_time
+    # end
+
     @assert sol.ic.n == 3 "Only valid for triples."
 
-    m1, m2, m3 = triple.particles.mass
+    
+    i_mut, e_in, e_out = let
+        m1, m2, m3 = triple.particles.mass
+    
+        r12 = sol.r[particle=1] .- sol.r[particle=2]
+        v12 = sol.v[particle=1] .- sol.v[particle=2]
+        d12 = norm.(eachcol(r12))
+    
+        e_in = eccentricity.(eachcol(r12), eachcol(v12), d12, m1+m2)
+        com_in = center_of_mass(sol, [1, 2])
+        v_com_in = centre_of_mass_velocity(sol, [1, 2])
+        r123 = sol.r[particle=3] .- com_in
+        v123 = sol.v[particle=3] .- v_com_in
+        d123 = norm.(eachcol(r123))
+        e_out = eccentricity.(eachcol(r123), eachcol(v123), d123, m1+m2+m3)
+    
+        h1 = eachcol(r12) .× eachcol(v12)
+        h2 = eachcol(r123) .× eachcol(v123)
+        
+        i_mut = mutual_inclination.(h1, h2) .|> rad2deg
 
-    r12 = sol.r[particle=1] .- sol.r[particle=2]
-    v12 = sol.v[particle=1] .- sol.v[particle=2]
-    d12 = norm.(eachcol(r12))
 
-    e_in = eccentricity.(eachcol(r12), eachcol(v12), d12, m1+m2)
-    com_in = center_of_mass(sol, [1, 2])
-    v_com_in = centre_of_mass_velocity(sol, [1, 2])
-    r123 = sol.r[particle=3] .- com_in
-    v123 = sol.v[particle=3] .- v_com_in
-    d123 = norm.(eachcol(r123))
-    e_out = eccentricity.(eachcol(r123), eachcol(v123), d123, m1+m2+m3)
-
-    h1 = eachcol(r12) .× eachcol(v12)
-    h2 = eachcol(r123) .× eachcol(v123)
-
-    i_mut = mutual_inclination.(h1, h2)
+        i_mut, Float64.(e_in), Float64.(e_out)
+    end
 
     layout --> (2, 1)
     size --> (800, 900)
@@ -516,13 +344,12 @@ end
 
     t = time
     x_ax = if xax == "time"
-        ustrip.(t_unit, time)
+        ustrip.(time)
     elseif xax == "inner"
-        upreferred.(t ./ sol.ic.binaries[1].elements.P)
+        t ./ sol.ic.binaries[1].elements.P
     elseif xax == "outer"
-        upreferred.(t ./ sol.ic.binaries[2].elements.P)
+        t ./ sol.ic.binaries[2].elements.P
     end
-
 
     # Inner eccentricity plot
     @series begin
@@ -553,7 +380,7 @@ end
     end
 
     xlab = if xax == "time"
-        "Time [$(t_unit)]"
+        "Time"
     elseif xax == "inner"
         "t/Pᵢₙ init"
     elseif xax == "outer"
@@ -570,7 +397,7 @@ end
 
         ylabel := "Inclination [°]"
 
-        x_ax, ustrip.(u"°", i_mut)
+        x_ax, i_mut
     end
 
 
@@ -666,14 +493,14 @@ end
 @recipe function f(eD::DistancePlot; tspan=nothing, step=1)
 
     sol = eD.args[1]
-    time = sol.t  .|> u"Myr"
+    time = sol.t
 
     tspan = isnothing(tspan) ? extrema(time) : tspan
 
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
     indices = indices[1]:step:indices[2]
 
-    t = time[indices]
+    t = ustrip.(time[indices])
 
     # r1 = sol.r[:,1,indices] .|> u"AU"
     # r2 = sol.r[:,2,indices] .|> u"AU"
@@ -685,8 +512,9 @@ end
     distances(r1, r2) = norm.(eachcol(r1 .- r2))
     legend := :left
     pairs = sol.ic.pairs
-    distances = Dict(p => distances(sol.r[particle=p[1]], sol.r[particle=p[2]]) .|> u"Rsun" for p in pairs)
-
+    distances = Dict(p => distances(sol.r[particle=p[1]], sol.r[particle=p[2]]) for p in pairs)
+    distances = Dict(k => ustrip.(v ./ first(v)) for (k, v) in distances)
+    
     layout --> (2, 1)
     for pair in pairs
         @series begin
@@ -695,7 +523,7 @@ end
             xticks --> nothing
             label --> "$pair"
             ylabel --> "Distance"
-            ustrip(t), distances[pair] ./ first(distances[pair])
+            t, distances[pair]
         end
     end
 
@@ -705,7 +533,7 @@ end
 @recipe function f(eS::AngularMomentumPlot; total=false, tspan=nothing, step=1)
 
     sol = eS.args[1]
-    time = sol.t  .|> u"Myr"
+    time = sol.t 
 
     tspan = isnothing(tspan) ? extrema(time) : tspan
 
@@ -723,7 +551,7 @@ end
     # end
 
     nbodies = sol.ic.n
-    total_angular_momentum = zeros(typeof(1.0u"m^2/s"), 3, length(t))
+    total_angular_momentum = QuantityArray(zeros(3, length(t)), u"m^2/s")#zeros(typeof(1.0u"m^2/s"), 3, length(t))
     for i in eachindex(t)
         for body in 1:nbodies
             total_angular_momentum[:, i] = sol.r[:,body,i] × (sol.v[:,body,i])
@@ -785,7 +613,7 @@ end
     titlefontsize --> 20
     tickfontsize --> 10
 
-    t = ustrip.(t_unit, time)
+    t = ustrip.(time)
 
     # Eccentricity plot
     @series begin
@@ -851,7 +679,7 @@ end
     titlefontsize --> 20
     tickfontsize --> 10
 
-    t = ustrip.(t_unit, time)
+    t = ustrip.(time)
 
     # Inner sma plot
     @series begin

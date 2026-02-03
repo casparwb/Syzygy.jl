@@ -24,11 +24,11 @@ pkg> dev path/to/Syzygy.jl
 
 ## Quick-start guide
 
-A system can be set up using the [`multibodysystem`](@ref) function, which takes a vector of masses as the first argument, followed by keyword argument specifying orbital and stellar properties. Parameters have to be specified using units from [Unitful.jl](https://github.com/PainterQubits/Unitful.jl/), which are automatically imported when you load Syzygy.
+A system can be set up using the [`multibodysystem`](@ref) function, which takes a vector of masses as the first argument, followed by keyword argument specifying orbital and stellar properties. Parameters have to be specified using units from [DynamicQuantities.jl](https://github.com/JuliaPhysics/DynamicQuantities.jl), which are automatically exported when you load Syzygy.
 
 ```julia
-binary = multibodysystem([2.0, 1.0]u"Msun", semi_major_axis=1.0u"AU", eccentricity=0.1)
-triple = multibodysystem([2.0, 1.0, 3.0]u"Msun", a=[0.1, 1.0]u"AU", e=[0.1, 0.2])
+binary = multibodysystem([2.0, 1.0]Msun, semi_major_axis=1.0au, eccentricity=0.1)
+triple = multibodysystem([2.0, 1.0, 3.0]Msun, a=[0.1, 1.0]au, e=[0.1, 0.2])
 ```
 
 !!! tip "Argument aliases"

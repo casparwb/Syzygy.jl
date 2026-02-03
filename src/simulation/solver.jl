@@ -1,19 +1,16 @@
 include("./callbacks.jl")
 include("./setup.jl")
 
-using OrdinaryDiffEqRKN, StaticArrays, ProgressMeter
+using DiffEqBase, StaticArrays, ProgressMeter
 
-"""
-    simulate(simulation::MultiBodySimulation)
-
-Simulate the given simulation setup. 
-"""
-function simulate(simulation::MultiBodySimulation)
+function initialize_integrator(simulation)
+    acc_funcs = gather_accelerations_for_potentials(simulation)
 
     args        = simulation.args
     diffeq_args = simulation.diffeq_args
+    ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
 
-    retcodes = Dict{Symbol, Any}()#(:Success => false)
+    retcodes = Dict{Symbol, Any}()
 
     if !isinf(args[:max_cpu_time]) && !(CPUTimeCB in typeof.(args[:callbacks]))
         push!(args[:callbacks], CPUTimeCB())
@@ -26,43 +23,58 @@ function simulate(simulation::MultiBodySimulation)
 
     callbacks = isnothing(cbs) ? nothing : CallbackSet(cbs...)
 
-
-    # ##############################################################################################################
-    # #              This block allows the full simulation to run without allocations. Don't know why.             #
-    # ##############################################################################################################
-    let
-        ode_prob_static = sodeprob_static(simulation, args[:dtype])
-
-        integrator_static = OrdinaryDiffEqRKN.init(ode_prob_static, args[:alg], saveat=args[:saveat], maxiters=args[:maxiters], 
-                                                abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
-                                                diffeq_args...)
-        try
-            step!(integrator_static)
-        catch err
-            nothing
-        finally
-            terminate!(integrator_static)
-        end
-    end
-    # ##############################################################################################################
-
-    acc_funcs = gather_accelerations_for_potentials(simulation)
-    ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
-
-    integrator = OrdinaryDiffEqRKN.init(ode_problem, args[:alg], saveat=args[:saveat], 
+    integrator = DiffEqBase.init(ode_problem, args[:alg], saveat=args[:saveat], 
                                         callback=callbacks, maxiters=args[:maxiters], 
                                         abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
                                         diffeq_args...)
 
-    # return integrator
+    return integrator, retcodes
+end
+
+
+"""
+    simulate(simulation::MultiBodySimulation)
+
+Simulate the given simulation setup. 
+"""
+function simulate(simulation::MultiBodySimulation)
+
+    unit_length, unit_mass, unit_time = simulation.ic.units.u_length, simulation.ic.units.u_mass, simulation.ic.units.u_time
+
+    args        = simulation.args
+    diffeq_args = simulation.diffeq_args
+
+    # ##############################################################################################################
+    # #              This block allows the full simulation to run without allocations. Don't know why.             #
+    # ##############################################################################################################
+    if simulation.ic.n < 10
+        let
+            ode_prob_static = sodeprob_static(simulation, args[:dtype])
+
+            integrator_static = DiffEqBase.init(ode_prob_static, args[:alg], saveat=args[:saveat], maxiters=args[:maxiters], 
+                                                    abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
+                                                    diffeq_args...)
+            try
+                step!(integrator_static)
+            catch err
+                nothing
+            finally
+                terminate!(integrator_static)
+            end
+        end
+    end
+    # ##############################################################################################################
+
+    integrator, retcodes = initialize_integrator(simulation)
+
     start_time = time()
 
-    prog = ProgressUnknown("Evolving system:", showspeed=true, spinner=true, enabled=args[:showprogress])
+    prog = ProgressUnknown(desc="Evolving system:", showspeed=true, spinner=true, enabled=args[:showprogress])
     maxtime = simulation.tspan[end]
     try
         if args[:showprogress]
             for i in integrator
-                next!(prog; showvalues=[(Symbol("System time"), u"yr"(integrator.t * unit_time)),
+                next!(prog; showvalues=[(Symbol("System time"), integrator.t * unit_time),
                                         (Symbol("System %"), (integrator.t - simulation.tspan[1])/maxtime*100)], 
                                         spinner="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
             end
@@ -74,7 +86,7 @@ function simulate(simulation::MultiBodySimulation)
         retcodes[:DiffEq] = Symbol("$(integrator.sol.retcode)")
     catch e
         if e isa InterruptException
-            @info "Stopped at t = $(u"yr"(integrator.t * unit_time))"
+            @info "Stopped at t = $(integrator.t * unit_time)"
             savevalues!(integrator, true)
             retcodes[:DiffEq] = :Interrupted
         else
@@ -90,8 +102,8 @@ function simulate(simulation::MultiBodySimulation)
         if retcodes[:DiffEq] == :Success
             @info "Simulation successful."
         else
-            outcome = retcodes#collect(keys(retcodes))
-            t = u"yr"(integrator.t * unit_time)
+            outcome = retcodes
+            t = integrator.t * unit_time
             @info "Outcome: " t outcome
         end
     end
@@ -161,15 +173,13 @@ function simulate(res::SimulationResult, time; args...)
 end
 
 
-function simulate(sol::MultiBodySolution, time)
-
-end
-
 function total_energy(result::SimulationResult, time)
     masses = result.ode_params.masses
     idx = findmin(x -> abs(x - time), result.solution.t)[2]
 
+
+    G = get_G_in_system_units(result.simulation.ic)
     total_energy([result.solution.u[idx].x[2][1:3, i] for i ∈ eachindex(masses)], 
                  [result.solution.u[idx].x[1][1:3, i] for i ∈ eachindex(masses)],
-                 masses)  
+                 masses, G)  
 end

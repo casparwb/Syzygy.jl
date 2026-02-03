@@ -143,12 +143,15 @@ end
 
 function get_callback(cb::CollisionCB, system, retcodes, args)
     check_every = cb.check_every
+    G_system = get_G_in_system_units(system)
+    c = get_c_in_system_units(system)
+    Gc⁻² = G_system/c^2
     if isone(check_every)
-        func(u, t, integrator) = collision_callback!(integrator, system.pairs, retcodes, cb.grav_rad_multiple)
+        func(u, t, integrator) = collision_callback!(integrator, system.pairs, retcodes, cb.grav_rad_multiple, Gc⁻²)
         return FunctionCallingCallback(func, func_everystep=true)
     else
         condition_collision(u, t, integrator) = iszero(integrator.iter % check_every)
-        affect_collision!(integrator) = collision_callback!(integrator, system.pairs, retcodes, cb.grav_rad_multiple)
+        affect_collision!(integrator) = collision_callback!(integrator, system.pairs, retcodes, cb.grav_rad_multiple, Gc⁻²)
         callback_collision = DiscreteCallback(condition_collision, affect_collision!, save_positions=(false, false))
         
         return callback_collision
@@ -159,11 +162,13 @@ end
 function get_callback(cb::EscapeCB, system, retcodes, args)
     @assert system.n == 3 "Escape check callback is currently only available for triples."
     
+    G_system = get_G_in_system_units(system)
+    parsec = ustrip(system.units.u_length, 1u"Constants.pc")
     function condition_escape(u, t, integrator)
         iszero(integrator.iter % cb.check_every)  # check for escape every 'check_every' iteration
     end
 
-    affect_escape!(integrator) = unbound_callback!(integrator, retcodes, 
+    affect_escape!(integrator) = unbound_callback!(integrator, retcodes, G_system, parsec,
                                                    max_a_factor=cb.max_a_factor, 
                                                    check_drifter=cb.check_drifter)
     callback_escape = DiscreteCallback(condition_escape, affect_escape!, save_positions=(false, false))
@@ -240,11 +245,12 @@ end
 
 function get_callback(cb::DemocraticCheckCB, system, retcodes, args)
     @assert system.n == 3 "Democratic interaction callback is currently only available for triples."
-    
+    G_system = get_G_in_system_units(system)
+
     pair = system.pairs
     affect_democratic1!(integrator) = democratic_check_callback_distance!(integrator, retcodes, system)
-    affect_democratic2!(integrator) = democratic_check_callback_binary!(integrator, pair, retcodes)
-    affect_democratic3!(integrator) = democratic_check_callback_hyperbolic(integrator, retcodes)
+    affect_democratic2!(integrator) = democratic_check_callback_binary!(integrator, pair, retcodes, G_system)
+    affect_democratic3!(integrator) = democratic_check_callback_hyperbolic(integrator, retcodes, G_system)
     
     condition_democratic(u, t, integrator) = true
     
@@ -256,10 +262,11 @@ function get_callback(cb::DemocraticCheckCB, system, retcodes, args)
 end
 
 function get_callback(cb::IonizationCB, system, retcodes, args)
+    G_system = get_G_in_system_units(system)
 
     condition_ionization(u, t, integrator) = true
-    max_distance =  cb.max_a_factor*ustrip(unit_length, system.binaries[2].elements.a)
-    affect_ionization!(integrator) = ionization_callback!(integrator, retcodes, max_distance)
+    max_distance =  cb.max_a_factor*ustrip(system.units.u_length, system.binaries[2].elements.a)
+    affect_ionization!(integrator) = ionization_callback!(integrator, retcodes, max_distance, G_system)
     callback_ionization = DiscreteCallback(condition_ionization, affect_ionization!, save_positions=(false, false))
 
     return callback_ionization
@@ -344,8 +351,7 @@ If the two objects are stars, the callback checks for overlapping radii,
 if one of the objects is a compact object and the other is a star, the tidal
 radius of the CO is used, and finally if both objects are COs, we use 100 × gravitational radius.
 """
-function collision_callback!(integrator, pairs, retcode, grav_rad_multiple)
-    # k = 1
+function collision_callback!(integrator, pairs, retcode, grav_rad_multiple, Gc⁻²)
     @inbounds for pair in pairs
         i, j = pair
         ri = SA[integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
@@ -362,26 +368,27 @@ function collision_callback!(integrator, pairs, retcode, grav_rad_multiple)
         stellar_type_j = integrator.p.stellar_type_numbers[j]
 
         collision = collision_check(d, Ri, Rj, Mi, Mj, stellar_type_i, stellar_type_j, 
-                                            grav_rad_multiple)::Bool
+                                            grav_rad_multiple, Gc⁻²)::Bool
         if collision
-            t = integrator.t * unit_time
+            t = integrator.t
             retcode[:Collision] = (SA[i, j], t)
             terminate!(integrator)
         end
-        # k += 1
     end
 end
 
-function collision_check(d, R1, R2, m1, m2, stellar_type1::Int, stellar_type2::Int, grav_rad_multiple)
+function collision_check(d, R1, R2, m1, m2, stellar_type1::Int, stellar_type2::Int, grav_rad_multiple, Gc⁻²)
     
-    if (0 <= stellar_type1 <= 9) && (0 <= stellar_type2 <= 9) # two stars
+    if (stellar_type1 == 20) && (stellar_type2 == 20) # two generic objects
+        return collision_check_radius(d, R1, R2)
+    elseif (0 <= stellar_type1 <= 9) && (0 <= stellar_type2 <= 9) # two stars
         return collision_check_radius(d, R1, R2)
     elseif  (0 <= stellar_type1 <= 9) && (10 <= stellar_type2 <= 14) # one star, one CO
         return collision_check_tidal_disruption(d, R1, m2, m1)
     elseif (10 <= stellar_type1 <= 14) && (0 <= stellar_type2 <= 9) # one star, one CO
         return collision_check_tidal_disruption(d, R2, m1, m2)
     elseif (10 <= stellar_type1 <= 14) && (10 <= stellar_type2 <= 14) # two COs
-        return collision_check_gravitational_radius(d, m1, m2, grav_rad_multiple)
+        return collision_check_gravitational_radius(d, m1, m2, grav_rad_multiple, Gc⁻²)
     elseif (18 <= stellar_type1 <= 18) && (18 <= stellar_type2 <= 19) # two planets
         return collision_check_radius(d, R1, R2)
     end
@@ -400,8 +407,8 @@ function collision_check_tidal_disruption(d, R_star, m_CO, m_star)
     return false
 end
 
-function collision_check_gravitational_radius(d, m1, m2, grav_rad_multiple) 
-    rg = UNITLESS_G*(m1 + m2)*c⁻² # mutual gravitational radius
+function collision_check_gravitational_radius(d, m1, m2, grav_rad_multiple, Gc⁻²) 
+    rg = Gc⁻²*(m1 + m2) # mutual gravitational radius
 
     return d <= rg*grav_rad_multiple
 end
@@ -428,7 +435,7 @@ end
 end
 
 
-function unbound_callback!(integrator, retcode; max_a_factor=100, check_drifter=true)
+function unbound_callback!(integrator, retcode, G, ulength_parsec; max_a_factor=100, check_drifter=true)
 
     u = integrator.u
     combinations = SA[(1, SA[2, 3]), (2, SA[1, 3]), (3, SA[1, 2])]
@@ -450,7 +457,7 @@ function unbound_callback!(integrator, retcode; max_a_factor=100, check_drifter=
 
         # binary properties of remaining components
         M_bin = SA[integrator.p.masses[binary_ids[1]], integrator.p.masses[binary_ids[2]]]
-        a_bin = semi_major_axis(norm(r_rel_bin), norm(v_rel_bin)^2, M_bin[1] + M_bin[2])
+        a_bin = semi_major_axis(norm(r_rel_bin), norm(v_rel_bin)^2, M_bin[1] + M_bin[2], G)
         a_bin < zero(a_bin) && continue
 
         r_bin = centre_of_mass(SA[r_comp1, r_comp2], M_bin)
@@ -470,13 +477,13 @@ function unbound_callback!(integrator, retcode; max_a_factor=100, check_drifter=
             M = integrator.p.masses[particle]
             T = kinetic_energy(v_part, M) 
             
-            U = -(UNITLESS_G*M)*(M_bin[1]/norm(r_part - r_comp1) + M_bin[2]/norm(r_part - r_comp2))
+            U = -(G*M)*(M_bin[1]/norm(r_part - r_comp1) + M_bin[2]/norm(r_part - r_comp2))
             
             Etot = T + U
             if Etot > zero(Etot)
                 retcode[:Escape] = escapee
                 terminate!(integrator)
-            elseif check_drifter && d >= ustrip(unit_length, 1u"pc")      # Body is 1 parsec away from binary
+            elseif check_drifter && d >= ulength_parsec#ustrip(unit_length, 1u"Constants.pc")      # Body is 1 parsec away from binary
                 retcode[:Drifter] = escapee
                 terminate!(integrator)
             end
@@ -625,7 +632,7 @@ end
 """
 Check if the original inner binary is no longer the one with the smallest semi-major axis.
 """
-function democratic_check_callback_binary!(integrator, pairs, retcodes)
+function democratic_check_callback_binary!(integrator, pairs, retcodes, G)
     if haskey(retcodes, :Democratic_sma) # only need to raise flags once
         return
     end
@@ -648,14 +655,14 @@ function democratic_check_callback_binary!(integrator, pairs, retcodes)
         v_rel = vj - vi
         
         K = 0.5*(Mi*norm(vi)^2 + Mj*norm(vj)^2)
-        U = -UNITLESS_G*Mi*Mj/norm(r_rel)
+        U = -G*Mi*Mj/norm(r_rel)
     
         (K + U) > 0 && continue # if not bound, skip
 
         d = norm(r_rel)
         v² = norm(v_rel)^2
     
-        a = semi_major_axis(d, v², M)
+        a = semi_major_axis(d, v², M, G)
         a < zero(a) && continue
 
         if a < sma
@@ -675,7 +682,7 @@ end
 """
 Check if any of the binaries have hyperbolic orbits (e > 1).
 """
-function democratic_check_callback_hyperbolic(integrator, retcodes)
+function democratic_check_callback_hyperbolic(integrator, retcodes, G)
     if haskey(retcodes, :Democratic_ecc) # only need to raise flags once
         return
     end
@@ -696,7 +703,7 @@ function democratic_check_callback_hyperbolic(integrator, retcodes)
 
     d = norm(r_rel)
 
-    e = eccentricity(r_rel, v_rel, d, m12)
+    e = eccentricity(r_rel, v_rel, d, m12, G)
 
     if e >= 1
         retcodes[:Democratic_ecc] = (true, integrator.t)
@@ -707,7 +714,7 @@ end
 """
 Check if triple system has ionised (all three stars have become unbound).
 """
-function ionization_callback!(integrator, retcodes, max_distance)
+function ionization_callback!(integrator, retcodes, max_distance, G)
 
     u = integrator.u
 			
@@ -719,17 +726,17 @@ function ionization_callback!(integrator, retcodes, max_distance)
     v2 = SA[u.x[1][1,2], u.x[1][2,2], u.x[1][3,2]]
     v3 = SA[u.x[1][1,3], u.x[1][2,3], u.x[1][3,3]]
 
-    m = integrator.p.masses#SA[integrator.p.masses[1], integrator.p.masses[2], integrator.p.masses[3]]
+    m = integrator.p.masses
 
-    r12 = r2 .- r1
-    r23 = r3 .- r2
-    r13 = r3 .- r1
+    r12 = r2 - r1
+    r23 = r3 - r2
+    r13 = r3 - r1
     
-    com = Syzygy.centre_of_mass(SA[r1, r2, r3], m)
+    com = centre_of_mass(SA[r1, r2, r3], m)
 
-    d1 = norm(r1 .- com)
-    d2 = norm(r2 .- com)
-    d3 = norm(r3 .- com)
+    d1 = norm(r1 - com)
+    d2 = norm(r2 - com)
+    d3 = norm(r3 - com)
 
     d12 = norm(r12)
     d23 = norm(r23)
@@ -739,23 +746,23 @@ function ionization_callback!(integrator, retcodes, max_distance)
     distances_now = SA[d12, d23, d13]
 
     K = 0.5*m .* SA[norm(v1)^2, norm(v2)^2, norm(v3)^2]
-    U = -UNITLESS_G*m .* SA[m[2]/d12 + m[3]/d13,
-                            m[1]/d12 + m[3]/d23,
-                            m[1]/d13 + m[2]/d23]
+    U = -G*m .* SA[m[2]/d12 + m[3]/d13,
+                  m[1]/d12 + m[3]/d23,
+                  m[1]/d13 + m[2]/d23]
 
-    r1 = r1 + v1 .* integrator.dt
-    r2 = r2 + v2 .* integrator.dt
-    r3 = r3 + v3 .* integrator.dt
+    r1 = r1 + v1*integrator.dt
+    r2 = r2 + v2*integrator.dt
+    r3 = r3 + v3*integrator.dt
 
-    r12 = r2 .- r1
-    r23 = r3 .- r2
-    r13 = r3 .- r1
+    r12 = r2 - r1
+    r23 = r3 - r2
+    r13 = r3 - r1
     
     distances_next = SA[norm(r13), norm(r23), norm(r13)]
 
     criteria_1 = all(distances_next .> distances_now)
-    criteria_2 = all(distances_from_COM .>= max_distance)
-    criteria_3 = all((K .+ U) .> 0)
+    criteria_2 = all(distances_from_COM .> max_distance)
+    criteria_3 = all(x -> x > 0, K + U)
 
     if criteria_1 && criteria_2 && criteria_3
         retcodes[:Ionization] = true
