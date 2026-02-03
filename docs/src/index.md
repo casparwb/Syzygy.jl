@@ -59,5 +59,3 @@ orbitplot(sol, dims=[1, 2])
 
 !!! warning
     This package is still being developed, so certain features may not work as expected. If you want to use this package, please make sure that you perform tests to ensure that your results are as you expect.
-
-![](../../../subprojects/syzygy-logo/logo.svg)
