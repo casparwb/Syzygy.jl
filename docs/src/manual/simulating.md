@@ -78,8 +78,8 @@ Each of these accepts a specific set of arguments related to the acceleration fu
 ### Example
 
 ```julia
-grav_pot = PureGravitationalAcceleration()
-tidal_pot = DynamicalTidalAcceleration(;kwargs...)
+grav_pot = PureGravitationalAcceleration(system)
+tidal_pot = DynamicalTidalAcceleration(system; kwargs...)
 res = simulate(system, potential=[grav_pot, tidal_pot]) 
 ```
 
@@ -98,8 +98,8 @@ For systems where general relativistic effects can become important, `Syzygy.jl`
     velocity dependent potentials are `Vern7`, `Vern8`, `Vern9`, and `FineRKN5`.
 
 ```julia
-sim = simulation(system, potential=[PureGravitationalPotential(), 
-                                    PNPotential()], 
+sim = simulation(system, potential=[PureGravitationalPotential(system), 
+                                    PNPotential(system)], 
                         alg=Syzygy.FineRKN5())
 ```
 

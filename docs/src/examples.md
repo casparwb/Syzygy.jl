@@ -1,3 +1,23 @@
+## Units
+
+```@example units
+# mass units:
+m1 = 1.0u"kg"
+m2 = 1.0u"Constants.M_sun"
+m3 = 1.0Msun
+m2 == m3
+
+# length units
+R1 = 1.0u"m"
+R2 = 1.0u"Constants.R_sun"
+R3 = 1.0Rsun
+R4 = 1.0u"Constants.au"
+R5 = 1.0au
+
+R2 == R3
+R4 == R5
+```
+
 
 ## Quadruples
 
@@ -5,7 +25,7 @@ For a quadruple stellar system, there are two possible stable configurations: 3+
 
 ```@example quad
 using Syzygy, Plots # hide
-masses = ones(4)u"Msun"
+masses = ones(4)Msun
 ```
 
 ### Hierarchical quadruple
@@ -14,9 +34,9 @@ A hierarchical configuration is the default way of instantiating a multiple syst
 
 ```@example quad
 
-a_bin_1 = 0.1u"AU"
-a_bin_2 = 1.0u"AU"
-a_bin_3 = 6.0u"AU"
+a_bin_1 = 0.1au
+a_bin_2 = 1.0au
+a_bin_3 = 6.0au
 
 e_bin_1 = 0.5
 e_bin_2 = 0.0
@@ -37,9 +57,9 @@ For this example, we'll define two binaries with semi-major axes $1$ and $0.5$ A
 
 ```@example quad
 
-a_bin_1 = 1.0u"AU"
-a_bin_2 = 0.5u"AU"
-a_bin1_bin2 = 10.0u"AU"
+a_bin_1 = 1.0au
+a_bin_2 = 0.5au
+a_bin1_bin2 = 10.0au
 
 e_bin_1 = 0.5
 e_bin_2 = 0.0
@@ -61,20 +81,20 @@ In this example we show how the code can be used to simulate plantary systems, u
 
 ```@example solar_system
 using Syzygy, Plots # hide
-mass_sun = 1u"Msun"
+mass_sun = 1Msun
 # mass_planets = [0.330, 4.87, 5.97, 0.642, 1898, 568, 86.8, 102]*1e24u"kg"
 mass_planets = [0.0553, 0.8154, 0.9996, 0.1075, 
-                317.8075, 95.1078, 14.5341, 17.0792]u"Mearth"
+                317.8075, 95.1078, 14.5341, 17.0792]u"Constants.M_earth"
 masses = [mass_sun, mass_planets...]
 
 semi_major_axes = [0.3871, 0.7233, 1.0, 1.5273, 
-                   5.2028, 9.5388, 19.1914, 30.0611]u"AU"
+                   5.2028, 9.5388, 19.1914, 30.0611]au
 
 eccentricites = [0.206, 0.007, 0.017, 0.093, 
                    0.048, 0.056, 0.046, 0.010]
 
-inclinations = [7.0, 3.39, 0.0, 1.85, 
-                   1.31, 2.49, 0.77, 1.77]u"°"
+inclinations = deg2rad.([7.0, 3.39, 0.0, 1.85, 
+                         1.31, 2.49, 0.77, 1.77])
 
 planet_names = ["Sun" "Mercury" "Venus" "Earth" "Mars" "Jupiter" "Saturn" "Uranus" "Neptune"]
 nothing # hide
@@ -110,11 +130,11 @@ For this example, we're going to simulate a binary black-hole system undergoing 
 
 ```@example bbh
 using Syzygy, Plots # hide
-masses = [27, 25]u"Msun"
+masses = [27, 25]Msun
 radii = Syzygy.gravitational_radius.(masses)
 stellar_types = [14, 14]
 
-separation = 3.0u"Rsun"
+separation = 3.0Rsun
 ecc = 0.9
 bbh = multibodysystem(masses, semi_major_axis=separation, e=ecc, radii=radii, stellar_types=stellar_types)
 nothing # hide
@@ -153,9 +173,9 @@ To specify this datatype for the simulation, pass the keyword argument `precisio
 
 ```@example highprec
 
-masses = [5, 1, 10]u"Msun"
-a_in = 1.0u"AU"
-a_out = 3.0u"AU"
+masses = [5, 1, 10]Msun
+a_in = 1.0au
+a_out = 3.0au
 e_in = 0.7
 e_out = 0.5
 
@@ -264,12 +284,12 @@ Now, we can put everything together and simulate the system
 
 ```julia
 
-masses = [2, 1, 3]u"Msun"
-radii = [2, 1, 3]u"Rsun"
+masses = [2, 1, 3]Msun
+radii = [2, 1, 3]Rsun
 stellar_types = [1, 1, 1]
 
-a_in = 1.0u"AU"
-a_out = 10.0u"AU"
+a_in = 1.0au
+a_out = 10.0au
 
 triple = multibodysystem(masses, a=[a_in, a_out], radii=radii, stellar_types=stellar_types)
 
