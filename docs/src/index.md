@@ -48,8 +48,8 @@ sleep(0.5) # hide
 using Plots, Syzygy
 Plots.theme(:dracula) # hide
 
-unstable_triple = multibodysystem([2.0, 1.0, 1.5]u"Msun", 
-                                  semi_major_axes=[1.0, 4.0]u"AU", 
+unstable_triple = multibodysystem([2.0, 1.0, 1.5]Msun, 
+                                  semi_major_axes=[1.0, 4.0]AU, 
                                   eccentricities=[0.0, 0.4])
 res = simulate(unstable_triple, t_sim=4)
 sol = to_solution(res)
