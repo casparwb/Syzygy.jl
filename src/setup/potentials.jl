@@ -1,5 +1,5 @@
 # abstract type Body end
-using StaticArrays, JLD2, Printf
+using StaticArrays, Printf
 using LinearAlgebra: dot, norm, ×
 
 include("../physics/tides.jl")
