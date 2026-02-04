@@ -541,14 +541,14 @@ end
 
 function parse_stellar_structure_args(keyword_arguments)
     keyword_arguments = Dict(keyword_arguments)
-    default_param_values = Dict{Symbol, Any}(:R      => 1.0u"Rsun", 
+    default_param_values = Dict{Symbol, Any}(:R      => 0.0u"Rsun", 
                                              :S      => 0.0u"1/yr", 
-                                             :L      => 1.0u"Lsun", 
+                                             :L      => 0.0u"Lsun", 
                                              :R_core => 0.0u"Rsun",
                                              :m_core => 0.0u"Msun",
                                              :R_env  => 0.0u"Rsun",
                                              :m_env  => 0.0u"Msun",
-                                             :stellar_types  => 1)
+                                             :stellar_types  => 20)
 
     args_out = copy(default_param_values)
 
@@ -578,8 +578,8 @@ julia> multibodysystem(masses, positions, velocities, radii=ones(3)u"m") # you c
 """
 function multibodysystem(masses, positions, velocities;
                          time = 0.0u"s", verbose = false,
-                         unit_system = SyzygyUnits(u"Rsun", u"Msun", u"yr"),
-                         nbody_units=false, stellar_structure_params...)
+                         unit_system = nothing,
+                         nbody_units = true, stellar_structure_params...)
 
     let
         @assert all(x -> isone(umass(uexpand(x))), masses) "Unit of masses is not correct. Got $(dimension.(masses)), expected mass"
@@ -636,8 +636,10 @@ function multibodysystem(masses, positions, velocities;
         positions = [p.position for (_, p) in particles]
         length_unit, mass_unit, time_unit = get_nbody_units(masses, positions)
         SyzygyUnits(length_unit, mass_unit, time_unit)
-    else
+    elseif !isnothing(unit_system)
         unit_system
+    else
+        throw(ArgumentError("No unit system specified. Either set `nbody_units=true`, or give an instance of `Syzygy.Units`."))
     end
 
     NonHierarchicalSystem(n_bodies, time, particles, pairs, unit_system)
