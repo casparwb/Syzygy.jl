@@ -727,42 +727,42 @@ function multibodysystem(sol::MultiBodySolution, time)
 
 end
 
-function initialize_from_file(filepath)
+# function initialize_from_file(filepath)
 
-    if !(endswith(filepath, "jld2"))
-        @error "Only JLD2 files are currently supported."
-    end
+#     if !(endswith(filepath, "jld2"))
+#         @error "Only JLD2 files are currently supported."
+#     end
 
-    data = JLD2.load(filepath)
-    datakeys = collect(keys(data))
+#     data = JLD2.load(filepath)
+#     datakeys = collect(keys(data))
 
-    if !(masses in datakeys)
-        @error "Datafile must contain masses"
-    end
+#     if !(masses in datakeys)
+#         @error "Datafile must contain masses"
+#     end
 
-    data = if eltype(datakeys) == String
-        data_new = Dict{Symbol, Any}()
-        for (k, v) in data
-            data_new[Symbol(k)] = v
-        end
-        data_new
-    else
-        data
-    end
+#     data = if eltype(datakeys) == String
+#         data_new = Dict{Symbol, Any}()
+#         for (k, v) in data
+#             data_new[Symbol(k)] = v
+#         end
+#         data_new
+#     else
+#         data
+#     end
 
-    masses = try
-        pop!(data, :masses)
-    catch e
-        pop!(data, :m)
-    end
+#     masses = try
+#         pop!(data, :masses)
+#     catch e
+#         pop!(data, :m)
+#     end
 
-    if "positions" in datakeys
-        positions, velocities = pop!(data, "positions"), pop!(data, "velocities")
-        return multibodysystem(masses, positions, velocities; data...)
-    else
-        return multibodysystem(masses; data...)
-    end
-end
+#     if "positions" in datakeys
+#         positions, velocities = pop!(data, "positions"), pop!(data, "velocities")
+#         return multibodysystem(masses, positions, velocities; data...)
+#     else
+#         return multibodysystem(masses; data...)
+#     end
+# end
 
 function initialize_from_dict(d::Dict)
 
