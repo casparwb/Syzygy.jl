@@ -55,9 +55,9 @@ struct PureGravitationalPotential{T <: Real} <: MultiBodyPotential
     ϵ::T
 end
 
-function PureGravitationalPotential(system; softening=0.0)
+function PureGravitationalPotential(system; softening=0.0, dtype=Float64)
     G = get_G_in_system_units(system)
-    return PureGravitationalPotential(G, softening)
+    return PureGravitationalPotential(dtype.((G, softening))...)
 end
 
 
@@ -67,14 +67,14 @@ struct PN1Potential{T} <: MultiBodyPotential
     c⁻²::T
 end
 
-function PN1Potential(system)
+function PN1Potential(system; dtype=Float64)
     G = get_G_in_system_units(system)
     c = get_c_in_system_units(system)
 
     G² = G*G
     c⁻² = 1/c^2
 
-    return PN1Potential(G, G², c⁻²)
+    return PN1Potential(dtype.((G, G², c⁻²))...)
 end
 
 PN1Potential(G, c) = PN1Potential(G, G*G, 1/c^2)
@@ -86,7 +86,7 @@ struct PN2Potential{T} <: MultiBodyPotential
     c⁻⁴::T
 end
 
-function PN2Potential(system)
+function PN2Potential(system; dtype=Float64)
     G = get_G_in_system_units(system)
     c = get_c_in_system_units(system)
 
@@ -94,7 +94,7 @@ function PN2Potential(system)
     G³ = G²*G
     c⁻⁴ = 1/c^4
 
-    return PN2Potential(G, G², G³, c⁻⁴)
+    return PN2Potential(dtype.((G, G², G³, c⁻⁴))...)
 end
 
 PN2Potential(G, c) = PN2Potential(G, G^2, G^3, 1/c^4)
@@ -106,7 +106,7 @@ struct PN2p5Potential{T} <: MultiBodyPotential
     c⁻⁵::T
 end
 
-function PN2p5Potential(system)
+function PN2p5Potential(system; dtype=Float64)
     G = get_G_in_system_units(system)
     c = get_c_in_system_units(system)
 
@@ -114,7 +114,7 @@ function PN2p5Potential(system)
     G³ = G²*G
     c⁻⁵ = 1/c^5
 
-    return PN2p5Potential(G, G², G³, c⁻⁵)
+    return PN2p5Potential(dtype.((G, G², G³, c⁻⁵))...)
 end
 
 PN2p5Potential(G, c) = PN2p5Potential(G, G^2, G^3, 1/c^5)
@@ -128,7 +128,7 @@ struct PNPotential{T} <: MultiBodyPotential
     c⁻⁵::T
 end
 
-function PNPotential(system)
+function PNPotential(system; dtype=Float64)
     G = get_G_in_system_units(system)
     c = get_c_in_system_units(system)
 
@@ -139,7 +139,7 @@ function PNPotential(system)
     c⁻⁴ = 1/c^4
     c⁻⁵ = 1/c^5
 
-    return PNPotential(G, G², G³, c⁻², c⁻⁴, c⁻⁵)
+    return PNPotential(dtype.((G, G², G³, c⁻², c⁻⁴, c⁻⁵))...)
 end
 
 PNPotential(G, c) = PNPotential(G, G^2, G^3, 1/c^2, 1/c^4, 1/c^5)
@@ -260,7 +260,7 @@ function pure_gravitational_acceleration!(dv, rs,
 
     m₁ = params.masses[i]
     m₂ = params.masses[j]
-    Gr⁻² = -pot.G/(r^2 + pot.ϵ)
+    Gr⁻² = -pot.G/(r*r + pot.ϵ)
 
     a = Gr⁻²*n̂
 

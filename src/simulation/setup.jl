@@ -141,8 +141,8 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     kwargs = Dict{Symbol, Any}(kwargs)
     args = parse_arguments!(kwargs)
 
-    args[:potential] = pop!(kwargs, :potential, [PureGravitationalPotential(system, softening=args[:softening])])
     dtype = get_datatype_from_precision(args[:precision])
+    args[:potential] = pop!(kwargs, :potential, [PureGravitationalPotential(system, dtype=dtype, softening=args[:softening])])
     args[:dtype] = dtype
     particles = system.particles
 
