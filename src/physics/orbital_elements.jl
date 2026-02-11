@@ -1,4 +1,3 @@
-
 @doc raw"""
 
     semi_major_axis(d, v², M)
@@ -12,8 +11,8 @@ velocity magnitude squared.
 ```
 """
 function semi_major_axis(d, v², M, G)
-    GM = G*M
-    GM*d/(2GM - d*v²)
+    GM = G * M
+    return GM * d / (2GM - d * v²)
 end
 
 semi_major_axis(d::Quantity, v², M) = semi_major_axis(d, v², M, GRAVCONST)
@@ -25,11 +24,11 @@ semi_major_axis(d::Quantity, v², M) = semi_major_axis(d, v², M, GRAVCONST)
 Get the orbital period of binary with semi-major axis `a` and total mass `M`.
 """
 function orbital_period(a, M, G)
-    if a < zero(a) 
+    if a < zero(a)
         @warn "Given semi-major axis is negative: " a
         return Inf
     end
-    2π*√(abs(a)^3/(G*M))
+    return 2π * √(abs(a)^3 / (G * M))
 end
 
 orbital_period(a, M::Quantity) = orbital_period(a, M, GRAVCONST)
@@ -46,8 +45,8 @@ velocity `v`, and total mass `M`.
 ```
 """
 function eccentricity_vector(r, v, d, M, G)
-    μ = G*M
-    (v × (r × v)) ./ μ - r ./ d
+    μ = G * M
+    return (v × (r × v)) ./ μ - r ./ d
 end
 
 """
@@ -85,20 +84,19 @@ eccentricity(r, v, d::Quantity, M) = Float64(eccentricity(r, v, d, M, GRAVCONST)
 # eccentricity(r, v, d::Real, M) = eccentricity(r, v, d, M, UNITLESS_G)
 
 
-
 function angular_momentum(r, v)
-    r×v
+    return r × v
 end
 
-inclination(h) = acos(h[end]/norm(h))
-    
+inclination(h) = acos(h[end] / norm(h))
+
 """
     mutual_inclination(h₁, h₂)
 
 Return the mutual inclination angle between two binaries with orbital angular momenta h₁ and h₂.
 """
 function mutual_inclination(h₁, h₂)
-    return acos(dot(h₁, h₂)/(norm(h₁)*norm(h₂)))
+    return acos(dot(h₁, h₂) / (norm(h₁) * norm(h₂)))
 end
 
 
@@ -112,9 +110,9 @@ function longitude_of_ascending_node(h)
     h0 = zero(h[1])
     # n = SA[-h[2], h[1], zero(h[1])]
 
-    n_norm = sqrt(h2*h2 + h1*h1)
+    n_norm = sqrt(h2 * h2 + h1 * h1)
 
-    Ω = acos(-h2/n_norm)
+    Ω = acos(-h2 / n_norm)
     isnan(Ω) && return 0.0
     h1 >= h0 && return Ω
     return (2π - Ω)
@@ -127,18 +125,18 @@ Return the argument of periapsis of a body in an orbit with relative position `r
 velocity `v`, angular momentum `h` and mass `m`.
 """
 function argument_of_periapsis(r, v, h, m, G)
-    μ = G*m
+    μ = G * m
 
     h1, h2 = h
     h0 = zero(h[1])
     n = SA[-h2, h1, h0]
     e = (v × h) ./ μ .- r ./ norm(r)
 
-    n_norm = sqrt(h2*h2 + h1*h1)
+    n_norm = sqrt(h2 * h2 + h1 * h1)
     e_norm = norm(e)
 
-    ω = acos(dot(e, n)/(n_norm*e_norm))
-    if isnan(ω) 
+    ω = acos(dot(e, n) / (n_norm * e_norm))
+    if isnan(ω)
         ω = atan(e[2], e[1])
         return ifelse(h[3] < zero(h[3]), 2π - ω, ω)
     end
@@ -156,13 +154,13 @@ Return the true anomaly of a body in an orbit with relative position `r`,
 velocity `r`, angular momentum `h` and mass `m`.
 """
 function true_anomaly(r, v, h, m, G)
-    μ = G*m
+    μ = G * m
     r_norm = norm(r)
     r_hat = r ./ r_norm
     e = (v × h) ./ μ .- r_hat
-    
+
     vᵣ = dot(r_hat, v)
-    arg = dot(e, r)/(norm(e)*r_norm)
+    arg = dot(e, r) / (norm(e) * r_norm)
     ν = acos(arg)
 
     # ν = acos(min(1.0, abs(arg)))
@@ -191,7 +189,7 @@ function elements_from_cartesian(positions, velocities, masses)
     bodies = 1:n_bodies
     pairs = SVector{2, Int}[]
     for i in bodies
-        for j in (i+1):n_bodies
+        for j in (i + 1):n_bodies
             if i != j
                 push!(pairs, SA[i, j])
             end
@@ -219,10 +217,10 @@ function elements_from_cartesian(positions, velocities, masses)
             push!(unbound_bodies, body)
         end
     end
-            
+
 
     @info "Bound pairs: " bound_pairs
-    @info "Unbound bodies: " unbound_bodies
+    return @info "Unbound bodies: " unbound_bodies
 
     # return pairs
 end
@@ -240,9 +238,9 @@ function binary_elements(positions, velocities, masses)
 
     v1 = velocities[1]
     v2 = velocities[2]
-    
+
     M1, M2 = masses
-    
+
     r_rel = r2 - r1
     v_rel = v2 - v1
     h = angular_momentum(r_rel, v_rel)
@@ -252,16 +250,16 @@ function binary_elements(positions, velocities, masses)
     M = M1 + M2
 
     a = semi_major_axis(d, v^2, M)
-    e = eccentricity(r_rel, v_rel, d, M) 
-    
+    e = eccentricity(r_rel, v_rel, d, M)
+
     P = orbital_period(a, M)
     h = angular_momentum(r_rel, v_rel)
-    ω = argument_of_periapsis(r_rel, v_rel, h, M) 
+    ω = argument_of_periapsis(r_rel, v_rel, h, M)
     i = inclination(h)
     Ω = longitude_of_ascending_node(h)
     ν = true_anomaly(r_rel, v_rel, h, M)
 
-    OrbitalElements(a, P, e, ω, i, Ω, ν)
+    return OrbitalElements(a, P, e, ω, i, Ω, ν)
 end
 
 """
@@ -276,10 +274,10 @@ function is_binary(r1, r2, v1, v2, m1, m2, G)
     v₁² = norm(v1)^2
     v₂² = norm(v2)^2
 
-    K = 0.5*(m1*v₁² + m2*v₂²)
-    U = -G*m1*m2/norm(r_rel)
+    K = 0.5 * (m1 * v₁² + m2 * v₂²)
+    U = -G * m1 * m2 / norm(r_rel)
 
-    (K + U) < zero(U)
+    return (K + U) < zero(U)
 end
 
 is_binary(r1, r2, v1, v2, m1, m2::Quantity) = is_binary(r1, r2, v1, v2, m1, m2, GRAVCONST)
@@ -296,7 +294,7 @@ function is_binary(positions::AbstractVector, velocities::AbstractVector, masses
 
     m1, m2 = masses
 
-    is_binary(r1, r2, v1, v2, m1, m2)
+    return is_binary(r1, r2, v1, v2, m1, m2)
 
 end
 
@@ -304,19 +302,19 @@ function is_binary(positions::AbstractMatrix, velocities::AbstractMatrix, masses
     return is_binary(eachcol(positions), eachcol(velocities), masses)
 end
 
-function semi_major_axis(sol::MultiBodySolution; bodies=(1, 2), tspan=extrema(sol.t))
+function semi_major_axis(sol::MultiBodySolution; bodies = (1, 2), tspan = extrema(sol.t))
 
-    # ids = 
+    # ids =
     i, j = bodies
     a = QuantityArray(zeros(length(sol.t)), default_unit_length)
 
     M = sum(sol.ic.particles.mass[SA[bodies[1], bodies[2]]])
     for idx in eachindex(sol.t)
-        ri = SVector{3}(sol.r[:,i,idx])
-        rj = SVector{3}(sol.r[:,j,idx])
+        ri = SVector{3}(sol.r[:, i, idx])
+        rj = SVector{3}(sol.r[:, j, idx])
 
-        vi = SVector{3}(sol.v[:,i,idx])
-        vj = SVector{3}(sol.v[:,j,idx])
+        vi = SVector{3}(sol.v[:, i, idx])
+        vj = SVector{3}(sol.v[:, j, idx])
 
         a[idx] = semi_major_axis(norm(ri - rj), norm(vi - vj)^2, M)
     end
@@ -324,19 +322,19 @@ function semi_major_axis(sol::MultiBodySolution; bodies=(1, 2), tspan=extrema(so
     return a
 end
 
-function eccentricity(sol::MultiBodySolution; bodies=(1, 2), tspan=extrema(sol.t))
+function eccentricity(sol::MultiBodySolution; bodies = (1, 2), tspan = extrema(sol.t))
 
-    # ids = 
+    # ids =
     i, j = bodies
     e = zeros(typeof(sol.t[1].value), length(sol.t))
 
     M = sum(sol.ic.particles.mass[SA[bodies[1], bodies[2]]])
     for idx in eachindex(sol.t)
-        ri = SVector{3}(sol.r[:,i,idx])
-        rj = SVector{3}(sol.r[:,j,idx])
+        ri = SVector{3}(sol.r[:, i, idx])
+        rj = SVector{3}(sol.r[:, j, idx])
 
-        vi = SVector{3}(sol.v[:,i,idx])
-        vj = SVector{3}(sol.v[:,j,idx])
+        vi = SVector{3}(sol.v[:, i, idx])
+        vj = SVector{3}(sol.v[:, j, idx])
 
         r = ri - rj
         v = vi - vj

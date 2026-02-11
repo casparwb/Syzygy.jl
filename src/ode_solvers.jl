@@ -1,4 +1,3 @@
-
 module ODEAlgorithms
 
 export ODESolvers
@@ -11,7 +10,7 @@ function Base.getproperty(s::SyzygyODESolvers, p::Symbol)
     solvers = Base.getfield(s, :solvers)
     if haskey(solvers, p)
         return solvers[p]
-    else 
+    else
         Base.getfield(s, p)
     end
 end

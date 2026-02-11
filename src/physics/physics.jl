@@ -20,42 +20,42 @@ julia> com = Syzygy.centre_of_mass(r, m)
 ```
 """
 function centre_of_mass(positions::AbstractVector, masses::AbstractVector)
-    one_over_m = 1.0/sum(masses)
+    one_over_m = 1.0 / sum(masses)
 
     com = if positions[1][1] isa Quantity
         MVector{3}(QuantityArray(zeros(3), dimension(positions[1][1])))
     else
         @MVector zeros(eltype(positions[1][1]), 3)
-    end 
+    end
 
     # f = oneunit(one_over_m)
     @inbounds for i in eachindex(masses)
         m = masses[i]
         pos = positions[i]
-        for k = 1:3
-            com[k] += m*pos[k]*one_over_m
+        for k in 1:3
+            com[k] += m * pos[k] * one_over_m
         end
     end
-    return SVector(com)#*ustrip(1/default_unit_mass, one_over_m))
+    return SVector(com) #*ustrip(1/default_unit_mass, one_over_m))
 end
 
 
 function centre_of_mass(positions::AbstractMatrix, masses::AbstractVector)
-    one_over_m = 1.0/sum(masses)
+    one_over_m = 1.0 / sum(masses)
 
     com = if positions[1] isa Quantity
         MVector{3}(QuantityArray(zeros(3), default_unit_length))
     else
         @MVector zeros(eltype(positions[1]), 3)
-    end 
-    
+    end
+
     # f = oneunit(one_over_m)
-    @inbounds for i in eachindex(masses)# in zip(masses, eachcol(positions))
-        for k = 1:3
-            com[k] += masses[i]*positions[k,i]*one_over_m
+    @inbounds for i in eachindex(masses) # in zip(masses, eachcol(positions))
+        for k in 1:3
+            com[k] += masses[i] * positions[k, i] * one_over_m
         end
     end
-    return SVector(com)#*one_over_m)#ustrip(1/default_unit_mass, one_over_m))
+    return SVector(com) #*one_over_m)#ustrip(1/default_unit_mass, one_over_m))
 end
 
 function center_of_mass(positions, masses)
@@ -81,9 +81,11 @@ julia> # just get the COM position for the first two time steps:
 julia> com_tspan = Syzygy.centre_of_mass(sol, tspan=(sol.t[1], sol.t[2])) 
 ```
 """
-function centre_of_mass(sol::MultiBodySolution, 
-                        bodies=1:sol.ic.n; 
-                        tspan=extrema(sol.t))
+function centre_of_mass(
+        sol::MultiBodySolution,
+        bodies = 1:sol.ic.n;
+        tspan = extrema(sol.t)
+    )
     time = sol.t
     tspan = isnothing(tspan) ? extrema(time) : tspan
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
@@ -91,8 +93,8 @@ function centre_of_mass(sol::MultiBodySolution,
     com = QuantityArray(zeros(3, length(indices)), dimension(sol.r))
     masses = sol.ic.particles.mass[bodies]
     for (c, idx) in enumerate(indices)
-        r = [SVector{3}(sol.r[:,body,idx]) for body in bodies]
-        com[:,c] = centre_of_mass(r, masses)
+        r = [SVector{3}(sol.r[:, body, idx]) for body in bodies]
+        com[:, c] = centre_of_mass(r, masses)
     end
 
     return com
@@ -105,29 +107,29 @@ end
 Return the center of mass velocity.
 """
 function centre_of_mass_velocity(velocities::AbstractVector, masses::AbstractVector)
-    one_over_m = 1.0/sum(masses)
+    one_over_m = 1.0 / sum(masses)
 
     vel_com = if velocities[1][1] isa Quantity
-        MVector{3}(QuantityArray(zeros(3), dimension(velocities[1][1])/dimension(one_over_m)))
+        MVector{3}(QuantityArray(zeros(3), dimension(velocities[1][1]) / dimension(one_over_m)))
     else
         @MVector zeros(eltype(velocities[1][1]), 3)
-    end 
+    end
 
     @inbounds for i in eachindex(velocities)
         vel_com .+= masses[i] .* velocities[i]
     end
-    
+
     return SVector(vel_com .* one_over_m)
 end
 
 function centre_of_mass_velocity(velocities::AbstractMatrix, masses::AbstractVector)
-    one_over_m = 1.0/sum(masses)
+    one_over_m = 1.0 / sum(masses)
 
     vel_com = if velocities[1] isa Quantity
-        MVector{3}(QuantityArray(zeros(3), dimension(velocities[1])/dimension(one_over_m)))
+        MVector{3}(QuantityArray(zeros(3), dimension(velocities[1]) / dimension(one_over_m)))
     else
         @MVector zeros(eltype(velocities[1]), 3)
-    end 
+    end
 
     @inbounds for (m, vel) in zip(masses, eachcol(velocities))
         vel_com .+= m .* vel
@@ -135,19 +137,21 @@ function centre_of_mass_velocity(velocities::AbstractMatrix, masses::AbstractVec
     return SVector(vel_com .* one_over_m)
 end
 
-function centre_of_mass_velocity(sol::MultiBodySolution, 
-                                 bodies=eachindex(sol.ic.particles); 
-                                 tspan=extrema(sol.t))
+function centre_of_mass_velocity(
+        sol::MultiBodySolution,
+        bodies = eachindex(sol.ic.particles);
+        tspan = extrema(sol.t)
+    )
     time = sol.t
     tspan = isnothing(tspan) ? extrema(time) : tspan
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
     indices = indices[1]:indices[2]
     com = QuantityArray(zeros(3, length(indices)), dimension(sol.v))
-    
+
     masses = sol.ic.particles.mass[bodies]
     for (c, idx) in enumerate(indices)
-        v = [sol.v[:,body,idx] for body in bodies]
-        com[:,c] = centre_of_mass_velocity(v, masses)
+        v = [sol.v[:, body, idx] for body in bodies]
+        com[:, c] = centre_of_mass_velocity(v, masses)
     end
 
     return com
@@ -169,32 +173,32 @@ julia> m = rand(3)
 julia> com = Syzygy.potential_energy(r, m)
 ```
 """
-function potential_energy(positions::AbstractVector, masses, G=UNITLESS_G)
-    U = zero((masses[1]*masses[2])/norm(positions[1] - positions[2]))
+function potential_energy(positions::AbstractVector, masses, G = UNITLESS_G)
+    U = zero((masses[1] * masses[2]) / norm(positions[1] - positions[2]))
     n = length(positions)
     @inbounds for i in 1:n
         for j in i:n
             if i != j
-                U -= masses[i]*masses[j]/(norm(positions[i] - positions[j]))
+                U -= masses[i] * masses[j] / (norm(positions[i] - positions[j]))
             end
         end
     end
 
-    U*ifelse(U isa Quantity, GRAVCONST, G)
+    return U * ifelse(U isa Quantity, GRAVCONST, G)
 end
 
-function potential_energy(positions::AbstractMatrix, masses, G=UNITLESS_G)
-    U = zero((masses[1]*masses[2])/(norm(positions[:,1] - positions[:,2])))
+function potential_energy(positions::AbstractMatrix, masses, G = UNITLESS_G)
+    U = zero((masses[1] * masses[2]) / (norm(positions[:, 1] - positions[:, 2])))
     n = size(positions, 2)
     @inbounds for i in 1:n
         for j in i:n
             if i != j
-                U -= masses[i]*masses[j]/(norm(positions[:,i] - positions[:,j]))
+                U -= masses[i] * masses[j] / (norm(positions[:, i] - positions[:, j]))
             end
         end
     end
 
-    U*ifelse(U isa Quantity, GRAVCONST, G)
+    return U * ifelse(U isa Quantity, GRAVCONST, G)
 end
 
 """
@@ -204,24 +208,26 @@ end
 
 Return the total potential energy for the given `bodies` and `tspan`.
 """
-function potential_energy(sol::MultiBodySolution, 
-                          bodies=keys(sol.ic.particles); 
-                          tspan=extrema(sol.t))
-    
+function potential_energy(
+        sol::MultiBodySolution,
+        bodies = keys(sol.ic.particles);
+        tspan = extrema(sol.t)
+    )
+
     masses = sol.structure.m
     time = sol.t
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
     indices = indices[1]:indices[2]
-    
+
     pot_energy = QuantityArray(zeros(length(sol.t)), dimension(u"J"))
-    for i ∈ indices
-        m = ifelse(i > 1, masses[:,2], masses[:,1])
-        r = [SVector{3}(sol.r[:,b,i]) for b in bodies]
+    for i in indices
+        m = ifelse(i > 1, masses[:, 2], masses[:, 1])
+        r = [SVector{3}(sol.r[:, b, i]) for b in bodies]
         pe = potential_energy(r, m)
         pot_energy[i] = pe
     end
 
-    pot_energy
+    return pot_energy
 end
 
 
@@ -231,7 +237,7 @@ end
 Return the kinetic energy of a body with given velocity vector and mass.
 """
 function kinetic_energy(velocity::AbstractVector, mass::Number)
-    return 0.5*mass*norm(velocity)^2
+    return 0.5 * mass * norm(velocity)^2
 end
 
 """
@@ -241,7 +247,7 @@ Total kinetic energy of bodies with velocity vectors and `masses`, where
 `velocities[1]` is a `Vector` with the velocity components of particle 1. 
 """
 function kinetic_energy(velocities::AbstractVector{<:AbstractVector}, masses::AbstractVector)
-    T = 0.5*sum(masses .* norm.(velocities).^2)
+    return T = 0.5 * sum(masses .* norm.(velocities) .^ 2)
 end
 
 """
@@ -250,7 +256,7 @@ end
 `velocity` can also be a `Matrix` where each column represent the velocity vector of each body. 
 """
 function kinetic_energy(velocities::AbstractMatrix, masses::AbstractVector)
-    T = 0.5*sum(masses .* norm.(eachcol(velocities)).^2)
+    return T = 0.5 * sum(masses .* norm.(eachcol(velocities)) .^ 2)
 end
 
 """
@@ -260,25 +266,27 @@ end
 
 Return the total kinetic energy for the given `bodies` and `tspan` from a simulation solution.
 """
-function kinetic_energy(sol::MultiBodySolution, 
-                        bodies=keys(sol.ic.particles); 
-                        tspan=extrema(sol.t))
+function kinetic_energy(
+        sol::MultiBodySolution,
+        bodies = keys(sol.ic.particles);
+        tspan = extrema(sol.t)
+    )
 
     masses = sol.structure.m
     time = sol.t
 
     indices = (argmin(abs.(time .- tspan[1])), argmin(abs.(time .- tspan[2])))
     indices = indices[1]:indices[2]
-    
-    kin_energy = QuantityArray(zeros(length(sol.t)), dimension(u"J"))#Vector{typeof(1.0u"J")}(undef, length(sol.t))
-    for i ∈ indices
-        m = ifelse(i > 1, masses[:,2], masses[:,1])
-        v = [SVector{3}(sol.v[:,b,i]) for b in bodies]
+
+    kin_energy = QuantityArray(zeros(length(sol.t)), dimension(u"J")) #Vector{typeof(1.0u"J")}(undef, length(sol.t))
+    for i in indices
+        m = ifelse(i > 1, masses[:, 2], masses[:, 1])
+        v = [SVector{3}(sol.v[:, b, i]) for b in bodies]
         te = kinetic_energy(v, m)
         kin_energy[i] = te
     end
 
-    kin_energy
+    return kin_energy
 end
 
 """
@@ -286,14 +294,16 @@ end
     
 Total energy (kinetic + potential) of bodies with given `positions`, `velocities`, and `masses`.
 """
-function total_energy(positions, velocities, masses, G=UNITLESS_G)
+function total_energy(positions, velocities, masses, G = UNITLESS_G)
     return potential_energy(positions, masses, G) + kinetic_energy(velocities, masses)
 end
 
-function total_energy(sol::MultiBodySolution, 
-                      bodies=eachindex(sol.ic.particles); 
-                      tspan=extrema(sol.t), G=UNITLESS_G)
-    return potential_energy(sol, bodies, tspan=tspan, G=G) .+ kinetic_energy(sol, bodies, tspan=tspan)
+function total_energy(
+        sol::MultiBodySolution,
+        bodies = eachindex(sol.ic.particles);
+        tspan = extrema(sol.t), G = UNITLESS_G
+    )
+    return potential_energy(sol, bodies, tspan = tspan, G = G) .+ kinetic_energy(sol, bodies, tspan = tspan)
 end
 
 """
@@ -304,7 +314,7 @@ Return the specific orbital energy of two orbiting bodies with relative position
 The specific orbital energy is sum of the mutual potential and kinetic energy divided by the reduced mass.
 """
 function specific_orbital_energy(r, v², μ)
-    return v²/2 - μ/r
+    return v² / 2 - μ / r
 end
 
 @doc raw"""
@@ -319,7 +329,7 @@ The reduced mass is defined as
 ```
 """
 function reduced_mass(m₁, m₂)
-    return (m₁*m₂)/(m₁ + m₂)
+    return (m₁ * m₂) / (m₁ + m₂)
 end
 
 """
@@ -330,11 +340,11 @@ Return the gravitational radius of an object with the given `mass`.
 The gravitational radius is defined as GM/c².
 """
 function gravitational_radius(mass::Quantity)
-    GRAVCONST*mass/speed_of_light^2
+    return GRAVCONST * mass / speed_of_light^2
 end
 
 function gravitational_radius(mass::Real)
-    UNITLESS_G*mass/c²
+    return UNITLESS_G * mass / c²
 end
 
 """
@@ -345,7 +355,7 @@ Return the Schwarzschild radius of an object with the given `mass`.
 The Schwarzschild radius is defined as 2GM/c².
 """
 function schwarzschild_radius(mass)
-    return 2*gravitational_radius(mass)
+    return 2 * gravitational_radius(mass)
 end
 
 @doc raw"""
@@ -361,7 +371,7 @@ R_L = a \frac{0.49q^{2/3}}{0.6q^{2/3} + \ln{(1 + q^{1/3})}}
 ```
 """
 function roche_radius(a, m₁, m₂)
-    return a*roche_radius_fraction(m₁, m₂)
+    return a * roche_radius_fraction(m₁, m₂)
 end
 
 """
@@ -370,18 +380,18 @@ end
 The mass ratio `q` can also be given directly, where `q = m₁/m₂`.
 """
 function roche_radius(a, q)
-    return a*roche_radius_fraction(q)
+    return a * roche_radius_fraction(q)
 end
 
 function roche_radius_fraction(m₁, m₂)
-    q = m₁/m₂
+    q = m₁ / m₂
     return roche_radius_fraction(q)
 end
 
 function roche_radius_fraction(q::Real)
     cbrt_q = cbrt(q)
     cbrt_q² = cbrt_q^2
-    return 0.49cbrt_q²/(0.6cbrt_q² + log(1 + cbrt_q))
+    return 0.49cbrt_q² / (0.6cbrt_q² + log(1 + cbrt_q))
 end
 
 """ 
@@ -392,9 +402,9 @@ described by Hurley, Pols, & Tout 2000, eq 107-108.
 """
 function stellar_rotational_frequency(m::Quantity, R::Quantity)
     m = ustrip(u"Msun", m)
-    v_rot = ((330m^3.3)/(15 + m^3.45))#u"km/s"
-    Ω = (45.35v_rot/ustrip(u"Rsun", R))
-    return u"yr^-1"*(Ω)
+    v_rot = ((330m^3.3) / (15 + m^3.45)) #u"km/s"
+    Ω = (45.35v_rot / ustrip(u"Rsun", R))
+    return u"yr^-1" * (Ω)
 end
 
 """ 
@@ -403,26 +413,26 @@ end
 If `m` and `R` are given without units, they must be [`M⊙`] and [`R⊙`] respectively.
 """
 function stellar_rotational_frequency(m::Real, R::Real)
-    v_rot = (330m^3.3)/(15 + m^3.45) # km/s
-    Ω = (45.35v_rot/R)
+    v_rot = (330m^3.3) / (15 + m^3.45) # km/s
+    Ω = (45.35v_rot / R)
     return Ω
 end
 
-function stellar_angular_momentum(star::Particle, black_hole_spin_parameter=0.9)
+function stellar_angular_momentum(star::Particle, black_hole_spin_parameter = 0.9)
     star_type = star.stellar_type
     mass = star.mass
     radius = star.radius
 
     k₂ = 0.1
-    k₃ = 3/4
+    k₃ = 3 / 4
     if star_type isa Star
         Ω_zams = stellar_rotational_frequency(mass, radius)
         core_mass = star.core_mass
-        return (k₂*(mass - core_mass)*radius^2 + k₃*core_mass*core_radius^2)*Ω_zams
+        return (k₂ * (mass - core_mass) * radius^2 + k₃ * core_mass * core_radius^2) * Ω_zams
     elseif (star_type isa WhiteDwarf) || (star_type isa NeutronStar)
-        return k₃*mass*radius^2*Ω_zams
+        return k₃ * mass * radius^2 * Ω_zams
     elseif star_type isa BlackHole
-        return (GRAVCONST*mass^2/speed_of_light)*black_hole_spin_parameter
+        return (GRAVCONST * mass^2 / speed_of_light) * black_hole_spin_parameter
     end
 end
 
@@ -433,12 +443,12 @@ end
 Return the spin angular momentum of a compact object with mass 'm [M⊙]' and spinning with a
 fraction `χ` of its critical spin velocity.
 """
-function compact_object_spin(m::Quantity, χ=1.0)
-    return (GRAVCONST*m^2/speed_of_light)*χ
+function compact_object_spin(m::Quantity, χ = 1.0)
+    return (GRAVCONST * m^2 / speed_of_light) * χ
 end
 
-function compact_object_spin(m::Real, χ=1.0)
-    return (UNITLESS_G*m^2/UNITLESS_c)*χ
+function compact_object_spin(m::Real, χ = 1.0)
+    return (UNITLESS_G * m^2 / UNITLESS_c) * χ
 end
 
 """
@@ -449,8 +459,8 @@ Mardling & Aarset 1999, given a triple with masses `m₁`, `m₂`, `m₃`, mutua
 inclination `i`, and outer eccentricity `eout`.
 """
 function stability_criterion_ma01(m₁, m₂, m₃, i, eout)
-    qout = m₃/(m₁ + m₂)
-    return 2.8/(1 - eout)*(1 - 0.3i/π)*((1 + qout)*(1 + eout)/√(1 - eout))^(2/5)
+    qout = m₃ / (m₁ + m₂)
+    return 2.8 / (1 - eout) * (1 - 0.3i / π) * ((1 + qout) * (1 + eout) / √(1 - eout))^(2 / 5)
 end
 
 """
@@ -463,9 +473,9 @@ function stability_criterion_ma01(triple::HierarchicalMultiple)
     eₒ = triple.binaries[2].elements.e
     i = triple.binaries[1].elements.i
 
-    m₁, m₂, m₃ = [triple.particles[i].mass for i = 1:3]
+    m₁, m₂, m₃ = [triple.particles[i].mass for i in 1:3]
 
-    return stability_criterion_ma01(m₁, m₂, m₃, i, eₒ)    
+    return stability_criterion_ma01(m₁, m₂, m₃, i, eₒ)
 end
 
 """
@@ -473,15 +483,15 @@ end
 
 Check if a given `triple` is unstable, i.e. whether aout/ain < (aout/ain)_crit.
 """
-function is_unstable(triple::HierarchicalMultiple; criterion="ma01")
+function is_unstable(triple::HierarchicalMultiple; criterion = "ma01")
     α_crit = stability_criterion_ma01(triple)
     α = triple.binaries[2].elements.a / triple.binaries[1].elements.a
     return α < α_crit
 end
 
-function is_unstable(aₒ, aᵢ, m₁, m₂, m₃, i, eₒ; criterion="ma01")
+function is_unstable(aₒ, aᵢ, m₁, m₂, m₃, i, eₒ; criterion = "ma01")
     α_crit = stability_criterion_ma01(m₁, m₂, m₃, i, eₒ)
-    α = aₒ/aᵢ
+    α = aₒ / aᵢ
     return α < α_crit
 end
 
@@ -494,26 +504,26 @@ Return the octupole parameter ϵₒ for a given triple.
 function octupole_parameter(triple::HierarchicalMultiple)
     @assert triple.n == 3 "Octupole parameter only valid for triple system."
     m₁, m₂ = triple.particles.mass[[1, 2]]
-    a_in  = triple.binaries[1].elements.a
+    a_in = triple.binaries[1].elements.a
     a_out = triple.binaries[2].elements.a
     e_out = triple.binaries[2].elements.e
 
-    (m₁ - m₂)/(m₁ + m₂)*a_in/a_out*e_out/(1 - e_out^2)
+    return (m₁ - m₂) / (m₁ + m₂) * a_in / a_out * e_out / (1 - e_out^2)
 end
 
 function quadrupole_timescale(triple::HierarchicalMultiple)
-    m = triple.particles.mass 
-    P_in = triple.binaries[1].elements.P 
+    m = triple.particles.mass
+    P_in = triple.binaries[1].elements.P
     P_out = triple.binaries[2].elements.P
     e_out = triple.binaries[2].elements.e
-    return 16/30π*sum(m)/m[3]*P_out^2/P_in*cbrt(1 - e_out^2)^2 |> unit_time
+    return 16 / 30π * sum(m) / m[3] * P_out^2 / P_in * cbrt(1 - e_out^2)^2 |> unit_time
 end
 
 function total_energy_2PN(r1, r2, v1, v2, m1, m2, G, c)
 
     r = r1 - r2
     r12 = norm(r1 - r2)
-    n12 = r/r12
+    n12 = r / r12
 
     vv1 = norm(v1)
     vv2 = norm(v2)
@@ -522,47 +532,54 @@ function total_energy_2PN(r1, r2, v1, v2, m1, m2, G, c)
     n12v2 = dot(n12, v2)
     v1v2 = dot(v1, v2)
 
-    E_Newt = 0.5*m1*vv1^2 - G*m1*m2/2r12
-    E_1PN = 1/c²*(G^2*m1^2*m2/2r12^2 + 3m1*vv1^4/8 + G*m1*m2/r12*(-0.25*n12v1*n12v2 + 1.5*vv1^2 - 7/4*v1v2))
-    E_2PN = 1/c⁴*(-G^3*m1^3*m2/2r12^3 - 19*G^3*m1^2*m2^2/8r12^3 + 5m1*vv1^6/16 + 
-                  G*m1*m2/r12*(3/8*n12v1^3*n12v2 + 3/16*n12v1^2*n12v2^2 - 9/8*n12v1*n12v2*vv1^2 -
-                               13/8*n12v2^2*vv1^2 + 21/8*vv1^4 + 13/8*n12v1^2*v1v2 + 3/4*n12v1*n12v2*v1v2 -
-                               -55/8*vv1^2*v1v2 + 17/8*v1v2^2 + 31/16*vv1^2*vv2^2) +
-                  G^2*m1^2*m2/r12^2*(29/4*n12v1^2 - 13/4*n12v1*n12v2 + 0.5*(n12v2^2 - 3/2*vv1^2 + 7/4*vv2^2))
-                  )
+    E_Newt = 0.5 * m1 * vv1^2 - G * m1 * m2 / 2r12
+    E_1PN = 1 / c² * (G^2 * m1^2 * m2 / 2r12^2 + 3m1 * vv1^4 / 8 + G * m1 * m2 / r12 * (-0.25 * n12v1 * n12v2 + 1.5 * vv1^2 - 7 / 4 * v1v2))
+    E_2PN = 1 / c⁴ * (
+        -G^3 * m1^3 * m2 / 2r12^3 - 19 * G^3 * m1^2 * m2^2 / 8r12^3 + 5m1 * vv1^6 / 16 +
+            G * m1 * m2 / r12 * (
+            3 / 8 * n12v1^3 * n12v2 + 3 / 16 * n12v1^2 * n12v2^2 - 9 / 8 * n12v1 * n12v2 * vv1^2 -
+                13 / 8 * n12v2^2 * vv1^2 + 21 / 8 * vv1^4 + 13 / 8 * n12v1^2 * v1v2 + 3 / 4 * n12v1 * n12v2 * v1v2 -
+                -55 / 8 * vv1^2 * v1v2 + 17 / 8 * v1v2^2 + 31 / 16 * vv1^2 * vv2^2
+        ) +
+            G^2 * m1^2 * m2 / r12^2 * (29 / 4 * n12v1^2 - 13 / 4 * n12v1 * n12v2 + 0.5 * (n12v2^2 - 3 / 2 * vv1^2 + 7 / 4 * vv2^2))
+    )
     E = E_Newt + E_1PN + E_2PN
-    E_2p5PN = E + 4*G^2*m1^2*m2/(5*c^5*r12^2)*n12v1*(norm(v1 - v2)^2 - 2*G*(m1 - m2)/r12)
+    E_2p5PN = E + 4 * G^2 * m1^2 * m2 / (5 * c^5 * r12^2) * n12v1 * (norm(v1 - v2)^2 - 2 * G * (m1 - m2) / r12)
     return E + E_2p5PN
 end
 
 total_energy_2PN(r1, r2, v1, v2, m1, m2::Quantity) = total_energy_2PN(r1, r2, v1, v2, m1, m2, GRAVCONST, speed_of_light)
 total_energy_2PN(r1, r2, v1, v2, m1, m2::Real) = total_energy_2PN(r1, r2, v1, v2, m1, m2, UNITLESS_G, UNITLESS_c)
 
-function total_energy_2PN(res::SimulationResult, time, bodies=[1, 2])
+function total_energy_2PN(res::SimulationResult, time, bodies = [1, 2])
     masses = res.ode_params.masses
     idx = findmin(x -> abs(x - time), res.solution.t)[2]
     E = 0.0
     i, j = bodies
-    E += total_energy_2PN(SVector{3}(res.solution.u[idx].x[2][1:3, i]),
-                            SVector{3}(res.solution.u[idx].x[2][1:3, j]), 
-                            SVector{3}(res.solution.u[idx].x[1][1:3, i]),
-                            SVector{3}(res.solution.u[idx].x[1][1:3, j]),
-                            masses[i], masses[j])
+    E += total_energy_2PN(
+        SVector{3}(res.solution.u[idx].x[2][1:3, i]),
+        SVector{3}(res.solution.u[idx].x[2][1:3, j]),
+        SVector{3}(res.solution.u[idx].x[1][1:3, i]),
+        SVector{3}(res.solution.u[idx].x[1][1:3, j]),
+        masses[i], masses[j]
+    )
 
-    E += total_energy_2PN(SVector{3}(res.solution.u[idx].x[2][1:3, j]),
-                            SVector{3}(res.solution.u[idx].x[2][1:3, i]), 
-                            SVector{3}(res.solution.u[idx].x[1][1:3, j]),
-                            SVector{3}(res.solution.u[idx].x[1][1:3, i]),
-                            masses[j], masses[i])
-        
-    E
+    E += total_energy_2PN(
+        SVector{3}(res.solution.u[idx].x[2][1:3, j]),
+        SVector{3}(res.solution.u[idx].x[2][1:3, i]),
+        SVector{3}(res.solution.u[idx].x[1][1:3, j]),
+        SVector{3}(res.solution.u[idx].x[1][1:3, i]),
+        masses[j], masses[i]
+    )
+
+    return E
 end
 
 
 # """
 #     PN1_energy(r1, r2, v1, v2, m1, m2; G=GRAVCONST)
 
-    
+
 # Total energy of body 1 in a gravitational + PN1 potential. From Blanchet 2014.
 # """
 # function PN1_energy(r1, r2, v1, v2, m1, m2; G=GRAVCONST)
@@ -615,4 +632,3 @@ end
 
 #     return Etot
 # end
-

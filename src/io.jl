@@ -1,6 +1,6 @@
-function Base.show(io::IO, system::T where T <: HierarchicalMultiple)
+function Base.show(io::IO, system::T where {T <: HierarchicalMultiple})
     print(io, "\nN binaries: ")
-    show(io, size(system.hierarchy, 1)-1)
+    show(io, size(system.hierarchy, 1) - 1)
     println(io)
 
     print(io, "N levels: ")
@@ -15,15 +15,15 @@ function Base.show(io::IO, system::T where T <: HierarchicalMultiple)
     show(io, system.hierarchy)
     print(io, "\n\n")
 
-    show(io, system.root)
+    return show(io, system.root)
 
 end
 
-function Base.show(io::IO, system::T where T <: NonHierarchicalSystem)
+function Base.show(io::IO, system::T where {T <: NonHierarchicalSystem})
 
     print(io, "N particles: ")
     show(io, system.n)
-    println(io,"\n")
+    println(io, "\n")
 
     MAX_OUTPUT = 5
 
@@ -32,7 +32,7 @@ function Base.show(io::IO, system::T where T <: NonHierarchicalSystem)
         println(io)
     end
 
-    if system.n > MAX_OUTPUT
+    return if system.n > MAX_OUTPUT
         println("\n ...... \n")
         show(io, system.particles[system.n])
         println(io)
@@ -41,74 +41,75 @@ function Base.show(io::IO, system::T where T <: NonHierarchicalSystem)
 end
 
 
-function Base.show(io::IO, binary::T where T <: Binary)
+function Base.show(io::IO, binary::T where {T <: Binary})
 
-    indent = get(io, :indent, 2 + binary.level*2)
+    indent = get(io, :indent, 2 + binary.level * 2)
 
     # print(io, " "^indent, "Binary key: ")
-    printstyled(io, " "^indent, "Binary ", color=:blue)
-    print(io,  "key: ")
+    printstyled(io, " "^indent, "Binary ", color = :blue)
+    print(io, "key: ")
 
     show(io, binary.key)
     println(io)
 
     # print(io, " "^indent, "Binary level: ")
-    printstyled(io, " "^indent, "Binary ", color=:blue)
-    print(io,  "level: ")
+    printstyled(io, " "^indent, "Binary ", color = :blue)
+    print(io, "level: ")
 
     show(io, binary.level)
     println(io)
 
     # print(io, " "^indent, "Binary parent: ")
-    printstyled(io, " "^indent, "Binary ", color=:blue)
-    print(io,  "parent: ")
+    printstyled(io, " "^indent, "Binary ", color = :blue)
+    print(io, "parent: ")
 
     show(io, binary.parent)
     println(io)
 
     # println(io, " "^indent, "Binary elements: ")
-    printstyled(io, " "^indent, "Binary ", color=:blue)
+    printstyled(io, " "^indent, "Binary ", color = :blue)
     printstyled(io, "elements:\n\n")
-    show(IOContext(io, :indent => indent+2), binary.elements)
+    show(IOContext(io, :indent => indent + 2), binary.elements)
     println(io)
 
 
-    printstyled(io, " "^indent, "Children:\n\n", color=:green)
+    printstyled(io, " "^indent, "Children:\n\n", color = :green)
     for child in binary.children
-        show(IOContext(io, :indent => indent+4), child)
+        show(IOContext(io, :indent => indent + 4), child)
         println()
     end
 
+    return
 end
 
 function Base.show(io::IO, particle::Particle)
     indent = get(io, :indent, 2)
 
 
-    printstyled(io,  " "^indent, "Particle ", color=:yellow)
+    printstyled(io, " "^indent, "Particle ", color = :yellow)
     print(io, "mass: ")
     print(io, particle.mass)
     println(io)
 
-    printstyled(io,  " "^indent, "Particle ", color=:yellow)
+    printstyled(io, " "^indent, "Particle ", color = :yellow)
     print(io, "radius: ")
     print(io, particle.radius)
     println(io)
 
-    printstyled(io,  " "^indent, "Particle ", color=:yellow)
+    printstyled(io, " "^indent, "Particle ", color = :yellow)
     print(io, "type: ")
     print(io, particle.stellar_type)
     println(io)
 
-    printstyled(io,  " "^indent, "Particle ", color=:yellow)
+    printstyled(io, " "^indent, "Particle ", color = :yellow)
     print(io, "key: ")
     print(io, particle.key.i)
-    println(io)
+    return println(io)
 
 
 end
 
-function Base.show(io::IO, elements::OrbitalElements)#{T, T, T, T, T, T, T}) where T <: Number
+function Base.show(io::IO, elements::OrbitalElements) #{T, T, T, T, T, T, T}) where T <: Number
     if elements.a isa AbstractArray
         # show(io, elements)
         return
@@ -120,13 +121,13 @@ function Base.show(io::IO, elements::OrbitalElements)#{T, T, T, T, T, T, T}) whe
     for el in els
         print(io, " $el: ")
         prop = getproperty(elements, el)
-        prop = prop isa Quantity ? round(prop.value, digits=2)*oneunit(prop) : round(prop, digits=2)
+        prop = prop isa Quantity ? round(prop.value, digits = 2) * oneunit(prop) : round(prop, digits = 2)
         # prop = round(prop.val, digits=2)*unit(prop)
         show(io, prop)
         print(io, " | ")
-    end 
-    
-    println(io)
+    end
+
+    return println(io)
 end
 
 # function Base.show(io::IO, elements::OrbitalElements{T, T, T, T, T, T, T}) where T <: Number
@@ -146,17 +147,17 @@ function Base.show(io::IO, structure::StellarStructure)
         prop = getproperty(structure, str)
         if prop isa AbstractArray
             # show(io, prop)
-            print("["*join(prop,",")*"]")
+            print("[" * join(prop, ",") * "]")
         elseif prop isa StellarType
             show(io, prop.number)
         else
-            prop = prop isa Quantity ? round(prop.value, digits=2)*oneunit(prop) : round(prop, digits=2)
+            prop = prop isa Quantity ? round(prop.value, digits = 2) * oneunit(prop) : round(prop, digits = 2)
             show(io, prop)
         end
-        println(io)#, " | ")
-        # println(io)   
+        println(io) #, " | ")
+        # println(io)
     end
-    println(io)
+    return println(io)
 end
 
 function Base.show(io::IO, sim::MultiBodySimulation)
@@ -171,7 +172,7 @@ function Base.show(io::IO, sim::MultiBodySimulation)
 
     println(io, "Arguments ")
     for (arg, val) in sim.args
-        arg == :potential && continue 
+        arg == :potential && continue
         @printf(io, "   %-16s %s", "$arg", "$val")
         # @printf(io, "%7s ", "$val")
         println(io)
@@ -197,7 +198,7 @@ function Base.show(io::IO, sim::MultiBodySimulation)
         @printf(io, "   %-16s", "$pot")
     end
 
-    println(io)
+    return println(io)
 end
 
 function Base.show(io::IO, sim::SimulationResult)
@@ -212,7 +213,7 @@ function Base.show(io::IO, sim::SimulationResult)
 
     println(io, "Number of datapoints: $(length(sim.solution.t))\n")
     println(io, "ODE Retcode: $(sim.solution.retcode)\n")
-    println(io, "$(sim.solution.destats)")
+    return println(io, "$(sim.solution.destats)")
 end
 
 
@@ -221,7 +222,7 @@ function Base.show(io::IO, params::DefaultSimulationParams)
     print(":")
     println()
     for prop in propertynames(params)
-        val = getproperty(params, prop) 
+        val = getproperty(params, prop)
         # un, val = if val[1] isa Quantity
         #     unit(val[1]), ustrip(val)
         # else
@@ -232,6 +233,7 @@ function Base.show(io::IO, params::DefaultSimulationParams)
         @printf(io, "   %-16s %s", "$prop", "$val")
         println(io)
     end
+    return
 end
 
 function Base.show(io::IO, sol::MultiBodySolution)
@@ -242,7 +244,7 @@ function Base.show(io::IO, sol::MultiBodySolution)
     timespan = (sol.t[1], sol.t[end])
     show(io, (timespan[1], timespan[2]))
 
-    if !ismissing(sol.ode_system)
+    return if !ismissing(sol.ode_system)
         println()
         print(io, "ODE parameters: \n")
         for (k, v) in sol.ode_system

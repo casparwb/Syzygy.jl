@@ -1,32 +1,32 @@
 using Printf
 using ArbNumerics, DoubleFloats
 
-function bodies(system::T where T <: MultiBodyInitialConditions, dtype=Float64)
+function bodies(system::T where {T <: MultiBodyInitialConditions}, dtype = Float64)
 
-    positions  = [zeros(dtype, 3) for _ in 1:system.n]
+    positions = [zeros(dtype, 3) for _ in 1:system.n]
     velocities = [zeros(dtype, 3) for _ in 1:system.n]
-    masses     =  zeros(dtype, system.n)
+    masses = zeros(dtype, system.n)
 
     u_l, u_m, u_t = system.units.u_length, system.units.u_mass, system.units.u_time
 
     for (key, particle) in system.particles
-        positions[key]  .= ustrip.(u_l, particle.position)
-        velocities[key] .= ustrip.(u_l/u_t, particle.velocity)
-        masses[key]      = ustrip.(u_m, particle.mass)
+        positions[key] .= ustrip.(u_l, particle.position)
+        velocities[key] .= ustrip.(u_l / u_t, particle.velocity)
+        masses[key] = ustrip.(u_m, particle.mass)
     end
 
-    SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(positions, velocities, masses)]...]
+    return SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(positions, velocities, masses)]...]
 end
 
-function bodies(positions, velocities, masses, units, dtype=Float64)
+function bodies(positions, velocities, masses, units, dtype = Float64)
 
     u_l, u_m, u_t = units.u_length, units.u_mass, units.u_time
 
-    positions  = [dtype.(ustrip.(u_l, p)) for p in positions]
-    velocities = [dtype.(ustrip.(u_l/u_t, v)) for v in velocities]
-    masses     = [dtype(ustrip.(u_m, m)) for m in masses]
+    positions = [dtype.(ustrip.(u_l, p)) for p in positions]
+    velocities = [dtype.(ustrip.(u_l / u_t, v)) for v in velocities]
+    masses = [dtype(ustrip.(u_m, m)) for m in masses]
 
-    SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(positions, velocities, masses)]...]
+    return SA[[MassBody(SA[r...], SA[v...], m) for (r, v, m) in zip(positions, velocities, masses)]...]
 end
 
 function get_potential_dict(potential::MultiBodyPotential)
@@ -43,36 +43,40 @@ function get_potential_dict(potential::Vector)
 end
 
 
-function multibodysimulation(system::T where T <: MultiBodyInitialConditions, 
-                             tspan, potential, ode_params, args, diffeq_args)
+function multibodysimulation(
+        system::T where {T <: MultiBodyInitialConditions},
+        tspan, potential, ode_params, args, diffeq_args
+    )
 
     massbodies = bodies(system, args[:dtype])
     pot_dict = get_potential_dict(potential)
-    
-    MultiBodySimulation(system, massbodies, pot_dict, tspan, 
-                        ode_params, args, diffeq_args)
+
+    return MultiBodySimulation(
+        system, massbodies, pot_dict, tspan,
+        ode_params, args, diffeq_args
+    )
 end
 
 
 function get_kwarg!(kwargs::Dict, arg::Symbol, default_value)
-    haskey(kwargs, arg) ? pop!(kwargs, arg) : default_value
+    return haskey(kwargs, arg) ? pop!(kwargs, arg) : default_value
 end
 
 function parse_arguments!(kwargs::Dict)
 
     default_args = Dict(
-                        :t0        => nothing,  :dt     => 0.0u"s", :t_sim => 1.0,
-                        :alg       => ODESolvers.DPRKN8, :saveat => [], :npoints => 0,
-                        :save_every => nothing, :maxiters  => Inf,
-                        :abstol    => 1.0e-10, :reltol  => 1.0e-10,
-                        :callbacks => AbstractSyzygyCallback[CollisionCB()], 
-                        :showprogress => false,
-                        :params => DefaultSimulationParams,
-                        :verbose   => false, :max_cpu_time => Inf,
-                        :precision => :Float64, :stellar_evolution => false,
-                        :param_options => Dict(),
-                        :softening => 0.0,
-                        )
+        :t0 => nothing, :dt => 0.0u"s", :t_sim => 1.0,
+        :alg => ODESolvers.DPRKN8, :saveat => [], :npoints => 0,
+        :save_every => nothing, :maxiters => Inf,
+        :abstol => 1.0e-10, :reltol => 1.0e-10,
+        :callbacks => AbstractSyzygyCallback[CollisionCB()],
+        :showprogress => false,
+        :params => DefaultSimulationParams,
+        :verbose => false, :max_cpu_time => Inf,
+        :precision => :Float64, :stellar_evolution => false,
+        :param_options => Dict(),
+        :softening => 0.0,
+    )
 
     args = copy(default_args)
     for (k, _) in kwargs
@@ -93,6 +97,7 @@ function check_potentials_and_units(system, potentials)
         @assert G ≈ get_G_in_system_units(system) "Given potential is not in the correct unit system."
     end
 
+    return
 end
 
 
@@ -142,7 +147,7 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     args = parse_arguments!(kwargs)
 
     dtype = get_datatype_from_precision(args[:precision])
-    args[:potential] = pop!(kwargs, :potential, [PureGravitationalPotential(system, dtype=dtype, softening=args[:softening])])
+    args[:potential] = pop!(kwargs, :potential, [PureGravitationalPotential(system, dtype = dtype, softening = args[:softening])])
     args[:dtype] = dtype
     particles = system.particles
 
@@ -165,9 +170,9 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
             M = sum(particles.mass[[i, j]])
             a = semi_major_axis(d, v², M)
             if a < zero(a) # not a bound binary
-                push!(periods_, NaN*default_unit_time)
+                push!(periods_, NaN * default_unit_time)
             else
-                push!(periods_, 2π*√(a^3/(GRAVCONST*M)))
+                push!(periods_, 2π * √(a^3 / (GRAVCONST * M)))
             end
         end
         filter(!isnan, periods_)
@@ -175,8 +180,8 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
         [bin.elements.P for bin in values(system.binaries)]
     end
 
-    P_in, P_out = isempty(periods) ? (Inf*default_unit_time, Inf*default_unit_time) : extrema(periods)
-    
+    P_in, P_out = isempty(periods) ? (Inf * default_unit_time, Inf * default_unit_time) : extrema(periods)
+
     # setup time step (only used if using symplectic integrator)
     if args[:dt] isa Real
         if isinf(P_in)
@@ -208,7 +213,7 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
 
     # Setup optional saving points
     if !iszero(args[:npoints])
-        args[:saveat] = range(t0, t_final, length=args[:npoints])
+        args[:saveat] = range(t0, t_final, length = args[:npoints])
     end
 
     if !isnothing(args[:save_every])
@@ -229,15 +234,17 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
             args[:params] = TidalSimulationParams
         end
     end
-    ode_params = setup_params(args[:params], system, dtype, options=args[:param_options])
-   
-    simulation = multibodysimulation(system, args[:tspan], args[:potential], 
-                                     ode_params, args, kwargs)
+    ode_params = setup_params(args[:params], system, dtype, options = args[:param_options])
+
+    simulation = multibodysimulation(
+        system, args[:tspan], args[:potential],
+        ode_params, args, kwargs
+    )
 
     return simulation
 end
 
-function get_final_time(t0, t_sim, P_out, unit_time, datatype=Float64)
+function get_final_time(t0, t_sim, P_out, unit_time, datatype = Float64)
     if t_sim isa Quantity
         t_sim *= one(t_sim)
         return (ustrip(unit_time, t_sim) + t0)
@@ -246,17 +253,17 @@ function get_final_time(t0, t_sim, P_out, unit_time, datatype=Float64)
         if isinf(P_out)
             throw(ArgumentError("Bodies are not bound, so t_sim can not be given as a Real, but must be given as a Quantity of time."))
         end
-        return t0 + t_sim*P_out
+        return t0 + t_sim * P_out
     end
 end
 
-function setup_params(::Type{<:DefaultSimulationParams}, system, datatype=Float64; options)
+function setup_params(::Type{<:DefaultSimulationParams}, system, datatype = Float64; options)
     unit_length, unit_mass = system.units.u_length, system.units.u_mass
 
     particles = system.particles
 
-    masses        = datatype[]
-    radii         = datatype[]
+    masses = datatype[]
+    radii = datatype[]
     stellar_types = StellarType[]
     stellar_type_nums = Int[]
 
@@ -265,13 +272,13 @@ function setup_params(::Type{<:DefaultSimulationParams}, system, datatype=Float6
 
     for i in particle_keys
         p = particles[i]
-        
-        mass         = ustrip(unit_mass, p.structure.m) 
-        radius       = ustrip(unit_length, p.structure.R) 
-        stellar_type = p.structure.stellar_type 
 
-        push!(masses,        mass)
-        push!(radii,         radius)
+        mass = ustrip(unit_mass, p.structure.m)
+        radius = ustrip(unit_length, p.structure.R)
+        stellar_type = p.structure.stellar_type
+
+        push!(masses, mass)
+        push!(radii, radius)
         push!(stellar_types, stellar_type)
         push!(stellar_type_nums, stellar_type.number)
     end
@@ -287,9 +294,9 @@ function setup_params(::Type{<:DefaultSimulationParams}, system, datatype=Float6
     return ode_params
 end
 
-function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64; options)
+function setup_params(::Type{<:TidalSimulationParams}, system, datatype = Float64; options)
     unit_length, unit_mass, unit_time = system.units.u_length, system.units.u_mass, system.units.u_time
-    unit_power = unit_mass*unit_length^2/unit_time^3
+    unit_power = unit_mass * unit_length^2 / unit_time^3
     # @warn "Tidal params expects units of R⊙, M⊙, and yr."
     # if unit_system != "Solar"
     #     @warn """Default unit system is not set to solar units, which is what the tidal prescription expects. Conversion is currently not supported. Set the units by calling `Syzygy.set_units("Solar")` """
@@ -300,18 +307,18 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
 
     R_envs = datatype[]
     m_envs = datatype[]
-    masses        = datatype[]
-    luminosities  = datatype[]
-    radii         = datatype[]
+    masses = datatype[]
+    luminosities = datatype[]
+    radii = datatype[]
     stellar_types = StellarType[]
     stellar_type_nums = Int[]
-    
+
     metallicity = get(options, :Z, 0.0134)
 
     set_stellar_structure = get(options, :set_stellar_structure, false)
 
-    
-    for i = 1:n_bodies
+
+    for i in 1:n_bodies
         particle = system.particles[i]
         envelope_radius, envelope_mass = if set_stellar_structure
             if particle.structure.stellar_type isa Star && particle.mass < 1.25Msun
@@ -326,7 +333,7 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
         push!(R_envs, ustrip(unit_length, envelope_radius))
         push!(m_envs, ustrip(unit_mass, envelope_mass))
     end
-    
+
     envelope_radii = SA[R_envs...]
     envelope_masses = SA[m_envs...]
 
@@ -338,25 +345,25 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
 
     logk_interpolator = if isnothing(supplied_apsidal_motion_constants)
         order = get(options, :order, (3, 3))
-        get_k_interpolator(Z=metallicity, lb_multiplier=lb_multiplier, ub_multiplier=ub_multiplier, order=order)
+        get_k_interpolator(Z = metallicity, lb_multiplier = lb_multiplier, ub_multiplier = ub_multiplier, order = order)
     else
         nothing
     end
-    
-   
+
+
     apsidal_motion_constants = Float64[]
     rotational_angular_velocities = Float64[]
-    for i = 1:n_bodies
+    for i in 1:n_bodies
         particle = system.particles[i]
 
-        mass         = ustrip(unit_mass, particle.structure.m) 
-        luminosity   = ustrip(unit_power, particle.structure.L)
-        radius       = ustrip(unit_length, particle.structure.R) 
-        stellar_type = particle.structure.stellar_type 
+        mass = ustrip(unit_mass, particle.structure.m)
+        luminosity = ustrip(unit_power, particle.structure.L)
+        radius = ustrip(unit_length, particle.structure.R)
+        stellar_type = particle.structure.stellar_type
 
-        push!(masses,        mass)
-        push!(luminosities,  luminosity)
-        push!(radii,         radius)
+        push!(masses, mass)
+        push!(luminosities, luminosity)
+        push!(radii, radius)
         push!(stellar_types, stellar_type)
         push!(stellar_type_nums, stellar_type.number)
 
@@ -368,7 +375,7 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
             m, R = particle.mass, particle.radius
 
             if isnothing(supplied_apsidal_motion_constants)
-                logg = log10(ustrip(u"cm/s^2", (GRAVCONST*m/R^2))) 
+                logg = log10(ustrip(u"cm/s^2", (GRAVCONST * m / R^2)))
                 logm = log10(ustrip(Msun, m))
 
                 logg = clamp(logg, -0.4617, 4.61961)
@@ -385,23 +392,23 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
 
             if isnothing(supplied_rotational_angular_velocities) && set_spin
                 Ω = stellar_rotational_frequency(m, R)
-                push!(rotational_angular_velocities, ustrip(1/unit_time, 2π*Ω))
+                push!(rotational_angular_velocities, ustrip(1 / unit_time, 2π * Ω))
             end
         end
     end
 
     if !set_spin
-        rotational_angular_velocities = 2π*ustrip.(unit_time^(-1), system.particles.spin)
+        rotational_angular_velocities = 2π * ustrip.(unit_time^(-1), system.particles.spin)
     end
 
-    apsidal_motion_constants      = isnothing(supplied_apsidal_motion_constants)      ? SA[apsidal_motion_constants...]      : SA[supplied_apsidal_motion_constants...]
-    rotational_angular_velocities = if isnothing(supplied_rotational_angular_velocities) 
-        SA[rotational_angular_velocities...] 
+    apsidal_motion_constants = isnothing(supplied_apsidal_motion_constants) ? SA[apsidal_motion_constants...] : SA[supplied_apsidal_motion_constants...]
+    rotational_angular_velocities = if isnothing(supplied_rotational_angular_velocities)
+        SA[rotational_angular_velocities...]
     else
         SA[ustrip.(unit_time^-1, supplied_rotational_angular_velocities)...]
     end
-    
-    rotational_angular_velocities = if get(options, :evolve_spins, true) 
+
+    rotational_angular_velocities = if get(options, :evolve_spins, true)
         MVector(rotational_angular_velocities)
     else
         rotational_angular_velocities
@@ -423,9 +430,9 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
         R²s = ustrip.(Rsun^2, system.particles.radius .^ 2)
 
         q₂s = fake_perturber_mass ./ ms
-        
+
         tmp = [Syzygy.k_over_T_radiative(m, R², 1.0, fake_perturber_mass) for (m, R²) in zip(ms, R²s)]
-        @. tmp/(1 + q₂s)^(5/6)
+        @. tmp / (1 + q₂s)^(5 / 6)
     end
 
     kT_convs = ustrip.(u"yr^-1", kT_convs)
@@ -436,18 +443,18 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
     pertuber_mass_ratio_factors = let
         m_perturbers = system.particles.mass
         m_objects = system.particles.mass
-        [(1 + m_perturbers[j]/m_objects[i])^(5/6) for j = 1:n_bodies, i = 1:n_bodies]
+        [(1 + m_perturbers[j] / m_objects[i])^(5 / 6) for j in 1:n_bodies, i in 1:n_bodies]
     end
 
     R³_over_Gms = let
         ms = ustrip.(unit_mass, system.particles.mass)
         R³s = ustrip.(Rsun^3, system.particles.radius .^ 3)
 
-        [R³/(UNITLESS_G*m) for (R³, m) in zip(R³s, ms)]
+        [R³ / (UNITLESS_G * m) for (R³, m) in zip(R³s, ms)]
     end
 
     R³_over_Gms = SVector(R³_over_Gms...)
-    pertuber_mass_ratio_factors = SMatrix{n_bodies,n_bodies}(pertuber_mass_ratio_factors)
+    pertuber_mass_ratio_factors = SMatrix{n_bodies, n_bodies}(pertuber_mass_ratio_factors)
     kT_rad_factors = SVector(kT_rad_factors...)
     kT_convs = SVector(kT_convs...)
 
@@ -457,23 +464,25 @@ function setup_params(::Type{<:TidalSimulationParams}, system, datatype=Float64;
     stellar_types = SVector(stellar_types...)
     stellar_type_nums = SVector(stellar_type_nums...)
 
-    k_over_T_conversion_factor = ustrip(u"yr^-1", cbrt(1.0*unit_length^2*unit_mass/unit_time^3*unit_mass^-1*unit_length^-2))
+    k_over_T_conversion_factor = ustrip(u"yr^-1", cbrt(1.0 * unit_length^2 * unit_mass / unit_time^3 * unit_mass^-1 * unit_length^-2))
 
-    ode_params = TidalSimulationParams(radii, 
-                                       masses, 
-                                       luminosities, 
-                                       stellar_types,
-                                       stellar_type_nums,
-                                       metallicity, 
-                                       envelope_masses,
-                                       envelope_radii, 
-                                       apsidal_motion_constants,
-                                       rotational_angular_velocities,
-                                       R³_over_Gms,
-                                       pertuber_mass_ratio_factors,
-                                       kT_rad_factors,
-                                       kT_convs,
-                                       k_over_T_conversion_factor)
+    ode_params = TidalSimulationParams(
+        radii,
+        masses,
+        luminosities,
+        stellar_types,
+        stellar_type_nums,
+        metallicity,
+        envelope_masses,
+        envelope_radii,
+        apsidal_motion_constants,
+        rotational_angular_velocities,
+        R³_over_Gms,
+        pertuber_mass_ratio_factors,
+        kT_rad_factors,
+        kT_convs,
+        k_over_T_conversion_factor
+    )
 
     return ode_params
 end
@@ -491,7 +500,7 @@ function get_datatype_from_precision(precision)
             throw(ArgumentError("Given precision is not supported."))
         end
 
-        try 
+        try
             return eval(precision)
         catch e
             throw(e)

@@ -1,5 +1,5 @@
 using LinearAlgebra: norm
-using StaticArrays, AxisArrays   
+using StaticArrays, AxisArrays
 
 
 function Base.show(io::IO, sol::MultiBodySolution)
@@ -10,7 +10,7 @@ function Base.show(io::IO, sol::MultiBodySolution)
     timespan = u"kyr".([sol.t[1], sol.t[end]])
     show(io, (timespan[1], timespan[2]))
 
-    if !ismissing(sol.ode_system)
+    return if !ismissing(sol.ode_system)
         println()
         print(io, "ODE parameters: \n")
         for (k, v) in sol.ode_system
@@ -32,35 +32,39 @@ function setup_simulation_solution(n_steps, n_bodies, n_binaries)
     lum_matrix = Matrix{typeof(1.0u"Lsun")}(undef, n_bodies, 2)
     spin_matrix = Matrix{typeof(1.0u"1/s")}(undef, n_bodies, 2)
 
-    structure = StellarStructure(stellar_type_matrix, mass_matrix, 
-                                 radius_matrix, spin_matrix, lum_matrix,
-                                 similar(radius_matrix), similar(mass_matrix), 
-                                 similar(radius_matrix), similar(mass_matrix))
+    structure = StellarStructure(
+        stellar_type_matrix, mass_matrix,
+        radius_matrix, spin_matrix, lum_matrix,
+        similar(radius_matrix), similar(mass_matrix),
+        similar(radius_matrix), similar(mass_matrix)
+    )
 
     quantities = PhysicalQuantities(
-                                    Array{typeof(1.0u"m^2/s"), 3}(undef, 3, n_binaries, n_steps),
-                                    Vector{typeof(1.0u"J")}(undef, n_steps),
-                                    Vector{typeof(1.0u"J")}(undef, n_steps),
-                                    Vector{typeof(1.0u"J")}(undef, n_steps)
-                                    )                           
+        Array{typeof(1.0u"m^2/s"), 3}(undef, 3, n_binaries, n_steps),
+        Vector{typeof(1.0u"J")}(undef, n_steps),
+        Vector{typeof(1.0u"J")}(undef, n_steps),
+        Vector{typeof(1.0u"J")}(undef, n_steps)
+    )
     let
-        sma_vec    = Vector{typeof(1.0u"m")}(undef, n_steps)
+        sma_vec = Vector{typeof(1.0u"m")}(undef, n_steps)
         period_vec = similar(sma_vec, typeof(1.0u"d"))
-        ecc_vec    = similar(sma_vec, typeof(1.0u"1"))
-        ω_vec      = similar(sma_vec, typeof(1.0u"°"))
-        inc_vec    = similar(ω_vec)
-        Ω_vec      = similar(inc_vec)
+        ecc_vec = similar(sma_vec, typeof(1.0u"1"))
+        ω_vec = similar(sma_vec, typeof(1.0u"°"))
+        inc_vec = similar(ω_vec)
+        Ω_vec = similar(inc_vec)
 
-        for b ∈ 1:n_binaries
-            binary_elements = OrbitalElements(similar(sma_vec),
-                                              similar(period_vec),
-                                              similar(ecc_vec),
-                                              similar(ω_vec),
-                                              similar(inc_vec),
-                                              similar(Ω_vec),
-                                              similar(Ω_vec))
-            
-            
+        for b in 1:n_binaries
+            binary_elements = OrbitalElements(
+                similar(sma_vec),
+                similar(period_vec),
+                similar(ecc_vec),
+                similar(ω_vec),
+                similar(inc_vec),
+                similar(Ω_vec),
+                similar(Ω_vec)
+            )
+
+
             push!(elements, binary_elements)
         end
     end
@@ -80,20 +84,19 @@ function add_orbital_elements!(elements, new_elements, binary_key, idx)
     elements[binary_key].ω[idx] = ω
     elements[binary_key].i[idx] = i
     elements[binary_key].Ω[idx] = Ω
-    elements[binary_key].ν[idx] = ν
+    return elements[binary_key].ν[idx] = ν
 
 end
 
 function add_orbital_quantities!(quantities, n_bodies, pos, vel, mass, idx)
     quantities.K[idx] = kinetic_energy(vel, mass)
     quantities.U[idx] = potential_energy(pos, mass)
-    quantities.E[idx] = quantities.K[idx]  + quantities.U[idx] 
+    return quantities.E[idx] = quantities.K[idx] + quantities.U[idx]
     # @inbounds for i ∈ 1:n_bodies
     #     quantities.h[:,i,idx] .= angular_momentum(pos[:,i], vel[:,i])
     # end
 
 end
-
 
 
 function analyse_simulation(result::SimulationResult)
@@ -111,10 +114,10 @@ function analyse_simulation(result::SimulationResult)
     initial_stellar_parameters = begin
         tmp = Dict()
         for param in propertynames(system.particles[1].structure)
-            tmp[param] = [getproperty(system.particles[i].structure, param) for i = 1:n_bodies]
+            tmp[param] = [getproperty(system.particles[i].structure, param) for i in 1:n_bodies]
         end
 
-        tmp[:stellar_type] = [t.number for t in tmp[:stellar_type]] 
+        tmp[:stellar_type] = [t.number for t in tmp[:stellar_type]]
         tmp
     end
 
@@ -122,7 +125,7 @@ function analyse_simulation(result::SimulationResult)
         tmp = Dict()
         for param in propertynames(result.ode_params)
             # tmp[param] = convert.(Unitful.Quantity, getproperty(result.ode_params, param))
-            tmp[param] =  getproperty(result.ode_params, param)
+            tmp[param] = getproperty(result.ode_params, param)
         end
 
         tmp[:type] = pop!(tmp, :stellar_types)
@@ -145,8 +148,8 @@ function analyse_simulation(result::SimulationResult)
     r = Array{typeof(upreferred(1.0u"m")), 3}(undef, 3, n_bodies, n_steps)
     v = similar(r, typeof(1.0u"m/s"))
 
-    r = AxisArray(r; dim=1:3, particle=1:n_bodies, time=time)
-    v = AxisArray(v; dim=1:3, particle=1:n_bodies, time=time)
+    r = AxisArray(r; dim = 1:3, particle = 1:n_bodies, time = time)
+    v = AxisArray(v; dim = 1:3, particle = 1:n_bodies, time = time)
     for idx in eachindex(time)
 
         str_idx = min(idx, 2)
@@ -156,39 +159,39 @@ function analyse_simulation(result::SimulationResult)
 
         r[:, :, idx] .= pos
         v[:, :, idx] .= vel
-        
-        @inbounds for i ∈ binary_keys
+
+        @inbounds for i in binary_keys
 
             bin = binaries[i]
             children = bin.children
-            
-            if all(x -> x isa Particle, children) # Two particles
-                particles = [p.key.i for p in children] 
 
-                r_rel = pos[:,particles[2]] .- pos[:,particles[1]]# |> vec
-                v_rel = vel[:,particles[2]] .- vel[:,particles[1]]# |> vec
+            if all(x -> x isa Particle, children) # Two particles
+                particles = [p.key.i for p in children]
+
+                r_rel = pos[:, particles[2]] .- pos[:, particles[1]] # |> vec
+                v_rel = vel[:, particles[2]] .- vel[:, particles[1]] # |> vec
                 h = angular_momentum(r_rel, v_rel)
                 mass = structure.m[particles[1], str_idx] + structure.m[particles[2], str_idx]
-                
+
                 new_elements = binary_orbital_elements(r_rel, v_rel, mass)
                 add_orbital_elements!(elements, new_elements, i, idx)
             elseif any(x -> x isa Particle, children) # One binary and one Particle
                 particle = findall(x -> x isa Particle, children) |> first
                 binary = findall(x -> x isa Binary, children) |> first
-                
+
                 binary = children[binary]
                 particle = children[particle]
 
                 p_idx = particle.key.i
 
                 sibling_keys = sort(binary.nested_children)
-                m = structure.m[sibling_keys,str_idx]
+                m = structure.m[sibling_keys, str_idx]
 
-                binary_com = centre_of_mass(pos[:, sibling_keys], m) 
-                binary_com_vel = centre_of_mass_velocity(vel[:, sibling_keys], m) 
+                binary_com = centre_of_mass(pos[:, sibling_keys], m)
+                binary_com_vel = centre_of_mass_velocity(vel[:, sibling_keys], m)
 
-                r_in = pos[:,sibling_keys[1]] .- pos[:,sibling_keys[2]]
-                v_in = vel[:,sibling_keys[1]] .- vel[:,sibling_keys[2]]
+                r_in = pos[:, sibling_keys[1]] .- pos[:, sibling_keys[2]]
+                v_in = vel[:, sibling_keys[1]] .- vel[:, sibling_keys[2]]
 
                 r_rel = pos[:, p_idx] .- binary_com
                 v_rel = vel[:, p_idx] .- binary_com_vel
@@ -197,7 +200,7 @@ function analyse_simulation(result::SimulationResult)
                 h_in = angular_momentum(r_in, v_in)
 
                 i_mut = mutual_inclination(h_in, h_rel)
-                
+
                 mass = sum(m) + structure.m[p_idx, str_idx]
 
                 new_elements = binary_orbital_elements(r_rel, v_rel, mass)
@@ -210,45 +213,48 @@ function analyse_simulation(result::SimulationResult)
                 binary_2 = children[2]
 
                 # binary_1_particles = get_particles_recursive(children[1])
-                binary_1_keys = binary_1.nested_children#[p.key.i for p in binary_1_particles]
+                binary_1_keys = binary_1.nested_children #[p.key.i for p in binary_1_particles]
 
-                binary_1_com = centre_of_mass(view(pos, :, binary_1_keys), structure.m[binary_1_keys,str_idx]) 
-                binary_1_com_vel = centre_of_mass_velocity(view(vel, :, binary_1_keys), structure.m[binary_1_keys,str_idx]) 
+                binary_1_com = centre_of_mass(view(pos, :, binary_1_keys), structure.m[binary_1_keys, str_idx])
+                binary_1_com_vel = centre_of_mass_velocity(view(vel, :, binary_1_keys), structure.m[binary_1_keys, str_idx])
 
                 # binary_2_particles = get_particles_recursive(children[1])
-                binary_2_keys = binary_2.nested_children#[p.key.i for p in binary_2_particles]
+                binary_2_keys = binary_2.nested_children #[p.key.i for p in binary_2_particles]
 
-                binary_2_com = centre_of_mass(view(pos, :, binary_2_keys), structure.m[binary_2_keys,str_idx]) 
-                binary_2_com_vel = centre_of_mass_velocity(view(vel, :, binary_2_keys), structure.m[binary_2_keys,str_idx]) 
+                binary_2_com = centre_of_mass(view(pos, :, binary_2_keys), structure.m[binary_2_keys, str_idx])
+                binary_2_com_vel = centre_of_mass_velocity(view(vel, :, binary_2_keys), structure.m[binary_2_keys, str_idx])
 
-                r_rel = binary_2_com .- binary_1_com 
+                r_rel = binary_2_com .- binary_1_com
                 v_rel = binary_2_com_vel .- binary_1_com_vel
                 h = angular_momentum(r_rel, v_rel)
 
                 # mass = sum(children[1].masses) + sum(children[2].masses)
-                mass = sum(structure.m[binary_1_keys,str_idx]) + sum(structure.m[binary_2_keys,str_idx])
+                mass = sum(structure.m[binary_1_keys, str_idx]) + sum(structure.m[binary_2_keys, str_idx])
                 new_elements = binary_orbital_elements(r_rel, v_rel, mass)
 
                 add_orbital_elements!(elements, new_elements, i, idx)
             end
         end
 
-        add_orbital_quantities!(quantities, n_bodies, pos, vel, structure.m[:,str_idx], idx)
+        add_orbital_quantities!(quantities, n_bodies, pos, vel, structure.m[:, str_idx], idx)
 
     end
 
-    ode_solution = Dict(:potential => result.simulation.potential |> values,
-                        :retcodes => result.retcode,
-                        :timesteps => result.solution.destats.naccept,
-                        :func_1_evals => result.solution.destats.nf,
-                        :func_2_evals => result.solution.destats.nf2,
-                        :runtime => result.runtime)
+    ode_solution = Dict(
+        :potential => result.simulation.potential |> values,
+        :retcodes => result.retcode,
+        :timesteps => result.solution.destats.naccept,
+        :func_1_evals => result.solution.destats.nf,
+        :func_2_evals => result.solution.destats.nf2,
+        :runtime => result.runtime
+    )
     attributes = merge(ode_solution, result.simulation.args, result.simulation.diffeq_args)
     # MultiBodySolution(system, time, r, v, elements, structure, quantities, system)
-    MultiBodySolution(system, time, r, v, elements, structure, 
-                    quantities, attributes, result.ode_params)
+    return MultiBodySolution(
+        system, time, r, v, elements, structure,
+        quantities, attributes, result.ode_params
+    )
 end
-
 
 
 """
@@ -260,17 +266,17 @@ Calculate orbital elements of binary with relative position `pos`, relative velo
 function binary_orbital_elements(pos, vel, M)
 
     # Relative velocities
-    v²   = norm(vel) .^ 2 
+    v² = norm(vel) .^ 2
 
     # Relative distances
-    d  = norm(pos)
+    d = norm(pos)
 
-    orbital_elements_from_kinematics(pos, d, vel, v², M)
+    return orbital_elements_from_kinematics(pos, d, vel, v², M)
 end
 
-function orbital_elements_from_kinematics(r, d, v, v², M, G=𝒢)
+function orbital_elements_from_kinematics(r, d, v, v², M, G = 𝒢)
 
-    a =  semi_major_axis(d, v², M)
+    a = semi_major_axis(d, v², M)
 
     P = orbital_period(a, M, G)
 
@@ -304,10 +310,10 @@ add callback for adding supernova kick
 #     r = Array{typeof(1.0u"m"), 3}(undef, 3, n_bodies, n_steps)
 #     v = similar(r, typeof(1.0u"m/s"))
 #     for idx in eachindex(time)
-           
+
 #                    pos = res.solution.u[idx].x[2] .* u"m"
 #                    vel = res.solution.u[idx].x[1] .* u"m/s"
-           
+
 #                    r[:, :, idx] .= pos
 #                    v[:, :, idx] .= vel
 #                    end
