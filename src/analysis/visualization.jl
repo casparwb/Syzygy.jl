@@ -148,10 +148,10 @@ end
         shift_coord = fill(zero(unit_length), (3, length(indices)))
     end
 
-    for idx in bodies
+    for (i, idx) in enumerate(bodies)
         data = Tuple([ustrip.(sol.r[dim = dim, particle = idx, time = indices] .- shift_coord[dim, 1:step:end]) for dim in dims])
         @series begin
-            label --> labels[idx]
+            label --> labels[i]
             data
         end
     end
