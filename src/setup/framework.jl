@@ -7,6 +7,8 @@ abstract type MultiBodyInitialConditions end
 abstract type AbstractBinary end
 abstract type AbstractParticle end
 
+struct MultiThreading end
+
 struct ParticleIndex
     i::Int
 end
@@ -41,7 +43,7 @@ struct OrbitalElements{qT, rT}
     ν::rT # true anomaly
 end
 
-OrbitalElements(; a = 0.0u"AU", P = 0.0u"d", e = 0.0, ω = 0.0, i = 0.0, Ω = 0.0, ν = 0.0) = OrbitalElements(a, P, e, ω, i, Ω, ν)
+OrbitalElements(; a = 0.0au, P = 0.0u"d", e = 0.0, ω = 0.0, i = 0.0, Ω = 0.0, ν = 0.0) = OrbitalElements(a, P, e, ω, i, Ω, ν)
 
 struct StellarStructure{tT, T}
     stellar_type::tT
@@ -229,32 +231,33 @@ end
 function DiffEqBase.SecondOrderODEProblem(
         simulation::MultiBodySimulation,
         acc_funcs::AccelerationFunctions,
-        dtype::Type{ArbFloat}
+        dtype::Type{ArbFloat},
+        parallelization
     )
 
     u0, v0 = get_initial_conditions(simulation, dtype)
 
-    return SecondOrderODEProblem(simulation, acc_funcs, u0, v0)
+    return SecondOrderODEProblem(simulation, acc_funcs, u0, v0, parallelization)
 end
 
 function DiffEqBase.SecondOrderODEProblem(
         simulation::MultiBodySimulation,
         acc_funcs::AccelerationFunctions,
-        dtype::Type{<:AbstractFloat}
+        dtype::Type{<:AbstractFloat},
+        parallelization
     )
 
     u0, v0 = get_initial_conditions(simulation, dtype)
 
-    return SecondOrderODEProblem(simulation, acc_funcs, u0, v0)
+    return SecondOrderODEProblem(simulation, acc_funcs, u0, v0, parallelization)
 end
 
 function DiffEqBase.SecondOrderODEProblem(
         simulation::MultiBodySimulation,
         acc_funcs::AccelerationFunctions,
-        u0, v0
+        u0, v0, ::Nothing
     )
     pairs = simulation.ic.pairs
-
     N = acc_funcs.N
     accelerations = FunctionWrangler(acc_funcs.fs)
     output = Vector{Nothing}(undef, N)
@@ -264,6 +267,7 @@ function DiffEqBase.SecondOrderODEProblem(
         @inbounds for pair in pairs
             smap!(output, accelerations, dv, u, v, pair, t, p)
         end
+        
         return nothing
     end
 

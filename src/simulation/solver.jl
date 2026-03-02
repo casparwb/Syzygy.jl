@@ -3,12 +3,12 @@ include("./setup.jl")
 
 using DiffEqBase, StaticArrays, ProgressMeter
 
-function initialize_integrator(simulation)
+function initialize_integrator(simulation; diffeq_verbosity=true)
     acc_funcs = gather_accelerations_for_potentials(simulation)
 
     args = simulation.args
     diffeq_args = simulation.diffeq_args
-    ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
+    ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype], args[:multithreading])
 
     retcodes = Dict{Symbol, Any}()
 
@@ -28,7 +28,8 @@ function initialize_integrator(simulation)
     integrator = DiffEqBase.init(
         ode_problem, args[:alg], saveat = args[:saveat],
         callback = callbacks, maxiters = args[:maxiters],
-        abstol = args[:abstol], reltol = args[:reltol], dt = args[:dt];
+        abstol = args[:abstol], reltol = args[:reltol], dt = args[:dt],
+        verbose=diffeq_verbosity;
         diffeq_args...
     )
 
@@ -197,3 +198,63 @@ function total_energy(result::SimulationResult, time)
         masses, G
     )
 end
+
+
+"""
+sol true
+u true
+du true
+k false
+t true
+dt false
+f false
+p true
+uprev true
+uprev2 true
+duprev true
+tprev true
+alg true
+dtcache true
+dtchangeable true
+dtpropose false
+tdir true
+eigen_est true
+EEst true
+qold true
+q11 true
+erracc true
+dtacc true
+controller_cache false
+success_iter true
+iter true
+saveiter true
+saveiter_dense true
+cache false
+callback_cache true
+kshortsize true
+force_stepfail true
+last_stepfail true
+just_hit_tstop true
+next_step_tstop true
+tstop_target true
+do_error_check true
+event_last_time true
+vector_event_last_time true
+last_event_error true
+accept_step true
+isout true
+reeval_fsal true
+u_modified true
+reinitialize true
+isdae true
+opts false
+stats false
+initializealg true
+differential_vars true
+fsalfirst true
+fsallast false
+rng true
+W true
+P true
+sqdt true
+"""
