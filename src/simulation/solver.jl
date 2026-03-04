@@ -3,12 +3,12 @@ include("./setup.jl")
 
 using DiffEqBase, StaticArrays, ProgressMeter
 
-function initialize_integrator(simulation)
+function initialize_integrator(simulation; diffeq_verbosity=true)
     acc_funcs = gather_accelerations_for_potentials(simulation)
 
-    args        = simulation.args
+    args = simulation.args
     diffeq_args = simulation.diffeq_args
-    ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype])
+    ode_problem = SecondOrderODEProblem(simulation, acc_funcs, args[:dtype], args[:multithreading])
 
     retcodes = Dict{Symbol, Any}()
 
@@ -16,17 +16,22 @@ function initialize_integrator(simulation)
         push!(args[:callbacks], CPUTimeCB())
     end
 
-    cbs = setup_callbacks(args[:callbacks], 
-                          simulation.ic, 
-                          simulation.params, 
-                          retcodes, args)
+    cbs = setup_callbacks(
+        args[:callbacks],
+        simulation.ic,
+        simulation.params,
+        retcodes, args
+    )
 
     callbacks = isnothing(cbs) ? nothing : CallbackSet(cbs...)
 
-    integrator = DiffEqBase.init(ode_problem, args[:alg], saveat=args[:saveat], 
-                                        callback=callbacks, maxiters=args[:maxiters], 
-                                        abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
-                                        diffeq_args...)
+    integrator = DiffEqBase.init(
+        ode_problem, args[:alg], saveat = args[:saveat],
+        callback = callbacks, maxiters = args[:maxiters],
+        abstol = args[:abstol], reltol = args[:reltol], dt = args[:dt],
+        verbose=diffeq_verbosity;
+        diffeq_args...
+    )
 
     return integrator, retcodes
 end
@@ -41,7 +46,7 @@ function simulate(simulation::MultiBodySimulation)
 
     unit_length, unit_mass, unit_time = simulation.ic.units.u_length, simulation.ic.units.u_mass, simulation.ic.units.u_time
 
-    args        = simulation.args
+    args = simulation.args
     diffeq_args = simulation.diffeq_args
 
     # ##############################################################################################################
@@ -51,9 +56,11 @@ function simulate(simulation::MultiBodySimulation)
         let
             ode_prob_static = sodeprob_static(simulation, args[:dtype])
 
-            integrator_static = DiffEqBase.init(ode_prob_static, args[:alg], saveat=args[:saveat], maxiters=args[:maxiters], 
-                                                    abstol=args[:abstol], reltol=args[:reltol], dt=args[:dt]; 
-                                                    diffeq_args...)
+            integrator_static = DiffEqBase.init(
+                ode_prob_static, args[:alg], saveat = args[:saveat], maxiters = args[:maxiters],
+                abstol = args[:abstol], reltol = args[:reltol], dt = args[:dt];
+                diffeq_args...
+            )
             try
                 step!(integrator_static)
             catch err
@@ -69,14 +76,18 @@ function simulate(simulation::MultiBodySimulation)
 
     start_time = time()
 
-    prog = ProgressUnknown(desc="Evolving system:", showspeed=true, spinner=true, enabled=args[:showprogress])
+    prog = ProgressUnknown(desc = "Evolving system:", showspeed = true, spinner = true, enabled = args[:showprogress])
     maxtime = simulation.tspan[end]
     try
         if args[:showprogress]
             for i in integrator
-                next!(prog; showvalues=[(Symbol("System time"), integrator.t * unit_time),
-                                        (Symbol("System %"), (integrator.t - simulation.tspan[1])/maxtime*100)], 
-                                        spinner="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
+                next!(
+                    prog; showvalues = [
+                        (Symbol("System time"), integrator.t * unit_time),
+                        (Symbol("System %"), (integrator.t - simulation.tspan[1]) / maxtime * 100),
+                    ],
+                    spinner = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+                )
             end
             solve!(integrator)
         else
@@ -93,10 +104,10 @@ function simulate(simulation::MultiBodySimulation)
             throw(e)
         end
     end
-    
+
 
     ProgressMeter.finish!(prog)
-    runtime =  (time() - start_time) * u"s"
+    runtime = (time() - start_time) * u"s"
 
     if args[:verbose]
         if retcodes[:DiffEq] == :Success
@@ -108,9 +119,11 @@ function simulate(simulation::MultiBodySimulation)
         end
     end
 
-    result = SimulationResult(integrator.sol, simulation, 
-                              retcodes, runtime, integrator.p,
-                              merge(args, diffeq_args))
+    result = SimulationResult(
+        integrator.sol, simulation,
+        retcodes, runtime, integrator.p,
+        merge(args, diffeq_args)
+    )
 
     if args[:verbose]
         println()
@@ -118,7 +131,7 @@ function simulate(simulation::MultiBodySimulation)
         E0 = total_energy(result, result.solution.t[1])
         E1 = total_energy(result, result.solution.t[end])
 
-        @info "Energy loss: " E1/E0 - 1
+        @info "Energy loss: " E1 / E0 - 1
 
         runtime = runtime
         @info "Total runtime: " runtime
@@ -139,15 +152,15 @@ function simulate(system::MultiBodyInitialConditions; args...)
         show(sim)
     end
 
-    simulate(simulation(system; args...))
+    return simulate(simulation(system; args...))
 end
 
 function simulate(res::SimulationResult, time; args...)
     t_idx = findmin(x -> abs(x - time), res.solution.t)[2]
-    t = res.solution.t[t_idx]*unit_time
+    t = res.solution.t[t_idx] * unit_time
     u = res.solution[t_idx]
     rs = u.x[2] .* unit_length
-    vs = u.x[1] .* unit_length/unit_time
+    vs = u.x[1] .* unit_length / unit_time
 
     ic = res.simulation.ic
     masses = ic.particles.mass
@@ -156,7 +169,7 @@ function simulate(res::SimulationResult, time; args...)
 
     structure_args = propertynames(ic.particles[1].structure)
     stellar_structure_params = Dict(sa => getproperty(ic.particles, sa) for sa in structure_args)
-    
+
     pop!(stellar_structure_params, :mass)
     stellar_structure_params[:core_masses] = pop!(stellar_structure_params, :core_mass)
     stellar_structure_params[:envelope_masses] = pop!(stellar_structure_params, :envelope_mass)
@@ -167,9 +180,9 @@ function simulate(res::SimulationResult, time; args...)
     stellar_structure_params[:envelope_radii] = pop!(stellar_structure_params, :envelope_radius)
     stellar_structure_params[:L] = pop!(stellar_structure_params, :luminosity)
 
-    sys = multibodysystem(masses, eachcol(rs), eachcol(vs), time=t; stellar_structure_params...)
+    sys = multibodysystem(masses, eachcol(rs), eachcol(vs), time = t; stellar_structure_params...)
 
-    simulate(sys; args...)
+    return simulate(sys; args...)
 end
 
 
@@ -179,7 +192,9 @@ function total_energy(result::SimulationResult, time)
 
 
     G = get_G_in_system_units(result.simulation.ic)
-    total_energy([result.solution.u[idx].x[2][1:3, i] for i ∈ eachindex(masses)], 
-                 [result.solution.u[idx].x[1][1:3, i] for i ∈ eachindex(masses)],
-                 masses, G)  
+    return total_energy(
+        [result.solution.u[idx].x[2][1:3, i] for i in eachindex(masses)],
+        [result.solution.u[idx].x[1][1:3, i] for i in eachindex(masses)],
+        masses, G
+    )
 end

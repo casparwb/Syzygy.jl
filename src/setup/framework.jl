@@ -7,6 +7,8 @@ abstract type MultiBodyInitialConditions end
 abstract type AbstractBinary end
 abstract type AbstractParticle end
 
+struct MultiThreading end
+
 struct ParticleIndex
     i::Int
 end
@@ -20,10 +22,10 @@ struct SyzygyUnits{T} # system-specific units
     u_mass::T
     u_time::T
 
-    function SyzygyUnits(u_length=unit_length, u_mass=unit_mass, u_time=unit_time)
+    function SyzygyUnits(u_length = unit_length, u_mass = unit_mass, u_time = unit_time)
         @assert isone(ulength(uexpand(u_length)))
         @assert isone(umass(uexpand(u_mass)))
-        @assert isone(utime(uexpand(u_time))) 
+        @assert isone(utime(uexpand(u_time)))
         return new{typeof(u_length)}(u_length, u_mass, u_time)
     end
 end
@@ -41,10 +43,10 @@ struct OrbitalElements{qT, rT}
     ν::rT # true anomaly
 end
 
-OrbitalElements(;a=0.0u"AU", P=0.0u"d", e=0.0, ω=0.0, i=0.0, Ω=0.0, ν=0.0) = OrbitalElements(a, P, e, ω, i, Ω, ν)
+OrbitalElements(; a = 0.0au, P = 0.0u"d", e = 0.0, ω = 0.0, i = 0.0, Ω = 0.0, ν = 0.0) = OrbitalElements(a, P, e, ω, i, Ω, ν)
 
 struct StellarStructure{tT, T}
-    stellar_type::tT   
+    stellar_type::tT
     mass::T             # total mass
     radius::T           # total radius
     spin::T             # spin
@@ -83,7 +85,7 @@ struct HierarchicalMultiple{timeType, bodType, pairType, binType, hierType} <: M
     particles::bodType
     pairs::pairType
     binaries::binType
-    levels::SVector{N, Int} where N
+    levels::SVector{N, Int} where {N}
     root::Binary
     hierarchy::hierType
     units::SyzygyUnits
@@ -110,10 +112,10 @@ end
 
 struct MultiBodySimulation{tType, pType, aType, bType <: AbstractMassBody, potType <: MultiBodyPotential}
     ic::MultiBodyInitialConditions
-    bodies::SVector{N, bType} where N
+    bodies::SVector{N, bType} where {N}
     potential::Dict{Symbol, potType}
     tspan::Tuple{tType, tType}
-    params::pType 
+    params::pType
     args::aType
     diffeq_args::aType
 end
@@ -135,7 +137,7 @@ struct MultiBodySolution{T, tT, oT, pT}
     t::tT # time
     r::T # positions
     v::T # velocities
-    ode_system::oT 
+    ode_system::oT
     ode_params::pT
 end
 ########################################################################################################
@@ -149,35 +151,35 @@ end
 
 ################################ Framework for the different potentials ################################
 function get_accelerating_function(potential::PureGravitationalPotential)
-    (dv, rs, vs, pair, time, params) -> pure_gravitational_acceleration!(dv, rs, pair, params, potential)
+    return (dv, rs, vs, pair, time, params) -> pure_gravitational_acceleration!(dv, rs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::DynamicalTidalPotential)
-    (dv, rs, vs, pair, time, params) -> dynamical_tidal_acceleration!(dv, rs, vs, pair, params, potential)
+    return (dv, rs, vs, pair, time, params) -> dynamical_tidal_acceleration!(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::TimeDependentEquilibriumTidalPotential)
-    (dv, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration!(dv, rs, vs, pair, params, potential)
+    return (dv, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration!(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::EquilibriumTidalPotential)
-    (dv, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration!(dv, rs, vs, pair, params, potential)
+    return (dv, rs, vs, pair, time, params) -> equilibrium_tidal_acceleration!(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::PN1Potential)
-    (dv, rs, vs, pair, time, params) -> PN1_acceleration!(dv, rs, vs, pair, params, potential)
+    return (dv, rs, vs, pair, time, params) -> PN1_acceleration!(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::PN2Potential)
-    (dv, rs, vs, pair, time, params) -> PN2_acceleration!(dv, rs, vs, pair, params, potential)
+    return (dv, rs, vs, pair, time, params) -> PN2_acceleration!(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::PN2p5Potential)
-    (dv, rs, vs, pair, time, params) -> PN2p5_acceleration!(dv, rs, vs, pair, params, potential)
+    return (dv, rs, vs, pair, time, params) -> PN2p5_acceleration!(dv, rs, vs, pair, params, potential)
 end
 
 function get_accelerating_function(potential::PNPotential)
-    (dv, rs, vs, pair, time, params) -> PN1_to_2p5_acceleration!(dv, rs, vs, pair, params, potential)
+    return (dv, rs, vs, pair, time, params) -> PN1_to_2p5_acceleration!(dv, rs, vs, pair, params, potential)
 end
 ######################################################################################################
 
@@ -188,7 +190,7 @@ function gather_accelerations_for_potentials(simulation::MultiBodySimulation)
         push!(acceleration_functions, get_accelerating_function(potential))
     end
 
-    AccelerationFunctions(SA[acceleration_functions...], length(acceleration_functions))
+    return AccelerationFunctions(SA[acceleration_functions...], length(acceleration_functions))
 end
 
 ###################################### The in-place ODE solver ######################################
@@ -198,10 +200,10 @@ function make_initial_conditions(us, vs, dtype::Type{<:AbstractFloat})
     # v0 = MMatrix{3, n, dtype}(reduce(hcat, vs))
     u0, v0 = if n < 10
         MMatrix{3, n, dtype}(reduce(hcat, us)),
-        MMatrix{3, n, dtype}(reduce(hcat, vs))
+            MMatrix{3, n, dtype}(reduce(hcat, vs))
     else
-        FixedSizeArray(reduce(hcat, us)), 
-        FixedSizeArray(reduce(hcat, vs))
+        FixedSizeArray(reduce(hcat, us)),
+            FixedSizeArray(reduce(hcat, vs))
     end
 
     return u0, v0
@@ -226,29 +228,36 @@ function get_initial_conditions(simulation::MultiBodySimulation, dtype)
     return u0, v0
 end
 
-function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
-                                          acc_funcs::AccelerationFunctions, 
-                                          dtype::Type{ArbFloat})
-                                          
-    u0, v0 = get_initial_conditions(simulation, dtype)
-
-    SecondOrderODEProblem(simulation, acc_funcs, u0, v0)
-end
-
-function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
-                                          acc_funcs::AccelerationFunctions, 
-                                          dtype::Type{<:AbstractFloat})
+function DiffEqBase.SecondOrderODEProblem(
+        simulation::MultiBodySimulation,
+        acc_funcs::AccelerationFunctions,
+        dtype::Type{ArbFloat},
+        parallelization
+    )
 
     u0, v0 = get_initial_conditions(simulation, dtype)
 
-    SecondOrderODEProblem(simulation, acc_funcs, u0, v0)
+    return SecondOrderODEProblem(simulation, acc_funcs, u0, v0, parallelization)
 end
 
-function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation, 
-                                          acc_funcs::AccelerationFunctions, 
-                                          u0, v0)
+function DiffEqBase.SecondOrderODEProblem(
+        simulation::MultiBodySimulation,
+        acc_funcs::AccelerationFunctions,
+        dtype::Type{<:AbstractFloat},
+        parallelization
+    )
+
+    u0, v0 = get_initial_conditions(simulation, dtype)
+
+    return SecondOrderODEProblem(simulation, acc_funcs, u0, v0, parallelization)
+end
+
+function DiffEqBase.SecondOrderODEProblem(
+        simulation::MultiBodySimulation,
+        acc_funcs::AccelerationFunctions,
+        u0, v0, ::Nothing
+    )
     pairs = simulation.ic.pairs
-
     N = acc_funcs.N
     accelerations = FunctionWrangler(acc_funcs.fs)
     output = Vector{Nothing}(undef, N)
@@ -258,10 +267,11 @@ function DiffEqBase.SecondOrderODEProblem(simulation::MultiBodySimulation,
         @inbounds for pair in pairs
             smap!(output, accelerations, dv, u, v, pair, t, p)
         end
-        nothing
+        
+        return nothing
     end
 
-    SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
+    return SecondOrderODEProblem(soode_system!, v0, u0, simulation.tspan, simulation.params)
 end
 
 ######################################################################################################
@@ -269,7 +279,7 @@ end
 
 ######################################## The static ODE solver #######################################
 function get_initial_conditions_static(simulation::MultiBodySimulation)
-    bodies = simulation.bodies;
+    bodies = simulation.bodies
     n = length(bodies)
 
     us = [b.position for b in bodies]
@@ -279,7 +289,7 @@ function get_initial_conditions_static(simulation::MultiBodySimulation)
     v0 = SMatrix{3, n}(reduce(hcat, vs))
 
 
-    (u0, v0, n)
+    return (u0, v0, n)
 end
 
 function sodeprob_static(simulation::MultiBodySimulation, dtype::Type{ArbFloat})
@@ -287,15 +297,15 @@ function sodeprob_static(simulation::MultiBodySimulation, dtype::Type{ArbFloat})
 
     dv = SizedMatrix{3, n, dtype}(undef)
 
-    sodeprob_static(simulation, u0, v0, dv)
+    return sodeprob_static(simulation, u0, v0, dv)
 end
 
 function sodeprob_static(simulation::MultiBodySimulation, dtype::Type{<:AbstractFloat})
     (u0, v0, n) = get_initial_conditions_static(simulation)
-    
+
     dv = MMatrix{3, n, dtype}(undef)
 
-    sodeprob_static(simulation, u0, v0, dv)
+    return sodeprob_static(simulation, u0, v0, dv)
 end
 
 function sodeprob_static(simulation::MultiBodySimulation, u0, v0, dv)
@@ -306,7 +316,7 @@ function sodeprob_static(simulation::MultiBodySimulation, u0, v0, dv)
     fs = acc_funcs.fs
 
     soode_system = let fs = fs
-        function soode_system(v, u, p, t)            
+        function soode_system(v, u, p, t)
             dv = similar(u)
             fill!(dv, 0)
 
@@ -318,24 +328,28 @@ function sodeprob_static(simulation::MultiBodySimulation, u0, v0, dv)
         end
     end
 
-    SecondOrderODEProblem(soode_system, v0, u0, simulation.tspan, simulation.params)
+    return SecondOrderODEProblem(soode_system, v0, u0, simulation.tspan, simulation.params)
 end
 
 #################################################################################################
 
 ######################################## Helper functions #######################################
 
-const alternative_stellar_property_names = Dict{Symbol, Symbol}(:m => :mass, :R => :radius, :L => :luminosity, :m_core => :core_mass,
-                                                                :R_core => :core_radius, :m_env => :envelope_mass, :R_env => :envelope_radius,
-                                                                :S => :spin)
+const alternative_stellar_property_names = Dict{Symbol, Symbol}(
+    :m => :mass, :R => :radius, :L => :luminosity, :m_core => :core_mass,
+    :R_core => :core_radius, :m_env => :envelope_mass, :R_env => :envelope_radius,
+    :S => :spin
+)
 
-const alternative_orbital_element_names = Dict{Symbol, Symbol}(:semimajor_axis => :a, :semi_major_axis => :a, :sma => :a,
-                                                               :eccentricity => :e, :ecc => :a,
-                                                               :period => :P, 
-                                                               :aop => :ω, :argument_of_periapsis => :ω, :argument_of_pericenter => :ω,
-                                                               :inclination => :i, :mutual_inclination => :i, :i_mut => :i,
-                                                               :loan => :Ω, :longitude_of_ascending_node => :Ω,
-                                                               :true_anomaly => :ν)
+const alternative_orbital_element_names = Dict{Symbol, Symbol}(
+    :semimajor_axis => :a, :semi_major_axis => :a, :sma => :a,
+    :eccentricity => :e, :ecc => :a,
+    :period => :P,
+    :aop => :ω, :argument_of_periapsis => :ω, :argument_of_pericenter => :ω,
+    :inclination => :i, :mutual_inclination => :i, :i_mut => :i,
+    :loan => :Ω, :longitude_of_ascending_node => :Ω,
+    :true_anomaly => :ν
+)
 
 function Base.getproperty(particles::Dict{Int, Syzygy.Particle}, sym::Symbol)
     sym = get(alternative_stellar_property_names, sym, sym)
@@ -346,7 +360,7 @@ function Base.getproperty(particles::Dict{Int, Syzygy.Particle}, sym::Symbol)
     else
         getfield(particles, sym)
     end
-end 
+end
 
 
 function Base.getproperty(particle::Particle, sym::Symbol)
@@ -362,7 +376,7 @@ end
 
 function Base.getproperty(structure::StellarStructure, sym::Symbol)
     sym = get(alternative_stellar_property_names, sym, sym)
-    getfield(structure, sym)
+    return getfield(structure, sym)
 end
 
 function Base.getproperty(binaries::Dict{Int, Syzygy.Binary}, sym::Symbol)
@@ -374,7 +388,7 @@ function Base.getproperty(binaries::Dict{Int, Syzygy.Binary}, sym::Symbol)
     else
         getfield(binaries, sym)
     end
-end 
+end
 
 
 function Base.getproperty(binary::Binary, sym::Symbol)
@@ -390,7 +404,7 @@ end
 
 # function Base.getproperty(binary::MultiBodySolution, sym::Symbol)
 #     sym = get(alternative_orbital_element_names, sym, sym)
-#     if 
+#     if
 
 #     else
 #         getfield(binary, sym)

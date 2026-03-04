@@ -1,7 +1,5 @@
 using LinearAlgebra: norm
-using StaticArrays, AxisArrays   
-
-
+using StaticArrays, AxisArrays
 
 
 """
@@ -20,7 +18,7 @@ evolution was not included, the initial and final values will be the same.
 #             tmp[param] = [getproperty(system.particles[i].structure, param) for i = 1:n_bodies]
 #         end
 
-#         tmp[:stellar_type] = [t.number for t in tmp[:stellar_type]] 
+#         tmp[:stellar_type] = [t.number for t in tmp[:stellar_type]]
 #         tmp
 #     end
 
@@ -30,7 +28,7 @@ evolution was not included, the initial and final values will be the same.
 #             tmp[param] =  getproperty(result.ode_params, param)
 #         end
 
-#         tmp[:stellar_type] = [t.number for t in tmp[:stellar_types]] 
+#         tmp[:stellar_type] = [t.number for t in tmp[:stellar_types]]
 #         tmp[:m] = pop!(tmp, :masses)
 #         tmp
 #     end
@@ -47,9 +45,9 @@ evolution was not included, the initial and final values will be the same.
 #     lum_matrix = Matrix{typeof(1.0u"Lsun")}(undef, n_bodies, 2)
 #     spin_matrix = nothing#Matrix{typeof(1.0u"1/s")}(undef, n_bodies, 2)
 
-#     structure = StellarStructure(stellar_type_matrix, mass_matrix, 
+#     structure = StellarStructure(stellar_type_matrix, mass_matrix,
 #                                 radius_matrix, spin_matrix, lum_matrix,
-#                                 similar(radius_matrix), similar(mass_matrix), 
+#                                 similar(radius_matrix), similar(mass_matrix),
 #                                 similar(radius_matrix), similar(mass_matrix))
 
 #     for param in keys(initial_stellar_parameters)
@@ -71,8 +69,8 @@ evolution was not included, the initial and final values will be the same.
 
 Convert a `SimulationResult` to a `MultiBodySolution` type with easy access to 
 state vectors and other quantities.
-"""	
-function to_solution(result::SimulationResult; new_units=nothing)
+"""
+function to_solution(result::SimulationResult; new_units = nothing)
 
     system = result.simulation.ic
     n_bodies = system.n
@@ -80,35 +78,37 @@ function to_solution(result::SimulationResult; new_units=nothing)
         system.units.u_length, system.units.u_mass, system.units.u_time
     else
         new_units
-    end 
+    end
 
     time = result.solution.t .* unit_time
-    
+
     n_steps = length(time)
 
-    unit_velocity = unit_length/unit_time
+    unit_velocity = unit_length / unit_time
 
     r = QuantityArray(zeros(3, n_bodies, n_steps), unit_length)
     v = QuantityArray(zeros(3, n_bodies, n_steps), unit_velocity)
-    
-    r = AxisArray(r; dim=1:3, particle=1:n_bodies, time=time)
-    v = AxisArray(v; dim=1:3, particle=1:n_bodies, time=time)
+
+    r = AxisArray(r; dim = 1:3, particle = 1:n_bodies, time = time)
+    v = AxisArray(v; dim = 1:3, particle = 1:n_bodies, time = time)
 
     for idx in eachindex(time)
-        pos = result.solution.u[idx].x[2][:,:] .* unit_length
-        vel = result.solution.u[idx].x[1][:,:] .* unit_velocity
-        
+        pos = result.solution.u[idx].x[2][:, :] .* unit_length
+        vel = result.solution.u[idx].x[1][:, :] .* unit_velocity
+
         r[:, :, idx] .= pos
         v[:, :, idx] .= vel
 
     end
 
-    ode_solution = Dict(:potential => result.simulation.potential |> values .|> typeof .|> nameof,
-                        :retcodes => result.retcode,
-                        :timesteps => result.solution.stats.naccept,
-                        :func_1_evals => result.solution.stats.nf,
-                        :func_2_evals => result.solution.stats.nf2,
-                        :runtime => result.runtime)
+    ode_solution = Dict(
+        :potential => result.simulation.potential |> values .|> typeof .|> nameof,
+        :retcodes => result.retcode,
+        :timesteps => result.solution.stats.naccept,
+        :func_1_evals => result.solution.stats.nf,
+        :func_2_evals => result.solution.stats.nf2,
+        :runtime => result.runtime
+    )
     attributes = merge(ode_solution, result.simulation.args, result.simulation.diffeq_args)
 
     return MultiBodySolution(system, time, r, v, attributes, result.ode_params)

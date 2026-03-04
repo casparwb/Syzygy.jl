@@ -80,7 +80,7 @@ twobody = multibodysystem(masses, [r1, r2], [v1, v2], R=[1.5, 0.5]Rsun)
 
 ## Unit system
 
-Each instance of `MultibodySystem` has its own defined unit system, which is stored in the `units` field as a `SyzygyUnits` type. The units are discarded before the actual simulation begins in order to ensure performance. By default, [N-body (or Hénon) units](https://en.wikipedia.org/wiki/N-body_units) are used. To use a different unit system, set the `nbody_units` keyword argument to `false,` and define a unit system using `Units`, and put this in the `units` keyword argument. For example
+Each instance of `MultibodySystem` has its own defined unit system, which is stored in the `units` field as a `SyzygyUnits` type. The units are discarded before the actual simulation begins in order to ensure performance. By default, [N-body (or Hénon) units](https://en.wikipedia.org/wiki/N-body_units) are used. To use a different unit system, define a unit system using `Units`, and put this in the `units` keyword argument. For example
 
 ```julia
 masses = [2, 1, 3]Msun
@@ -88,6 +88,6 @@ triple = multibodysystem(masses) # uses n-body units
 Syzygy.get_G_in_system_units(triple) ≈ 1.0
 
 my_units = Units(1au, 1Msun, 1yr) # order is length, mass, time
-triple = multibodysystem(masses, nbody_units=false, units=my_units)
+triple = multibodysystem(masses, units=my_units)
 Syzygy.get_G_in_system_units(triple) ≈ 4π^2
 ```

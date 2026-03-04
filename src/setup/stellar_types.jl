@@ -1,12 +1,11 @@
-
 abstract type StellarType end
-abstract type Star                 <: StellarType end
-abstract type Giant                <: Star        end
-abstract type StellarRemnant       <: StellarType end
-abstract type SubStellarObject     <: StellarType end
-abstract type Other                <: StellarType end
-abstract type WhiteDwarf           <: StellarRemnant  end
-abstract type CompactObject        <: StellarRemnant  end
+abstract type Star <: StellarType end
+abstract type Giant <: Star        end
+abstract type StellarRemnant <: StellarType end
+abstract type SubStellarObject <: StellarType end
+abstract type Other <: StellarType end
+abstract type WhiteDwarf <: StellarRemnant  end
+abstract type CompactObject <: StellarRemnant  end
 
 """
 Deeply or fully convective low main sequence star with index 0. 
@@ -27,7 +26,7 @@ end
 """
 Hertzsprung gap star with index 2. 
 """
-struct HertzsprungGap <: Star# Giant
+struct HertzsprungGap <: Star # Giant
     number::Int
     HertzsprungGap() = new(2)
 end
@@ -35,7 +34,7 @@ end
 """
 First giant branch star with index 3. 
 """
-struct FirstGiantBranch <: Star# Giant
+struct FirstGiantBranch <: Star # Giant
     number::Int
     FirstGiantBranch() = new(3)
 end
@@ -43,7 +42,7 @@ end
 """
 Core helium burning star with index 4. 
 """
-struct CoreHeliumBurning <: Star# Giant
+struct CoreHeliumBurning <: Star # Giant
     number::Int
     CoreHeliumBurning() = new(4)
 end
@@ -51,7 +50,7 @@ end
 """
 First asymptotic gant branch star with index 5.
 """
-struct FirstAsymptoticGiantBranch <: Star# Giant
+struct FirstAsymptoticGiantBranch <: Star # Giant
     number::Int
     FirstAsymptoticGiantBranch() = new(5)
 end
@@ -59,7 +58,7 @@ end
 """
 Second asymptotic giant branch star with index 6.
 """
-struct SecondAsymptoticGiantBranch <: Star# Giant
+struct SecondAsymptoticGiantBranch <: Star # Giant
     number::Int
     SecondAsymptoticGiantBranch() = new(6)
 end
@@ -75,7 +74,7 @@ end
 """
 Hertzsprung gap naked helium star with index 8.
 """
-struct HertzsprungGapNakedHelium <: Star# Giant
+struct HertzsprungGapNakedHelium <: Star # Giant
     number::Int
     HertzsprungGapNakedHelium() = new(8)
 end
@@ -83,7 +82,7 @@ end
 """
 Giant branch naked helium star with index 9.
 """
-struct GiantBranchNakedHelium <: Star# Giant
+struct GiantBranchNakedHelium <: Star # Giant
     number::Int
     GiantBranchNakedHelium() = new(9)
 end
@@ -176,35 +175,32 @@ struct GenericStellarType <: StellarType
     GenericStellarType() = new(20)
 end
 
-const  stellar_types = Dict{Int, StellarType}(
-                                0  => DeeplyOrFullyConvectiveLowMassMainSequence(),
-                                1  => MainSequence(),
-                                2  => HertzsprungGap(),
-                                3  => FirstGiantBranch(),
-                                4  => CoreHeliumBurning(),
-                                5  => FirstAsymptoticGiantBranch(),
-                                6  => SecondAsymptoticGiantBranch(),
-                                7  => MainSequenceNakedHelium(),
-                                8  => HertzsprungGapNakedHelium(),
-                                9  => GiantBranchNakedHelium(),
-                                10 => HeliumWhiteDwarf(),
-                                11 => CarbonOxygenWhiteDwarf(),
-                                12 => OxygenNeonWhiteDwarf(),
-                                13 => NeutronStar(),
-                                14 => BlackHole(),
-                                15 => MasslessSupernova(),
-                                16 => UnknownStellarType(),
-                                17 => PreMainSequence(),
-                                18 => Planet(),
-                                19 => BrownDwarf(),
-                                20 => GenericStellarType()
-                            )
+const stellar_types = Dict{Int, StellarType}(
+    0 => DeeplyOrFullyConvectiveLowMassMainSequence(),
+    1 => MainSequence(),
+    2 => HertzsprungGap(),
+    3 => FirstGiantBranch(),
+    4 => CoreHeliumBurning(),
+    5 => FirstAsymptoticGiantBranch(),
+    6 => SecondAsymptoticGiantBranch(),
+    7 => MainSequenceNakedHelium(),
+    8 => HertzsprungGapNakedHelium(),
+    9 => GiantBranchNakedHelium(),
+    10 => HeliumWhiteDwarf(),
+    11 => CarbonOxygenWhiteDwarf(),
+    12 => OxygenNeonWhiteDwarf(),
+    13 => NeutronStar(),
+    14 => BlackHole(),
+    15 => MasslessSupernova(),
+    16 => UnknownStellarType(),
+    17 => PreMainSequence(),
+    18 => Planet(),
+    19 => BrownDwarf(),
+    20 => GenericStellarType()
+)
 
 function stellar_type_from_index(index)
     min_index, max_index = extrema(keys(stellar_types))
     @assert (min_index <= index <= max_index) "Stellar index must be in the range {0, 20}."
-    stellar_types[index]
+    return stellar_types[index]
 end
-
-
-
