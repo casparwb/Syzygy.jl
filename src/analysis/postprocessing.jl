@@ -92,12 +92,14 @@ function to_solution(result::SimulationResult; new_units = nothing)
     r = AxisArray(r; dim = 1:3, particle = 1:n_bodies, time = time)
     v = AxisArray(v; dim = 1:3, particle = 1:n_bodies, time = time)
 
-    for idx in eachindex(time)
-        pos = result.solution.u[idx].x[2][:, :] .* unit_length
-        vel = result.solution.u[idx].x[1][:, :] .* unit_velocity
-
-        r[:, :, idx] .= pos
-        v[:, :, idx] .= vel
+    @inbounds for idx in eachindex(time)
+        u = result.solution.u[idx]
+        for k in 1:n_bodies
+            for dim in 1:3
+                r[dim, k, idx] = u.x[2][dim, k] * unit_length#pos
+                v[dim, k, idx] = u.x[1][dim, k] * unit_velocity#vel
+            end
+        end
 
     end
 
