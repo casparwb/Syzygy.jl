@@ -102,11 +102,11 @@ const tidal_read_lock = ReentrantLock()
 function get_G_in_system_units(system)
     u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
 
-    return G = ustrip(u_length^3 / u_mass / u_time^2, GRAVCONST)
+    return ustrip(u_length^3 / u_mass / u_time^2, GRAVCONST)
 end
 
 function get_c_in_system_units(system)
     u_length, u_mass, u_time = system.units.u_length, system.units.u_mass, system.units.u_time
 
-    return c = ustrip(u_length / u_time, speed_of_light)
+    return ustrip(u_length / u_time, speed_of_light)
 end
