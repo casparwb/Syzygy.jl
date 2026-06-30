@@ -66,17 +66,18 @@ function parse_arguments!(kwargs::Dict)
 
     default_args = Dict(
         :t0 => nothing, :dt => nothing, :t_sim => 1.0,
-        :alg => ODESolvers.DPRKN8, :saveat => [], :npoints => 0,
+        :alg => ODESolvers.DPRKN12, :saveat => [], :npoints => 0,
         :save_every => nothing, :maxiters => Inf,
-        :abstol => 1.0e-10, :reltol => 1.0e-10,
-        :callbacks => AbstractSyzygyCallback[CollisionCB()],
+        :abstol => 1.0e-11, :reltol => 1.0e-11,
+        :callbacks => AbstractSyzygyCallback[],
         :showprogress => false,
         :params => DefaultSimulationParams,
         :verbose => false, :max_cpu_time => Inf,
         :precision => :Float64, :stellar_evolution => false,
         :param_options => Dict(),
         :softening => 0.0,
-        :multithreading => false
+        :multithreading => false,
+        :diffeq_verbosity => true
     )
 
     args = copy(default_args)
@@ -166,30 +167,32 @@ function simulation(system::MultiBodyInitialConditions; kwargs...)
     args[:callbacks] = AbstractSyzygyCallback[args[:callbacks]...]
 
     periods = if system isa NonHierarchicalSystem
-        periods_ = Quantity[]
-        if system.n < 10
-            for pair in system.pairs
-                i, j = pair
-                r = particles[i].position - particles[j].position
-                v = particles[i].velocity - particles[j].velocity
+        [unit_time, unit_time]
+        # periods_ = Quantity[]
+        # if system.n < 10
+        #     for pair in system.pairs
+        #         i, j = pair
+        #         r = particles[i].position - particles[j].position
+        #         v = particles[i].velocity - particles[j].velocity
 
-                d = norm(r)
-                v² = norm(v)^2
+        #         d = norm(r)
+        #         v² = norm(v)^2
 
-                M = sum(particles.mass[[i, j]])
-                a = semi_major_axis(d, v², M)
-                if a < zero(a) # not a bound binary
-                    push!(periods_, NaN * default_unit_time)
-                else
-                    push!(periods_, 2π * √(a^3 / (GRAVCONST * M)))
-                end
-            end
-            filter(!isnan, periods_)
-        else
-            periods_
-        end
+        #         M = sum(particles.mass[[i, j]])
+        #         a = semi_major_axis(d, v², M)
+        #         if a < zero(a) # not a bound binary
+        #             push!(periods_, NaN * default_unit_time)
+        #         else
+        #             push!(periods_, 2π * √(a^3 / (GRAVCONST * M)))
+        #         end
+        #     end
+        #     filter(!isnan, periods_)
+        # else
+        #     periods_
+        # end
     else
         [bin.elements.P for bin in values(system.binaries)]
+        system.binaries.P
     end
 
     P_in, P_out = isempty(periods) ? (Inf * default_unit_time, Inf * default_unit_time) : extrema(periods)
