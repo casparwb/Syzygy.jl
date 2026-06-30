@@ -355,7 +355,7 @@ if one of the objects is a compact object and the other is a star, the tidal
 radius of the CO is used, and finally if both objects are COs, we use 100 × gravitational radius.
 """
 function collision_callback!(integrator, pairs, retcode, grav_rad_multiple, Gc⁻²)
-    return @inbounds for pair in pairs
+    @inbounds for pair in pairs
         i, j = pair
         ri = SA[integrator.u.x[2][1, i], integrator.u.x[2][2, i], integrator.u.x[2][3, i]]
         Ri = integrator.p.radii[i]
@@ -380,6 +380,8 @@ function collision_callback!(integrator, pairs, retcode, grav_rad_multiple, Gc�
             terminate!(integrator)
         end
     end
+
+    return nothing
 end
 
 function collision_check(d, R1, R2, m1, m2, stellar_type1::Int, stellar_type2::Int, grav_rad_multiple, Gc⁻²)
