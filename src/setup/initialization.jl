@@ -446,14 +446,16 @@ function hierarchical_multibodysystem(
 
     levels = SA[sort(unique(levels))...]
 
-    pairs = Tuple{Int, Int}[]
-    for i in 1:n_bodies
-        for j in (i + 1):n_bodies
-            if i != j
-                push!(pairs, (i, j))
-            end
-        end
-    end
+    # pairs = Tuple{Int, Int}[]
+    # for i in 1:n_bodies
+    #     for j in (i + 1):n_bodies
+    #         if i != j
+    #             push!(pairs, (i, j))
+    #         end
+    #     end
+    # end
+
+    pairs = ((i, j) for i = 1:n_bodies for j = (i+1):n_bodies)
 
     unit_system = if nbody_units
         masses = [p.mass for (_, p) in bodies]
@@ -668,14 +670,17 @@ function multibodysystem(
         push!(particles, p)
     end
 
-    pairs = Tuple{Int, Int}[]
-    for i in 1:n_bodies
-        for j in (i + 1):n_bodies
-            if i != j
-                push!(pairs, (i, j))
-            end
-        end
-    end
+    # pairs = Tuple{Int, Int}[]
+    # if n_bodies < 100
+    #     for i in 1:n_bodies
+    #         for j in (i + 1):n_bodies
+    #             if i != j
+    #                 push!(pairs, (i, j))
+    #             end
+    #         end
+    #     end
+    # end
+    pairs = ((i, j) for i = 1:n_bodies for j = (i+1):n_bodies)
 
     particles = Dict{Int, Particle}(i => p for (i, p) in enumerate(particles))
 
