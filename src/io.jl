@@ -213,7 +213,7 @@ function Base.show(io::IO, sim::SimulationResult)
 
     println(io, "Number of datapoints: $(length(sim.solution.t))\n")
     println(io, "ODE Retcode: $(sim.solution.retcode)\n")
-    return println(io, "$(sim.solution.destats)")
+    return println(io, "$(sim.solution.stats)")
 end
 
 
